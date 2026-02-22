@@ -1,0 +1,13 @@
+{
+  "name": "codex-unity-sidecar-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local sidecar placeholder for Unity MVP integration",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js --port 46321",
+    "smoke": "node scripts/smoke-turn-runner.js --iterations 20 --include-turn-send",
+    "smoke:fast": "node scripts/smoke-turn-runner.js --base-url http://127.0.0.1:46331 --iterations 3 --skip-turn-send --include-timeout-case --spawn-sidecar --compile-timeout-ms 1200",
+    "smoke:codex-timeout": "node scripts/smoke-turn-runner.js --base-url http://127.0.0.1:46330 --iterations 1 --skip-turn-send --include-codex-timeout-case --spawn-sidecar --fake-codex-timeout-planner --codex-soft-timeout-ms 1200 --codex-hard-timeout-ms 2400"
+  }
+}
