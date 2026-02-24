@@ -21,6 +21,9 @@ namespace UnityAI.Editor.Codex.Application
         private const bool EnableDiagnosticLogs = false;
         private const string MissingScriptShortName = "MissingScript";
         private const string MissingScriptAssemblyQualifiedName = "UnityEditor.MissingScript";
+        private const string UnityQueryErrorBusyOrCompiling = "unity_busy_or_compiling";
+        private const string UnityQueryErrorTargetNotFound = "target_not_found";
+        private const string UnityQueryErrorFailed = "unity_query_failed";
 
         private readonly ISidecarGateway _sidecarGateway;
         private readonly ISidecarProcessManager _processManager;
@@ -1846,6 +1849,7 @@ namespace UnityAI.Editor.Codex.Application
 
                 UnityComponentDescriptor[] components = null;
                 var errorMessage = string.Empty;
+                var errorCode = string.Empty;
                 try
                 {
                     var snapshot = await RunOnEditorMainThreadAsync(
@@ -1853,12 +1857,16 @@ namespace UnityAI.Editor.Codex.Application
                     components = snapshot != null && snapshot.components != null
                         ? snapshot.components
                         : new UnityComponentDescriptor[0];
+                    errorCode = snapshot != null && !string.IsNullOrEmpty(snapshot.error_code)
+                        ? snapshot.error_code
+                        : string.Empty;
                     errorMessage = snapshot != null && !string.IsNullOrEmpty(snapshot.error_message)
                         ? snapshot.error_message
                         : string.Empty;
                 }
                 catch (Exception ex)
                 {
+                    errorCode = UnityQueryErrorFailed;
                     errorMessage = ex.Message;
                     components = new UnityComponentDescriptor[0];
                 }
@@ -1880,6 +1888,7 @@ namespace UnityAI.Editor.Codex.Application
                         query_id = queryId,
                         target_path = targetPath,
                         components = components,
+                        error_code = errorCode ?? string.Empty,
                         error_message = errorMessage ?? string.Empty
                     }
                 };
@@ -1903,7 +1912,9 @@ namespace UnityAI.Editor.Codex.Application
 
                 AddLog(
                     UiLogLevel.Info,
-                    "unity.query.components.result: " + targetPath + " (" + components.Length + " component(s)).");
+                    "unity.query.components.result: " + targetPath +
+                    " (" + components.Length + " component(s))" +
+                    (!string.IsNullOrEmpty(errorCode) ? ", error=" + errorCode : "."));
             }
             finally
             {
@@ -1953,6 +1964,7 @@ namespace UnityAI.Editor.Codex.Application
         private sealed class UnityComponentQuerySnapshot
         {
             public UnityComponentDescriptor[] components;
+            public string error_code;
             public string error_message;
         }
 
@@ -1962,12 +1974,21 @@ namespace UnityAI.Editor.Codex.Application
             var snapshot = new UnityComponentQuerySnapshot
             {
                 components = new UnityComponentDescriptor[0],
+                error_code = string.Empty,
                 error_message = string.Empty
             };
+
+            if (EditorApplication.isCompiling)
+            {
+                snapshot.error_code = UnityQueryErrorBusyOrCompiling;
+                snapshot.error_message = "Unity is compiling scripts; component query is temporarily unavailable.";
+                return snapshot;
+            }
 
             var target = FindSceneObjectByPath(targetPath);
             if (target == null)
             {
+                snapshot.error_code = UnityQueryErrorTargetNotFound;
                 snapshot.error_message = "Target object path not found in scene: " + targetPath;
                 return snapshot;
             }
@@ -1979,6 +2000,7 @@ namespace UnityAI.Editor.Codex.Application
             }
             catch (Exception ex)
             {
+                snapshot.error_code = UnityQueryErrorFailed;
                 snapshot.error_message = ex.Message;
                 return snapshot;
             }

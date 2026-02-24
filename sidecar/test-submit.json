@@ -1,0 +1,16 @@
+{
+  "thread_id": "test_connectivity_001",
+  "idempotency_key": "test_connectivity_key_001",
+  "approval_mode": "auto",
+  "user_intent": "Connectivity test: create a test script",
+  "task_allocation": {
+    "reasoning_and_plan": "This is a connectivity test",
+    "file_actions": [
+      {
+        "type": "create_file",
+        "path": "Assets/Scripts/AIGenerated/TestConnectivity.cs",
+        "content": "using UnityEngine;\n\npublic class TestConnectivity : MonoBehaviour\n{\n    void Start()\n    {\n        Debug.Log(\"MCP connectivity test successful!\");\n    }\n}"
+      }
+    ]
+  }
+}

@@ -22,6 +22,8 @@ async function main() {
   const includeTurnSend = args.includeTurnSend;
   const includeTimeoutCase = args.includeTimeoutCase;
   const includeCodexTimeoutCase = args.includeCodexTimeoutCase;
+  const includeQueryTimeoutCase = args.includeQueryTimeoutCase;
+  const includeQueryProbeCase = args.includeQueryProbeCase;
   const spawnSidecar = args.spawnSidecar;
   const pollTimeoutMs = args.pollTimeoutMs;
   const pollIntervalMs = args.pollIntervalMs;
@@ -36,12 +38,22 @@ async function main() {
       include_turn_send: includeTurnSend,
       include_timeout_case: includeTimeoutCase,
       include_codex_timeout_case: includeCodexTimeoutCase,
+      include_query_timeout_case: includeQueryTimeoutCase,
+      include_query_probe_case: includeQueryProbeCase,
       spawn_sidecar: spawnSidecar,
       poll_timeout_ms: pollTimeoutMs,
       poll_interval_ms: pollIntervalMs,
       compile_timeout_ms: args.compileTimeoutMs || null,
       codex_soft_timeout_ms: args.codexSoftTimeoutMs || null,
       codex_hard_timeout_ms: args.codexHardTimeoutMs || null,
+      unity_component_query_timeout_ms: args.unityComponentQueryTimeoutMs || null,
+      use_fake_unity_query_planner:
+        args.useFakeUnityQueryPlanner ||
+        includeQueryTimeoutCase ||
+        includeQueryProbeCase,
+      fake_unity_query_mode: args.fakeUnityQueryMode || "chat_only",
+      fake_unity_query_keep_component:
+        args.fakeUnityQueryKeepComponent || "KeepComponent",
     },
     cases: [],
     summary: {
@@ -59,10 +71,15 @@ async function main() {
     spawnSidecar &&
     (includeTimeoutCase ||
       includeCodexTimeoutCase ||
+      includeQueryTimeoutCase ||
+      includeQueryProbeCase ||
       args.useFakeCodexTimeoutPlanner ||
+      args.useFakeUnityQueryPlanner ||
       (Number.isFinite(args.compileTimeoutMs) && args.compileTimeoutMs > 0) ||
       (Number.isFinite(args.codexSoftTimeoutMs) && args.codexSoftTimeoutMs > 0) ||
-      (Number.isFinite(args.codexHardTimeoutMs) && args.codexHardTimeoutMs > 0));
+      (Number.isFinite(args.codexHardTimeoutMs) && args.codexHardTimeoutMs > 0) ||
+      (Number.isFinite(args.unityComponentQueryTimeoutMs) &&
+        args.unityComponentQueryTimeoutMs > 0));
 
   let baseReachable = false;
   try {
@@ -80,6 +97,13 @@ async function main() {
       codexHardTimeoutMs: args.codexHardTimeoutMs,
       useFakeCodexTimeoutPlanner:
         args.useFakeCodexTimeoutPlanner || includeCodexTimeoutCase,
+      useFakeUnityQueryPlanner:
+        args.useFakeUnityQueryPlanner ||
+        includeQueryTimeoutCase ||
+        includeQueryProbeCase,
+      unityComponentQueryTimeoutMs: args.unityComponentQueryTimeoutMs,
+      fakeUnityQueryMode: args.fakeUnityQueryMode,
+      fakeUnityQueryKeepComponent: args.fakeUnityQueryKeepComponent,
     });
   }
 
@@ -90,6 +114,13 @@ async function main() {
       codexHardTimeoutMs: args.codexHardTimeoutMs,
       useFakeCodexTimeoutPlanner:
         args.useFakeCodexTimeoutPlanner || includeCodexTimeoutCase,
+      useFakeUnityQueryPlanner:
+        args.useFakeUnityQueryPlanner ||
+        includeQueryTimeoutCase ||
+        includeQueryProbeCase,
+      unityComponentQueryTimeoutMs: args.unityComponentQueryTimeoutMs,
+      fakeUnityQueryMode: args.fakeUnityQueryMode,
+      fakeUnityQueryKeepComponent: args.fakeUnityQueryKeepComponent,
     });
     baseUrl = isolated.baseUrl;
     report.base_url = baseUrl;
@@ -290,6 +321,686 @@ async function main() {
       };
     });
   }
+
+  await runCase(report, "rename_visual_chain_round", async () => {
+    const requestId = `rename_visual_${runId}`;
+    const threadId = `t_rename_visual_${runId}`;
+    const turnId = "u_rename_visual";
+    const sourcePath =
+      "Assets/Scripts/AIGenerated/SmokeRunner/Step3RenameSource.cs";
+    const targetPath =
+      "Assets/Scripts/AIGenerated/SmokeRunner/Step3RenameTarget.cs";
+    const sourceContent = buildSmokeScriptContent(777, "Step3RenameTarget");
+
+    const applyEnvelope = buildEnvelope({
+      event: "file_actions.apply",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        file_actions: [
+          {
+            type: "create_file",
+            path: sourcePath,
+            content: sourceContent,
+            overwrite_if_exists: true,
+          },
+          {
+            type: "rename_file",
+            old_path: sourcePath,
+            new_path: targetPath,
+            overwrite_if_exists: true,
+          },
+        ],
+        visual_layer_actions: [
+          {
+            type: "remove_component",
+            target: "selection",
+            target_object_path: "Scene/Canvas/Image",
+            component_name: "Step3LegacyComponent",
+          },
+        ],
+      },
+    });
+    const applyRes = await postJson(baseUrl, "/file-actions/apply", applyEnvelope);
+    assertStatus(applyRes, 200, "file_actions.apply(rename_visual_chain_round)");
+    if (!applyRes.body || applyRes.body.event !== "files.changed") {
+      throw new Error("rename_visual_chain_round expected event=files.changed");
+    }
+
+    const compileEnvelope = buildEnvelope({
+      event: "unity.compile.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        success: true,
+        duration_ms: 1,
+        errors: [],
+      },
+    });
+    const compileRes = await postJson(
+      baseUrl,
+      "/unity/compile/result",
+      compileEnvelope
+    );
+    assertStatus(compileRes, 200, "unity.compile.result(rename_visual_chain_round)");
+    const compileStatus = compileRes.body || {};
+    const pendingAction =
+      compileStatus &&
+      compileStatus.unity_action_request &&
+      compileStatus.unity_action_request.payload &&
+      compileStatus.unity_action_request.payload.action
+        ? compileStatus.unity_action_request.payload.action
+        : null;
+    if (!pendingAction || pendingAction.type !== "remove_component") {
+      throw new Error(
+        "rename_visual_chain_round expected unity_action_request for remove_component"
+      );
+    }
+
+    const actionEnvelope = buildEnvelope({
+      event: "unity.action.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        action_type: "remove_component",
+        target: "selection",
+        target_object_path: "Scene/Canvas/Image",
+        component_name: "Step3LegacyComponent",
+        component_assembly_qualified_name: "Step3LegacyComponent",
+        success: true,
+        error_message: "",
+      },
+    });
+    const actionRes = await postJson(baseUrl, "/unity/action/result", actionEnvelope);
+    assertStatus(actionRes, 200, "unity.action.result(rename_visual_chain_round)");
+
+    const finalStatus = await waitForTurnTerminal({
+      baseUrl,
+      requestId,
+      timeoutMs: pollTimeoutMs,
+      pollIntervalMs,
+    });
+    if (finalStatus.state !== "completed") {
+      throw new Error(
+        `rename_visual_chain_round expected completed, got ${finalStatus.state} (${finalStatus.error_code || ""})`
+      );
+    }
+    if (finalStatus.stage !== "completed") {
+      throw new Error(
+        `rename_visual_chain_round expected completed stage, got ${finalStatus.stage || ""}`
+      );
+    }
+
+    return {
+      request_id: requestId,
+      state: finalStatus.state,
+      stage: finalStatus.stage || "",
+      expected_action_type: pendingAction.type,
+      renamed_to: targetPath,
+    };
+  });
+
+  await runCase(report, "action_result_mismatch_guard", async () => {
+    const requestId = `action_mismatch_${runId}`;
+    const threadId = `t_action_mismatch_${runId}`;
+    const turnId = "u_action_mismatch";
+    const targetObjectPath = "Scene/Canvas/Image";
+    const expectedComponent = "Step3MismatchGuard";
+    const wrongComponent = "WrongComponent";
+    const markerPath =
+      "Assets/Scripts/AIGenerated/SmokeRunner/Step3MismatchMarker.cs";
+    const markerContent = buildSmokeScriptContent(778, "Step3MismatchMarker");
+
+    const applyEnvelope = buildEnvelope({
+      event: "file_actions.apply",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        file_actions: [
+          {
+            type: "create_file",
+            path: markerPath,
+            content: markerContent,
+            overwrite_if_exists: true,
+          },
+        ],
+        visual_layer_actions: [
+          {
+            type: "remove_component",
+            target: "selection",
+            target_object_path: targetObjectPath,
+            component_name: expectedComponent,
+          },
+        ],
+      },
+    });
+    const applyRes = await postJson(baseUrl, "/file-actions/apply", applyEnvelope);
+    assertStatus(applyRes, 200, "file_actions.apply(action_result_mismatch_guard)");
+
+    const compileEnvelope = buildEnvelope({
+      event: "unity.compile.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        success: true,
+        duration_ms: 1,
+        errors: [],
+      },
+    });
+    const compileRes = await postJson(
+      baseUrl,
+      "/unity/compile/result",
+      compileEnvelope
+    );
+    assertStatus(compileRes, 200, "unity.compile.result(action_result_mismatch_guard)");
+
+    const wrongActionEnvelope = buildEnvelope({
+      event: "unity.action.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        action_type: "remove_component",
+        target: "selection",
+        target_object_path: targetObjectPath,
+        component_name: wrongComponent,
+        component_assembly_qualified_name: wrongComponent,
+        success: true,
+        error_message: "",
+      },
+    });
+    const wrongActionRes = await postJson(
+      baseUrl,
+      "/unity/action/result",
+      wrongActionEnvelope
+    );
+    if (wrongActionRes.statusCode !== 409) {
+      throw new Error(
+        `action_result_mismatch_guard expected 409 on mismatch, got ${wrongActionRes.statusCode}`
+      );
+    }
+    const wrongErrorCode =
+      wrongActionRes.body && wrongActionRes.body.error_code
+        ? String(wrongActionRes.body.error_code)
+        : "";
+    const wrongStage =
+      wrongActionRes.body && wrongActionRes.body.stage
+        ? String(wrongActionRes.body.stage)
+        : "";
+    if (wrongStage !== "action_confirm_pending") {
+      throw new Error(
+        `action_result_mismatch_guard expected stage=action_confirm_pending, got ${wrongStage || "(empty)"}`
+      );
+    }
+
+    const rightActionEnvelope = buildEnvelope({
+      event: "unity.action.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        action_type: "remove_component",
+        target: "selection",
+        target_object_path: targetObjectPath,
+        component_name: expectedComponent,
+        component_assembly_qualified_name: expectedComponent,
+        success: true,
+        error_message: "",
+      },
+    });
+    const rightActionRes = await postJson(
+      baseUrl,
+      "/unity/action/result",
+      rightActionEnvelope
+    );
+    assertStatus(rightActionRes, 200, "unity.action.result(action_result_mismatch_guard)");
+
+    const finalStatus = await waitForTurnTerminal({
+      baseUrl,
+      requestId,
+      timeoutMs: pollTimeoutMs,
+      pollIntervalMs,
+    });
+    if (finalStatus.state !== "completed") {
+      throw new Error(
+        `action_result_mismatch_guard expected completed, got ${finalStatus.state} (${finalStatus.error_code || ""})`
+      );
+    }
+
+    return {
+      request_id: requestId,
+      mismatch_status: wrongActionRes.statusCode,
+      mismatch_error_code: wrongErrorCode,
+      mismatch_stage: wrongStage,
+      final_state: finalStatus.state,
+    };
+  });
+
+  await runCase(report, "domain_reload_wait_chain", async () => {
+    const requestId = `domain_reload_${runId}`;
+    const threadId = `t_domain_reload_${runId}`;
+    const turnId = "u_domain_reload";
+    const sourcePath =
+      "Assets/Scripts/AIGenerated/SmokeRunner/Step3DomainReloadSource.cs";
+    const targetPath =
+      "Assets/Scripts/AIGenerated/SmokeRunner/Step3DomainReloadTarget.cs";
+    const sourceContent = buildSmokeScriptContent(779, "Step3DomainReloadTarget");
+    const componentA = "Step3DomainComponentA";
+    const componentB = "Step3DomainComponentB";
+    const targetObjectPath = "Scene/Canvas/Image";
+
+    const applyEnvelope = buildEnvelope({
+      event: "file_actions.apply",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        file_actions: [
+          {
+            type: "create_file",
+            path: sourcePath,
+            content: sourceContent,
+            overwrite_if_exists: true,
+          },
+          {
+            type: "rename_file",
+            old_path: sourcePath,
+            new_path: targetPath,
+            overwrite_if_exists: true,
+          },
+        ],
+        visual_layer_actions: [
+          {
+            type: "remove_component",
+            target: "selection",
+            target_object_path: targetObjectPath,
+            component_name: componentA,
+          },
+          {
+            type: "remove_component",
+            target: "selection",
+            target_object_path: targetObjectPath,
+            component_name: componentB,
+          },
+        ],
+      },
+    });
+    const applyRes = await postJson(baseUrl, "/file-actions/apply", applyEnvelope);
+    assertStatus(applyRes, 200, "file_actions.apply(domain_reload_wait_chain)");
+
+    const compileEnvelope = buildEnvelope({
+      event: "unity.compile.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        success: true,
+        duration_ms: 1,
+        errors: [],
+      },
+    });
+    const compileRes = await postJson(
+      baseUrl,
+      "/unity/compile/result",
+      compileEnvelope
+    );
+    assertStatus(compileRes, 200, "unity.compile.result(domain_reload_wait_chain)");
+
+    const waitActionEnvelope = buildEnvelope({
+      event: "unity.action.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        action_type: "remove_component",
+        target: "selection",
+        target_object_path: targetObjectPath,
+        component_name: componentA,
+        component_assembly_qualified_name: componentA,
+        success: false,
+        error_code: "WAITING_FOR_UNITY_REBOOT",
+        error_message: "Domain reload pending after script rename",
+      },
+    });
+    const waitActionRes = await postJson(
+      baseUrl,
+      "/unity/action/result",
+      waitActionEnvelope
+    );
+    if (waitActionRes.statusCode !== 202) {
+      throw new Error(
+        `domain_reload_wait_chain expected 202 for WAITING_FOR_UNITY_REBOOT, got ${waitActionRes.statusCode}`
+      );
+    }
+    const waitFlag = !!(
+      waitActionRes.body && waitActionRes.body.waiting_for_unity_reboot === true
+    );
+    if (!waitFlag) {
+      throw new Error(
+        "domain_reload_wait_chain expected waiting_for_unity_reboot=true"
+      );
+    }
+    const waitStage =
+      waitActionRes.body && waitActionRes.body.stage
+        ? String(waitActionRes.body.stage)
+        : "";
+    if (waitStage !== "action_confirm_pending") {
+      throw new Error(
+        `domain_reload_wait_chain expected stage=action_confirm_pending after wait, got ${waitStage || "(empty)"}`
+      );
+    }
+
+    const pingEnvelope = buildEnvelope({
+      event: "unity.runtime.ping",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        status: "just_recompiled",
+      },
+    });
+    const pingRes = await postJson(baseUrl, "/unity/runtime/ping", pingEnvelope);
+    assertStatus(pingRes, 200, "unity.runtime.ping(domain_reload_wait_chain)");
+    const recovered = !!(pingRes.body && pingRes.body.recovered === true);
+    if (!recovered) {
+      throw new Error("domain_reload_wait_chain expected runtime ping recovery");
+    }
+
+    const actionOneSuccessEnvelope = buildEnvelope({
+      event: "unity.action.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        action_type: "remove_component",
+        target: "selection",
+        target_object_path: targetObjectPath,
+        component_name: componentA,
+        component_assembly_qualified_name: componentA,
+        success: true,
+        error_message: "",
+      },
+    });
+    const actionOneRes = await postJson(
+      baseUrl,
+      "/unity/action/result",
+      actionOneSuccessEnvelope
+    );
+    assertStatus(actionOneRes, 200, "unity.action.result(domain_reload_wait_chain:first)");
+    const hasNextActionRequest = !!(
+      actionOneRes.body &&
+      actionOneRes.body.unity_action_request &&
+      actionOneRes.body.unity_action_request.payload &&
+      actionOneRes.body.unity_action_request.payload.action &&
+      actionOneRes.body.unity_action_request.payload.action.component_name === componentB
+    );
+    if (!hasNextActionRequest) {
+      throw new Error(
+        "domain_reload_wait_chain expected next unity_action_request for second action"
+      );
+    }
+
+    const actionTwoSuccessEnvelope = buildEnvelope({
+      event: "unity.action.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        action_type: "remove_component",
+        target: "selection",
+        target_object_path: targetObjectPath,
+        component_name: componentB,
+        component_assembly_qualified_name: componentB,
+        success: true,
+        error_message: "",
+      },
+    });
+    const actionTwoRes = await postJson(
+      baseUrl,
+      "/unity/action/result",
+      actionTwoSuccessEnvelope
+    );
+    assertStatus(actionTwoRes, 200, "unity.action.result(domain_reload_wait_chain:second)");
+
+    const finalStatus = await waitForTurnTerminal({
+      baseUrl,
+      requestId,
+      timeoutMs: pollTimeoutMs,
+      pollIntervalMs,
+    });
+    if (finalStatus.state !== "completed") {
+      throw new Error(
+        `domain_reload_wait_chain expected completed, got ${finalStatus.state} (${finalStatus.error_code || ""})`
+      );
+    }
+
+    return {
+      request_id: requestId,
+      waiting_status_code: waitActionRes.statusCode,
+      recovered,
+      final_state: finalStatus.state,
+      renamed_to: targetPath,
+    };
+  });
+
+  await runCase(report, "domain_reload_wait_replace_chain", async () => {
+    const requestId = `domain_reload_replace_${runId}`;
+    const threadId = `t_domain_reload_replace_${runId}`;
+    const turnId = "u_domain_reload_replace";
+    const sourcePath =
+      "Assets/Scripts/AIGenerated/SmokeRunner/Step3DomainReplaceSource.cs";
+    const targetPath =
+      "Assets/Scripts/AIGenerated/SmokeRunner/Step3DomainReplaceTarget.cs";
+    const sourceContent = buildSmokeScriptContent(780, "Step3DomainReplaceTarget");
+    const targetObjectPath = "Scene/Canvas/Image";
+    const sourceComponent = "Step3SourceComponent";
+    const replacementComponent = "Step3ReplacementComponent";
+    const cleanupComponent = "Step3CleanupComponent";
+
+    const applyEnvelope = buildEnvelope({
+      event: "file_actions.apply",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        file_actions: [
+          {
+            type: "create_file",
+            path: sourcePath,
+            content: sourceContent,
+            overwrite_if_exists: true,
+          },
+          {
+            type: "rename_file",
+            old_path: sourcePath,
+            new_path: targetPath,
+            overwrite_if_exists: true,
+          },
+        ],
+        visual_layer_actions: [
+          {
+            type: "replace_component",
+            target: "selection",
+            target_object_path: targetObjectPath,
+            source_component_assembly_qualified_name: sourceComponent,
+            component_assembly_qualified_name: replacementComponent,
+          },
+          {
+            type: "remove_component",
+            target: "selection",
+            target_object_path: targetObjectPath,
+            component_name: cleanupComponent,
+          },
+        ],
+      },
+    });
+    const applyRes = await postJson(baseUrl, "/file-actions/apply", applyEnvelope);
+    assertStatus(applyRes, 200, "file_actions.apply(domain_reload_wait_replace_chain)");
+
+    const compileEnvelope = buildEnvelope({
+      event: "unity.compile.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        success: true,
+        duration_ms: 1,
+        errors: [],
+      },
+    });
+    const compileRes = await postJson(
+      baseUrl,
+      "/unity/compile/result",
+      compileEnvelope
+    );
+    assertStatus(compileRes, 200, "unity.compile.result(domain_reload_wait_replace_chain)");
+
+    const waitActionEnvelope = buildEnvelope({
+      event: "unity.action.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        action_type: "replace_component",
+        target: "selection",
+        target_object_path: targetObjectPath,
+        source_component_assembly_qualified_name: sourceComponent,
+        component_assembly_qualified_name: replacementComponent,
+        success: false,
+        error_code: "WAITING_FOR_UNITY_REBOOT",
+        error_message: "Domain reload pending for replace action",
+      },
+    });
+    const waitActionRes = await postJson(
+      baseUrl,
+      "/unity/action/result",
+      waitActionEnvelope
+    );
+    if (waitActionRes.statusCode !== 202) {
+      throw new Error(
+        `domain_reload_wait_replace_chain expected 202 for WAITING_FOR_UNITY_REBOOT, got ${waitActionRes.statusCode}`
+      );
+    }
+    const waitFlag = !!(
+      waitActionRes.body && waitActionRes.body.waiting_for_unity_reboot === true
+    );
+    if (!waitFlag) {
+      throw new Error(
+        "domain_reload_wait_replace_chain expected waiting_for_unity_reboot=true"
+      );
+    }
+
+    const pingEnvelope = buildEnvelope({
+      event: "unity.runtime.ping",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        status: "just_recompiled",
+      },
+    });
+    const pingRes = await postJson(baseUrl, "/unity/runtime/ping", pingEnvelope);
+    assertStatus(pingRes, 200, "unity.runtime.ping(domain_reload_wait_replace_chain)");
+    const recovered = !!(pingRes.body && pingRes.body.recovered === true);
+    if (!recovered) {
+      throw new Error("domain_reload_wait_replace_chain expected runtime ping recovery");
+    }
+    const recoveredActionType = !!(
+      pingRes.body &&
+      pingRes.body.unity_action_request &&
+      pingRes.body.unity_action_request.payload &&
+      pingRes.body.unity_action_request.payload.action &&
+      pingRes.body.unity_action_request.payload.action.type === "replace_component"
+    );
+    if (!recoveredActionType) {
+      throw new Error(
+        "domain_reload_wait_replace_chain expected recovered replace_component request"
+      );
+    }
+
+    const replaceSuccessEnvelope = buildEnvelope({
+      event: "unity.action.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        action_type: "replace_component",
+        target: "selection",
+        target_object_path: targetObjectPath,
+        source_component_assembly_qualified_name: sourceComponent,
+        component_assembly_qualified_name: replacementComponent,
+        success: true,
+        error_message: "",
+      },
+    });
+    const replaceRes = await postJson(
+      baseUrl,
+      "/unity/action/result",
+      replaceSuccessEnvelope
+    );
+    assertStatus(replaceRes, 200, "unity.action.result(domain_reload_wait_replace_chain:replace)");
+
+    const nextActionIsRemove = !!(
+      replaceRes.body &&
+      replaceRes.body.unity_action_request &&
+      replaceRes.body.unity_action_request.payload &&
+      replaceRes.body.unity_action_request.payload.action &&
+      replaceRes.body.unity_action_request.payload.action.type === "remove_component" &&
+      replaceRes.body.unity_action_request.payload.action.component_name === cleanupComponent
+    );
+    if (!nextActionIsRemove) {
+      throw new Error(
+        "domain_reload_wait_replace_chain expected next remove_component action request"
+      );
+    }
+
+    const cleanupSuccessEnvelope = buildEnvelope({
+      event: "unity.action.result",
+      requestId,
+      threadId,
+      turnId,
+      payload: {
+        action_type: "remove_component",
+        target: "selection",
+        target_object_path: targetObjectPath,
+        component_name: cleanupComponent,
+        component_assembly_qualified_name: cleanupComponent,
+        success: true,
+        error_message: "",
+      },
+    });
+    const cleanupRes = await postJson(
+      baseUrl,
+      "/unity/action/result",
+      cleanupSuccessEnvelope
+    );
+    assertStatus(cleanupRes, 200, "unity.action.result(domain_reload_wait_replace_chain:cleanup)");
+
+    const finalStatus = await waitForTurnTerminal({
+      baseUrl,
+      requestId,
+      timeoutMs: pollTimeoutMs,
+      pollIntervalMs,
+    });
+    if (finalStatus.state !== "completed") {
+      throw new Error(
+        `domain_reload_wait_replace_chain expected completed, got ${finalStatus.state} (${finalStatus.error_code || ""})`
+      );
+    }
+
+    return {
+      request_id: requestId,
+      waiting_status_code: waitActionRes.statusCode,
+      recovered,
+      final_state: finalStatus.state,
+      renamed_to: targetPath,
+    };
+  });
 
   await runCase(report, "file_guard_forbidden_path", async () => {
     const requestId = `forbidden_${runId}`;
@@ -523,6 +1234,376 @@ async function main() {
     });
   }
 
+  if (includeQueryTimeoutCase) {
+    await runCase(report, "unity_query_timeout_non_blocking", async () => {
+      const configuredQueryTimeoutMs =
+        Number.isFinite(args.unityComponentQueryTimeoutMs) &&
+        args.unityComponentQueryTimeoutMs > 0
+          ? Number(args.unityComponentQueryTimeoutMs)
+          : 0;
+      const usingFakeQueryPlanner =
+        args.useFakeUnityQueryPlanner || includeQueryTimeoutCase;
+      if (configuredQueryTimeoutMs <= 0 || !usingFakeQueryPlanner) {
+        return {
+          warnings: [
+            "unity_query_timeout_non_blocking skipped: requires fake unity query planner + query timeout override",
+          ],
+        };
+      }
+
+      const requestId = `query_timeout_${runId}`;
+      const threadId = `t_query_timeout_${runId}`;
+      const turnId = "u_query_timeout";
+      const sendEnvelope = buildEnvelope({
+        event: "turn.send",
+        requestId,
+        threadId,
+        turnId,
+        payload: {
+          user_message: "query timeout fallback smoke request",
+          context: buildMinimalContext(),
+        },
+      });
+      const sendRes = await postJson(baseUrl, "/turn/send", sendEnvelope);
+      if (sendRes.statusCode !== 200 && sendRes.statusCode !== 202) {
+        throw new Error(
+          `unity_query_timeout_non_blocking turn.send unexpected status=${sendRes.statusCode} body=${safeJson(
+            sendRes.body
+          )}`
+        );
+      }
+
+      const waitTimeoutMs = Math.max(
+        pollTimeoutMs,
+        configuredQueryTimeoutMs + 8000
+      );
+      const finalStatus = await waitForTurnTerminal({
+        baseUrl,
+        requestId,
+        timeoutMs: waitTimeoutMs,
+        pollIntervalMs,
+      });
+      if (finalStatus.state !== "completed") {
+        throw new Error(
+          `unity_query_timeout_non_blocking expected completed state, got ${finalStatus.state} (${finalStatus.error_code || ""})`
+        );
+      }
+
+      const events = Array.isArray(finalStatus.events) ? finalStatus.events : [];
+      const hasQueryRequest = events.some(
+        (item) => item && item.event === "unity.query.components.request"
+      );
+      if (!hasQueryRequest) {
+        throw new Error(
+          "unity_query_timeout_non_blocking expected unity.query.components.request event"
+        );
+      }
+
+      const queryResultEvent = events
+        .slice()
+        .reverse()
+        .find((item) => item && item.event === "unity.query.components.result");
+      if (!queryResultEvent) {
+        throw new Error(
+          "unity_query_timeout_non_blocking expected unity.query.components.result event"
+        );
+      }
+
+      const queryPayload =
+        queryResultEvent.unity_query_components_result &&
+        queryResultEvent.unity_query_components_result.payload &&
+        typeof queryResultEvent.unity_query_components_result.payload === "object"
+          ? queryResultEvent.unity_query_components_result.payload
+          : null;
+      const errorCode =
+        queryPayload && typeof queryPayload.error_code === "string"
+          ? queryPayload.error_code
+          : "";
+      if (errorCode !== "unity_busy_or_compiling") {
+        throw new Error(
+          `unity_query_timeout_non_blocking expected error_code=unity_busy_or_compiling, got ${errorCode || "(empty)"}`
+        );
+      }
+
+      return {
+        request_id: requestId,
+        state: finalStatus.state,
+        query_error_code: errorCode,
+        configured_unity_query_timeout_ms: configuredQueryTimeoutMs,
+      };
+    });
+  }
+
+  if (includeQueryProbeCase) {
+    await runCase(report, "unity_query_probe_success_chain", async () => {
+      const usingFakeQueryPlanner =
+        args.useFakeUnityQueryPlanner || includeQueryProbeCase;
+      if (!usingFakeQueryPlanner) {
+        return {
+          warnings: [
+            "unity_query_probe_success_chain skipped: requires fake unity query planner",
+          ],
+        };
+      }
+
+      const keepComponent =
+        typeof args.fakeUnityQueryKeepComponent === "string" &&
+        args.fakeUnityQueryKeepComponent.trim()
+          ? args.fakeUnityQueryKeepComponent.trim()
+          : "KeepComponent";
+      const removeComponentA = "RemoveMeA";
+      const removeComponentB = "RemoveMeB";
+
+      const requestId = `query_probe_${runId}`;
+      const threadId = `t_query_probe_${runId}`;
+      const turnId = "u_query_probe";
+      const sendEnvelope = buildEnvelope({
+        event: "turn.send",
+        requestId,
+        threadId,
+        turnId,
+        payload: {
+          user_message: "query probe success chain smoke request",
+          context: buildMinimalContext(),
+        },
+      });
+      const sendRes = await postJson(baseUrl, "/turn/send", sendEnvelope);
+      if (sendRes.statusCode !== 200 && sendRes.statusCode !== 202) {
+        throw new Error(
+          `unity_query_probe_success_chain turn.send unexpected status=${sendRes.statusCode} body=${safeJson(
+            sendRes.body
+          )}`
+        );
+      }
+
+      const queryRequestedStatus = await waitForTurnCondition({
+        baseUrl,
+        requestId,
+        timeoutMs: pollTimeoutMs,
+        pollIntervalMs,
+        predicate: (status) =>
+          !!extractLatestEvent(status.events, "unity.query.components.request"),
+      });
+      const queryRequestEvent = extractLatestEvent(
+        queryRequestedStatus.events,
+        "unity.query.components.request"
+      );
+      const queryRequestEnvelope =
+        queryRequestEvent &&
+        queryRequestEvent.unity_query_components_request &&
+        typeof queryRequestEvent.unity_query_components_request === "object"
+          ? queryRequestEvent.unity_query_components_request
+          : null;
+      const queryPayload =
+        queryRequestEnvelope &&
+        queryRequestEnvelope.payload &&
+        typeof queryRequestEnvelope.payload === "object"
+          ? queryRequestEnvelope.payload
+          : null;
+      const queryId =
+        queryPayload && typeof queryPayload.query_id === "string"
+          ? queryPayload.query_id
+          : "";
+      const targetPath =
+        queryPayload && typeof queryPayload.target_path === "string"
+          ? queryPayload.target_path
+          : "Scene/Canvas/Image";
+      if (!queryId) {
+        throw new Error(
+          "unity_query_probe_success_chain expected non-empty query_id"
+        );
+      }
+
+      const queryResultEnvelope = buildEnvelope({
+        event: "unity.query.components.result",
+        requestId,
+        threadId,
+        turnId,
+        payload: {
+          query_id: queryId,
+          target_path: targetPath,
+          components: [
+            {
+              short_name: keepComponent,
+              assembly_qualified_name: `${keepComponent}, Assembly-CSharp`,
+            },
+            {
+              short_name: removeComponentA,
+              assembly_qualified_name: `${removeComponentA}, Assembly-CSharp`,
+            },
+            {
+              short_name: removeComponentB,
+              assembly_qualified_name: `${removeComponentB}, Assembly-CSharp`,
+            },
+          ],
+          error_code: "",
+          error_message: "",
+        },
+      });
+      const queryResultRes = await postJson(
+        baseUrl,
+        "/unity/query/components/result",
+        queryResultEnvelope
+      );
+      assertStatus(
+        queryResultRes,
+        200,
+        "unity.query.components.result(unity_query_probe_success_chain)"
+      );
+
+      const firstActionPendingStatus = await waitForTurnCondition({
+        baseUrl,
+        requestId,
+        timeoutMs: pollTimeoutMs,
+        pollIntervalMs,
+        predicate: (status) =>
+          !!extractLatestUnityActionRequestEvent(status.events),
+      });
+      const firstActionEvent = extractLatestUnityActionRequestEvent(
+        firstActionPendingStatus.events
+      );
+      const firstAction =
+        firstActionEvent &&
+        firstActionEvent.unity_action_request &&
+        firstActionEvent.unity_action_request.payload &&
+        firstActionEvent.unity_action_request.payload.action &&
+        typeof firstActionEvent.unity_action_request.payload.action === "object"
+          ? firstActionEvent.unity_action_request.payload.action
+          : null;
+      if (!firstAction || firstAction.type !== "remove_component") {
+        throw new Error(
+          "unity_query_probe_success_chain expected first remove_component request"
+        );
+      }
+
+      const requestedComponents = [];
+      const firstComponentName =
+        typeof firstAction.component_name === "string"
+          ? firstAction.component_name
+          : "";
+      if (!firstComponentName) {
+        throw new Error(
+          "unity_query_probe_success_chain expected first action component_name"
+        );
+      }
+      requestedComponents.push(firstComponentName);
+
+      const firstActionResultEnvelope = buildEnvelope({
+        event: "unity.action.result",
+        requestId,
+        threadId,
+        turnId,
+        payload: {
+          action_type: "remove_component",
+          target: "selection",
+          target_object_path: targetPath,
+          component_name: firstComponentName,
+          component_assembly_qualified_name: firstComponentName,
+          success: true,
+          error_message: "",
+        },
+      });
+      const firstActionRes = await postJson(
+        baseUrl,
+        "/unity/action/result",
+        firstActionResultEnvelope
+      );
+      assertStatus(
+        firstActionRes,
+        200,
+        "unity.action.result(unity_query_probe_success_chain:first)"
+      );
+      const secondAction =
+        firstActionRes.body &&
+        firstActionRes.body.unity_action_request &&
+        firstActionRes.body.unity_action_request.payload &&
+        firstActionRes.body.unity_action_request.payload.action &&
+        typeof firstActionRes.body.unity_action_request.payload.action === "object"
+          ? firstActionRes.body.unity_action_request.payload.action
+          : null;
+      if (!secondAction || secondAction.type !== "remove_component") {
+        throw new Error(
+          "unity_query_probe_success_chain expected second remove_component request"
+        );
+      }
+      const secondComponentName =
+        typeof secondAction.component_name === "string"
+          ? secondAction.component_name
+          : "";
+      if (!secondComponentName) {
+        throw new Error(
+          "unity_query_probe_success_chain expected second action component_name"
+        );
+      }
+      requestedComponents.push(secondComponentName);
+
+      const secondActionResultEnvelope = buildEnvelope({
+        event: "unity.action.result",
+        requestId,
+        threadId,
+        turnId,
+        payload: {
+          action_type: "remove_component",
+          target: "selection",
+          target_object_path: targetPath,
+          component_name: secondComponentName,
+          component_assembly_qualified_name: secondComponentName,
+          success: true,
+          error_message: "",
+        },
+      });
+      const secondActionRes = await postJson(
+        baseUrl,
+        "/unity/action/result",
+        secondActionResultEnvelope
+      );
+      assertStatus(
+        secondActionRes,
+        200,
+        "unity.action.result(unity_query_probe_success_chain:second)"
+      );
+
+      const finalStatus = await waitForTurnTerminal({
+        baseUrl,
+        requestId,
+        timeoutMs: pollTimeoutMs,
+        pollIntervalMs,
+      });
+      if (finalStatus.state !== "completed") {
+        throw new Error(
+          `unity_query_probe_success_chain expected completed state, got ${finalStatus.state} (${finalStatus.error_code || ""})`
+        );
+      }
+
+      const requestedSet = new Set(requestedComponents);
+      const expectedSet = new Set([removeComponentA, removeComponentB]);
+      if (requestedSet.has(keepComponent)) {
+        throw new Error(
+          "unity_query_probe_success_chain should not remove keep component"
+        );
+      }
+      if (requestedSet.size !== expectedSet.size) {
+        throw new Error(
+          `unity_query_probe_success_chain expected ${expectedSet.size} unique remove actions, got ${requestedSet.size}`
+        );
+      }
+      for (const name of expectedSet) {
+        if (!requestedSet.has(name)) {
+          throw new Error(
+            `unity_query_probe_success_chain missing remove action for ${name}`
+          );
+        }
+      }
+
+      return {
+        request_id: requestId,
+        state: finalStatus.state,
+        requested_components: requestedComponents,
+        keep_component: keepComponent,
+      };
+    });
+  }
+
   report.finished_at = new Date().toISOString();
   report.summary.total = report.cases.length;
   report.metrics = buildMetrics(report.cases);
@@ -542,6 +1623,8 @@ function parseArgs(argv) {
     includeTurnSend: true,
     includeTimeoutCase: false,
     includeCodexTimeoutCase: false,
+    includeQueryTimeoutCase: false,
+    includeQueryProbeCase: false,
     spawnSidecar: false,
     pollTimeoutMs: DEFAULT_POLL_TIMEOUT_MS,
     pollIntervalMs: DEFAULT_POLL_INTERVAL_MS,
@@ -549,6 +1632,10 @@ function parseArgs(argv) {
     codexSoftTimeoutMs: 0,
     codexHardTimeoutMs: 0,
     useFakeCodexTimeoutPlanner: false,
+    useFakeUnityQueryPlanner: false,
+    unityComponentQueryTimeoutMs: 0,
+    fakeUnityQueryMode: "chat_only",
+    fakeUnityQueryKeepComponent: "KeepComponent",
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -614,6 +1701,40 @@ function parseArgs(argv) {
       args.useFakeCodexTimeoutPlanner = true;
       continue;
     }
+    if (token === "--include-query-timeout-case") {
+      args.includeQueryTimeoutCase = true;
+      continue;
+    }
+    if (token === "--skip-query-timeout-case") {
+      args.includeQueryTimeoutCase = false;
+      continue;
+    }
+    if (token === "--fake-unity-query-planner") {
+      args.useFakeUnityQueryPlanner = true;
+      continue;
+    }
+    if (token === "--include-query-probe-case") {
+      args.includeQueryProbeCase = true;
+      continue;
+    }
+    if (token === "--skip-query-probe-case") {
+      args.includeQueryProbeCase = false;
+      continue;
+    }
+    if (token === "--fake-unity-query-mode" && i + 1 < argv.length) {
+      args.fakeUnityQueryMode = String(argv[i + 1] || "").trim() || "chat_only";
+      i += 1;
+      continue;
+    }
+    if (
+      token === "--fake-unity-query-keep-component" &&
+      i + 1 < argv.length
+    ) {
+      args.fakeUnityQueryKeepComponent =
+        String(argv[i + 1] || "").trim() || "KeepComponent";
+      i += 1;
+      continue;
+    }
     if (token === "--compile-timeout-ms" && i + 1 < argv.length) {
       const value = Number(argv[i + 1]);
       if (Number.isFinite(value) && value > 0) {
@@ -634,6 +1755,14 @@ function parseArgs(argv) {
       const value = Number(argv[i + 1]);
       if (Number.isFinite(value) && value > 0) {
         args.codexHardTimeoutMs = Math.floor(value);
+      }
+      i += 1;
+      continue;
+    }
+    if (token === "--unity-query-timeout-ms" && i + 1 < argv.length) {
+      const value = Number(argv[i + 1]);
+      if (Number.isFinite(value) && value > 0) {
+        args.unityComponentQueryTimeoutMs = Math.floor(value);
       }
       i += 1;
       continue;
@@ -671,6 +1800,41 @@ async function runCase(report, name, fn) {
   }
 }
 
+async function waitForTurnCondition(options) {
+  const baseUrl = options.baseUrl;
+  const requestId = options.requestId;
+  const timeoutMs = options.timeoutMs;
+  const pollIntervalMs = options.pollIntervalMs;
+  const predicate =
+    typeof options.predicate === "function" ? options.predicate : null;
+  const start = Date.now();
+  let lastStatus = null;
+
+  while (Date.now() - start < timeoutMs) {
+    const statusUrl = `${baseUrl}/turn/status?request_id=${encodeURIComponent(
+      requestId
+    )}`;
+    const res = await requestJson({
+      method: "GET",
+      url: statusUrl,
+      timeoutMs: Math.min(5000, pollIntervalMs + 2000),
+    });
+    if (res.statusCode === 200 && res.body) {
+      lastStatus = res.body;
+      if (!predicate || predicate(res.body)) {
+        return res.body;
+      }
+    }
+    await sleep(pollIntervalMs);
+  }
+
+  throw new Error(
+    `turn did not satisfy condition within ${timeoutMs}ms (request_id=${requestId}, last=${safeJson(
+      lastStatus
+    )})`
+  );
+}
+
 async function waitForTurnTerminal(options) {
   const baseUrl = options.baseUrl;
   const requestId = options.requestId;
@@ -696,6 +1860,45 @@ async function waitForTurnTerminal(options) {
   throw new Error(
     `turn did not reach terminal state within ${timeoutMs}ms (request_id=${requestId})`
   );
+}
+
+function extractLatestEvent(events, eventName) {
+  const items = Array.isArray(events) ? events : [];
+  const target = typeof eventName === "string" ? eventName : "";
+  for (let i = items.length - 1; i >= 0; i -= 1) {
+    const item = items[i];
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    if (item.event === target) {
+      return item;
+    }
+  }
+  return null;
+}
+
+function extractLatestUnityActionRequestEvent(events) {
+  const items = Array.isArray(events) ? events : [];
+  for (let i = items.length - 1; i >= 0; i -= 1) {
+    const item = items[i];
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const hasActionRequest =
+      item.unity_action_request &&
+      typeof item.unity_action_request === "object" &&
+      item.unity_action_request.payload &&
+      typeof item.unity_action_request.payload === "object" &&
+      item.unity_action_request.payload.action &&
+      typeof item.unity_action_request.payload.action === "object";
+    if (!hasActionRequest) {
+      continue;
+    }
+    if (item.event === "unity.action.request" || item.event === "turn.completed") {
+      return item;
+    }
+  }
+  return null;
 }
 
 async function ensureSidecarAvailability(baseUrl) {
@@ -725,7 +1928,22 @@ async function startSidecarIfNeeded(baseUrl, runId, options) {
     Number.isFinite(opts.codexHardTimeoutMs) && opts.codexHardTimeoutMs > 0
       ? String(Math.floor(opts.codexHardTimeoutMs))
       : "200000";
+  const unityComponentQueryTimeoutMs =
+    Number.isFinite(opts.unityComponentQueryTimeoutMs) &&
+    opts.unityComponentQueryTimeoutMs > 0
+      ? String(Math.floor(opts.unityComponentQueryTimeoutMs))
+      : "5000";
   const useFakeCodexTimeoutPlanner = !!opts.useFakeCodexTimeoutPlanner;
+  const useFakeUnityQueryPlanner = !!opts.useFakeUnityQueryPlanner;
+  const fakeUnityQueryMode =
+    typeof opts.fakeUnityQueryMode === "string" && opts.fakeUnityQueryMode.trim()
+      ? opts.fakeUnityQueryMode.trim()
+      : "chat_only";
+  const fakeUnityQueryKeepComponent =
+    typeof opts.fakeUnityQueryKeepComponent === "string" &&
+    opts.fakeUnityQueryKeepComponent.trim()
+      ? opts.fakeUnityQueryKeepComponent.trim()
+      : "KeepComponent";
   const sidecarRoot = path.resolve(__dirname, "..");
   const child = spawn(process.execPath, ["index.js", "--port", String(port)], {
     cwd: sidecarRoot,
@@ -735,9 +1953,16 @@ async function startSidecarIfNeeded(baseUrl, runId, options) {
       USE_FAKE_CODEX_TIMEOUT_PLANNER: useFakeCodexTimeoutPlanner
         ? "true"
         : "false",
+      USE_FAKE_UNITY_QUERY_PLANNER:
+        !useFakeCodexTimeoutPlanner && useFakeUnityQueryPlanner
+          ? "true"
+          : "false",
+      FAKE_UNITY_QUERY_MODE: fakeUnityQueryMode,
+      FAKE_UNITY_QUERY_KEEP_COMPONENT: fakeUnityQueryKeepComponent,
       CODEX_SOFT_TIMEOUT_MS: codexSoftTimeoutMs,
       CODEX_HARD_TIMEOUT_MS: codexHardTimeoutMs,
       COMPILE_TIMEOUT_MS: compileTimeoutMs,
+      UNITY_COMPONENT_QUERY_TIMEOUT_MS: unityComponentQueryTimeoutMs,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

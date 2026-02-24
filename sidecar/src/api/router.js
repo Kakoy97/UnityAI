@@ -118,6 +118,126 @@ function createRouter(deps) {
       return;
     }
 
+    if (method === "POST" && url.pathname === "/mcp/submit_unity_task") {
+      const body = await readJsonBody(req);
+      const outcome = turnService.submitUnityTask(body);
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "GET" && url.pathname === "/mcp/get_unity_task_status") {
+      const outcome = turnService.getUnityTaskStatus(
+        url.searchParams.get("job_id")
+      );
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "POST" && url.pathname === "/mcp/cancel_unity_task") {
+      const body = await readJsonBody(req);
+      const outcome = turnService.cancelUnityTask(body);
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "GET" && url.pathname === "/mcp/metrics") {
+      const outcome = turnService.getMcpMetrics();
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "GET" && url.pathname === "/mcp/stream") {
+      const streamCursor = resolveStreamCursor(url, req.headers || {});
+      const registration = turnService.registerMcpStreamSubscriber({
+        thread_id: url.searchParams.get("thread_id"),
+        cursor: streamCursor.cursor,
+        onEvent: (eventPayload) => {
+          writeSseEvent(res, eventPayload);
+        },
+      });
+      if (!registration.ok) {
+        sendJson(res, registration.statusCode, registration.body);
+        return;
+      }
+
+      if (req.socket && typeof req.socket.setKeepAlive === "function") {
+        req.socket.setKeepAlive(true);
+      }
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      if (typeof res.flushHeaders === "function") {
+        res.flushHeaders();
+      }
+      res.write(": connected\n\n");
+
+      writeSseEvent(res, {
+        seq: registration.latest_event_seq || 0,
+        event: "stream.ready",
+        timestamp: new Date().toISOString(),
+        cursor_source: streamCursor.source,
+        requested_cursor:
+          Number.isFinite(Number(registration.requested_cursor)) &&
+          Number(registration.requested_cursor) >= 0
+            ? Math.floor(Number(registration.requested_cursor))
+            : 0,
+        oldest_event_seq:
+          Number.isFinite(Number(registration.oldest_event_seq)) &&
+          Number(registration.oldest_event_seq) > 0
+            ? Math.floor(Number(registration.oldest_event_seq))
+            : 0,
+        latest_event_seq:
+          Number.isFinite(Number(registration.latest_event_seq)) &&
+          Number(registration.latest_event_seq) > 0
+            ? Math.floor(Number(registration.latest_event_seq))
+            : 0,
+        replay_from_seq:
+          Number.isFinite(Number(registration.replay_from_seq)) &&
+          Number(registration.replay_from_seq) > 0
+            ? Math.floor(Number(registration.replay_from_seq))
+            : 0,
+        replay_truncated: registration.replay_truncated === true,
+        fallback_query_suggested: registration.replay_truncated === true,
+        recovery_jobs_count:
+          Number.isFinite(Number(registration.recovery_jobs_count)) &&
+          Number(registration.recovery_jobs_count) >= 0
+            ? Math.floor(Number(registration.recovery_jobs_count))
+            : 0,
+        recovery_jobs: Array.isArray(registration.recovery_jobs)
+          ? registration.recovery_jobs
+          : [],
+        replay_count: Array.isArray(registration.replay_events)
+          ? registration.replay_events.length
+          : 0,
+      });
+      if (Array.isArray(registration.replay_events)) {
+        for (const eventPayload of registration.replay_events) {
+          writeSseEvent(res, eventPayload);
+        }
+      }
+
+      const heartbeatTimer = setInterval(() => {
+        try {
+          res.write(": ping\n\n");
+        } catch {
+          // write failure is handled by close event cleanup
+        }
+      }, 15000);
+
+      const cleanup = () => {
+        clearInterval(heartbeatTimer);
+        turnService.unregisterMcpStreamSubscriber(registration.subscriber_id);
+      };
+      req.on("close", cleanup);
+      req.on("error", cleanup);
+      res.on("close", cleanup);
+      res.on("error", cleanup);
+      return;
+    }
+
     if (method === "POST" && url.pathname === "/admin/shutdown") {
       sendJson(res, 200, {
         ok: true,
@@ -154,4 +274,61 @@ function parseBoolEnv(raw, fallback) {
     return false;
   }
   return !!fallback;
+}
+
+function writeSseEvent(res, payload) {
+  if (!res || typeof res.write !== "function") {
+    return;
+  }
+  const body = payload && typeof payload === "object" ? payload : {};
+  const seq = Number.isFinite(Number(body.seq)) ? Math.floor(Number(body.seq)) : 0;
+  const eventName =
+    typeof body.event === "string" && body.event.trim()
+      ? body.event.trim()
+      : "message";
+  if (seq > 0) {
+    res.write(`id: ${seq}\n`);
+  }
+  res.write(`event: ${eventName}\n`);
+  res.write(`data: ${JSON.stringify(body)}\n\n`);
+}
+
+function parseCursor(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) {
+    return 0;
+  }
+  return Math.floor(n);
+}
+
+function resolveStreamCursor(url, headers) {
+  const searchParams = url && url.searchParams ? url.searchParams : null;
+  if (searchParams && searchParams.has("cursor")) {
+    return {
+      cursor: parseCursor(searchParams.get("cursor")),
+      source: "query",
+    };
+  }
+  const lastEventIdRaw = readHeaderValue(headers, "last-event-id");
+  if (lastEventIdRaw !== "") {
+    return {
+      cursor: parseCursor(lastEventIdRaw),
+      source: "last_event_id",
+    };
+  }
+  return {
+    cursor: 0,
+    source: "default",
+  };
+}
+
+function readHeaderValue(headers, key) {
+  if (!headers || typeof headers !== "object") {
+    return "";
+  }
+  const raw = headers[key];
+  if (Array.isArray(raw)) {
+    return typeof raw[0] === "string" ? raw[0] : "";
+  }
+  return typeof raw === "string" ? raw : "";
 }

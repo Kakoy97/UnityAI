@@ -53,6 +53,8 @@ npm start
   - `COMPILE_TIMEOUT_MS`
   - `REQUEST_CACHE_TTL_MS`
   - `MAINTENANCE_INTERVAL_MS`
+  - `PLANNER_PROMPT_TEMPLATE` (`v2` default, set `v1` for rollback)
+  - `ENABLE_UNITY_COMPONENT_QUERY_TOOL` (`true/false`, default `true`, set `false` for probe rollback)
   - `USE_CODEX_APP_SERVER` (`true/false`, default `true`)
   - `USE_FAKE_CODEX_TIMEOUT_PLANNER` (`true/false`, default `false`, testing only)
   - `CODEX_EXECUTABLE` (default `codex`; on Windows can point to `codex.cmd` absolute path)
@@ -112,3 +114,66 @@ node scripts/smoke-turn-runner.js \
 
 Note: `--include-timeout-case` requires the runner to spawn sidecar with timeout overrides.
 If you already have a sidecar running on the same port, use a different `--base-url` port.
+
+## Step2 metrics compare (token/TTFT/extraction failure)
+
+Run A/B comparison between planner prompt templates (`v1` baseline vs `v2` candidate):
+
+```bash
+npm run metrics:step2
+```
+
+This command:
+
+1. Spawns isolated sidecar instances for each template (`USE_CODEX_APP_SERVER=true`).
+2. Runs multiple `turn.send` discussion rounds.
+3. Collects per-round `TTFT`, `total_tokens`, and extraction failure indicator from `turn.status.events`.
+4. Writes:
+   - suite reports: `sidecar/.state/planner-metrics-v1-*.json`, `sidecar/.state/planner-metrics-v2-*.json`
+   - comparison report: `sidecar/.state/step2-metrics-compare-*.json`
+
+Advanced options example:
+
+```bash
+node scripts/step2-metrics-compare.js \
+  --base-url http://127.0.0.1:46340 \
+  --rounds 16 \
+  --template-a v1 \
+  --template-b v2 \
+  --spawn-sidecar
+```
+
+## Step8 quality gate (observability + regression + replay)
+
+Run full Step8 matrix and generate machine-readable gate report:
+
+```bash
+npm run gate:step8
+```
+
+This command:
+
+1. Runs smoke/mcp/planner regression suites.
+2. Aggregates case pass rate (`P95` gate baseline: >=95% effective pass).
+3. Reads `sidecar/.state/sidecar-state.json` and computes:
+   - `text_turn` / `extraction_turn` stage duration `P50/P95`
+   - timeout rate
+   - extraction failure rate
+   - action success rate
+4. Writes report: `sidecar/.state/step8-quality-gate-*.json`.
+
+Metrics-only mode (skip rerunning matrix):
+
+```bash
+npm run metrics:step8
+```
+
+Replay failed report with same runner config:
+
+```bash
+npm run replay:failed -- --report sidecar/.state/mcp-job-report-<run_id>.json
+```
+
+Replay output is written to:
+
+- `sidecar/.state/failure-replay-report-*.json`

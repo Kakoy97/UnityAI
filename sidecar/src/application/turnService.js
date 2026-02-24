@@ -1,10 +1,18 @@
 ﻿"use strict";
 const SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
 const FINALIZE_TIMEOUT_MS = 30000;
+const MCP_JOB_TTL_MS = 24 * 60 * 60 * 1000;
+const MCP_MAX_QUEUE = 1;
+const MCP_STREAM_MAX_EVENTS = 500;
+const MCP_STREAM_MAX_SUBSCRIBERS = 32;
+const MCP_STREAM_RECOVERY_JOBS_MAX = 20;
 const {
   validateSessionStart,
   validateTurnSend,
   validateTurnCancel,
+  validateMcpSubmitUnityTask,
+  validateMcpGetUnityTaskStatus,
+  validateMcpCancelUnityTask,
   validateFileActionsApply,
   validateUnityCompileResult,
   validateUnityActionResult,
@@ -26,11 +34,19 @@ class TurnService {
    *  turnStore: import("../domain/turnStore").TurnStore,
    *  nowIso: () => string,
    *  sessionCacheTtlMs?: number,
+   *  unityComponentQueryTimeoutMs?: number,
+   *  enableMcpAdapter?: boolean,
+   *  mcpMaxQueue?: number,
+   *  mcpJobTtlMs?: number,
+   *  mcpStreamMaxEvents?: number,
+   *  mcpStreamMaxSubscribers?: number,
+   *  mcpStreamRecoveryJobsMax?: number,
+   *  mcpSnapshotStore?: { loadSnapshot: () => any, saveSnapshot: (snapshot: any) => boolean },
    *  enableTimeoutAbortCleanup?: boolean,
    *  fileActionExecutor: { execute: (actions: Array<any>) => { ok: boolean, changes: Array<{type: string, path: string}>, errorCode?: string, message?: string } },
    *  codexPlanner?: {
    *    enabled?: boolean,
-   *    planTurn: (input: { requestId: string, threadId: string, turnId: string, userMessage: string, context: any, signal?: AbortSignal, onDelta?: (delta: string) => void, onMessage?: (message: string) => void, onProgress?: (event?: any) => void, queryUnityComponents?: (arg: { targetPath: string }) => Promise<{ components?: Array<{short_name: string, assembly_qualified_name: string}>, error_message?: string }> }) => Promise<{ assistant_text?: string, task_allocation?: any }>,
+   *    planTurn: (input: { requestId: string, threadId: string, turnId: string, userMessage: string, context: any, signal?: AbortSignal, onDelta?: (delta: string) => void, onMessage?: (message: string) => void, onProgress?: (event?: any) => void, queryUnityComponents?: (arg: { targetPath: string }) => Promise<{ components?: Array<{short_name: string, assembly_qualified_name: string}>, error_code?: string, error_message?: string }> }) => Promise<{ assistant_text?: string, task_allocation?: any }>,
    *    finalizeTurn?: (input: { requestId: string, threadId: string, turnId: string, executionReport: any, signal?: AbortSignal, onDelta?: (delta: string) => void, onMessage?: (message: string) => void, onProgress?: (event?: any) => void }) => Promise<string>,
    *    recordExecutionMemory?: (input: { threadId: string, executionReport: any, finalMessage: string }) => void
    *  },
@@ -47,10 +63,39 @@ class TurnService {
       Number(deps.sessionCacheTtlMs) > 0
         ? Number(deps.sessionCacheTtlMs)
         : SESSION_CACHE_TTL_MS;
+    this.unityComponentQueryTimeoutMs =
+      Number(deps.unityComponentQueryTimeoutMs) > 0
+        ? Math.floor(Number(deps.unityComponentQueryTimeoutMs))
+        : 5000;
+    this.enableMcpAdapter = deps.enableMcpAdapter === true;
+    this.mcpMaxQueue =
+      Number.isFinite(Number(deps.mcpMaxQueue)) && Number(deps.mcpMaxQueue) >= 0
+        ? Math.floor(Number(deps.mcpMaxQueue))
+        : MCP_MAX_QUEUE;
+    this.mcpJobTtlMs =
+      Number.isFinite(Number(deps.mcpJobTtlMs)) && Number(deps.mcpJobTtlMs) > 0
+        ? Math.floor(Number(deps.mcpJobTtlMs))
+        : MCP_JOB_TTL_MS;
+    this.mcpStreamMaxEvents =
+      Number.isFinite(Number(deps.mcpStreamMaxEvents)) &&
+      Number(deps.mcpStreamMaxEvents) > 0
+        ? Math.floor(Number(deps.mcpStreamMaxEvents))
+        : MCP_STREAM_MAX_EVENTS;
+    this.mcpStreamMaxSubscribers =
+      Number.isFinite(Number(deps.mcpStreamMaxSubscribers)) &&
+      Number(deps.mcpStreamMaxSubscribers) > 0
+        ? Math.floor(Number(deps.mcpStreamMaxSubscribers))
+        : MCP_STREAM_MAX_SUBSCRIBERS;
+    this.mcpStreamRecoveryJobsMax =
+      Number.isFinite(Number(deps.mcpStreamRecoveryJobsMax)) &&
+      Number(deps.mcpStreamRecoveryJobsMax) >= 0
+        ? Math.floor(Number(deps.mcpStreamRecoveryJobsMax))
+        : MCP_STREAM_RECOVERY_JOBS_MAX;
     this.enableTimeoutAbortCleanup = deps.enableTimeoutAbortCleanup !== false;
     this.fileActionExecutor = deps.fileActionExecutor;
     this.codexPlanner = deps.codexPlanner || null;
     this.autoFixExecutor = deps.autoFixExecutor || null;
+    this.mcpSnapshotStore = deps.mcpSnapshotStore || null;
     /** @type {Map<string, () => void>} */
     this.pendingPlanningCancels = new Map();
     /** @type {Map<string, {statusCode: number, body: Record<string, unknown>, expiresAt: number}>} */
@@ -59,6 +104,34 @@ class TurnService {
     this.fileActionReceiptByRequestId = new Map();
     /** @type {Map<string, {requestId: string, resolve: (value: any) => void, reject: (reason?: any) => void, timer: NodeJS.Timeout | null}>} */
     this.pendingUnityComponentQueries = new Map();
+    /** @type {Map<string, any>} */
+    this.mcpJobsById = new Map();
+    /** @type {Map<string, string>} */
+    this.mcpIdempotencyToJobId = new Map();
+    /** @type {string[]} */
+    this.mcpQueuedJobIds = [];
+    this.mcpRunningJobId = "";
+    /** @type {Map<string, { thread_id: string, onEvent: (event: any) => void }>} */
+    this.mcpStreamSubscribers = new Map();
+    /** @type {Array<any>} */
+    this.mcpStreamRecentEvents = [];
+    this.mcpStreamNextEventSeq = 1;
+    this.mcpStreamNextSubscriberSeq = 1;
+    this.mcpMetrics = {
+      status_query_calls: 0,
+      stream_connect_calls: 0,
+      stream_events_published: 0,
+      stream_events_delivered: 0,
+      stream_replay_events_sent: 0,
+      stream_recovery_jobs_sent: 0,
+      stream_subscriber_rejects: 0,
+      stream_subscriber_drops: 0,
+    };
+
+    if (this.enableMcpAdapter) {
+      this.restoreMcpJobsFromSnapshot();
+      this.refreshMcpJobs({ drainQueue: true });
+    }
 
     if (
       this.enableTimeoutAbortCleanup &&
@@ -110,6 +183,7 @@ class TurnService {
   getHealthPayload() {
     this.turnStore.sweep();
     this.cleanupSessionCache();
+    this.refreshMcpJobs({ drainQueue: true });
     return {
       ok: true,
       service: "codex-unity-sidecar-mvp",
@@ -123,13 +197,318 @@ class TurnService {
     this.turnStore.sweep();
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
+    this.refreshMcpJobs({ drainQueue: true });
     return this.turnStore.getSnapshot();
+  }
+
+  submitUnityTask(body) {
+    if (!this.enableMcpAdapter) {
+      return {
+        statusCode: 404,
+        body: this.withMcpErrorFeedback({
+          status: "rejected",
+          error_code: "E_NOT_FOUND",
+          message: "MCP adapter is disabled",
+        }),
+      };
+    }
+
+    this.turnStore.sweep();
+    this.cleanupSessionCache();
+    this.cleanupFileActionCache();
+    this.refreshMcpJobs({ drainQueue: true });
+
+    const validation = validateMcpSubmitUnityTask(body);
+    if (!validation.ok) {
+      return this.mcpValidationError(validation);
+    }
+
+    const idempotencyKey = String(body.idempotency_key || "").trim();
+    const replayJobId = this.mcpIdempotencyToJobId.get(idempotencyKey) || "";
+    if (replayJobId) {
+      const existingJob = this.mcpJobsById.get(replayJobId) || null;
+      if (existingJob) {
+        return {
+          statusCode: 200,
+          body: {
+            status: "accepted",
+            job_id: existingJob.job_id,
+            idempotent_replay: true,
+            job_status: existingJob.status,
+            approval_mode: normalizeApprovalMode(existingJob.approval_mode, "auto"),
+            running_job_id: this.mcpRunningJobId || "",
+            error_code: existingJob.error_code || "",
+            error_message: existingJob.error_message || "",
+            suggestion: existingJob.suggestion || "",
+            recoverable: existingJob.recoverable === true,
+            message: "Idempotency hit. Returning existing job.",
+          },
+        };
+      }
+      this.mcpIdempotencyToJobId.delete(idempotencyKey);
+      this.persistMcpJobs();
+    }
+
+    const runningJobId = this.mcpRunningJobId || "";
+    const hasRunning = !!runningJobId;
+    if (hasRunning && this.mcpQueuedJobIds.length >= this.mcpMaxQueue) {
+      const conflict = this.withMcpErrorFeedback({
+        status: "rejected",
+        error_code: "E_JOB_CONFLICT",
+        message: "Another Unity job is already running",
+      });
+      return {
+        statusCode: 409,
+        body: {
+          ...conflict,
+          reason_code: conflict.error_code,
+          running_job_id: runningJobId,
+        },
+      };
+    }
+
+    const createdAt = Date.now();
+    const threadId = String(body.thread_id || "").trim();
+    const approvalMode =
+      body.approval_mode === "require_user" ? "require_user" : "auto";
+    const context =
+      body.context && typeof body.context === "object"
+        ? body.context
+        : buildDefaultTurnContext();
+    const job = {
+      job_id: createMcpJobId(createdAt),
+      idempotency_key: idempotencyKey,
+      approval_mode: approvalMode,
+      user_intent: String(body.user_intent || ""),
+      thread_id: threadId,
+      request_id: createMcpRequestId(createdAt),
+      turn_id: createMcpTurnId(createdAt),
+      context,
+      status: hasRunning ? "queued" : "pending",
+      stage: hasRunning ? "queued" : "codex_pending",
+      progress_message: hasRunning
+        ? "Queued and waiting for running job to finish"
+        : "Task accepted and pending",
+      error_code: "",
+      error_message: "",
+      suggestion: "",
+      recoverable: false,
+      execution_report: null,
+      created_at: createdAt,
+      updated_at: createdAt,
+      terminal_at: 0,
+    };
+
+    this.mcpJobsById.set(job.job_id, job);
+    this.mcpIdempotencyToJobId.set(job.idempotency_key, job.job_id);
+
+    if (hasRunning) {
+      this.mcpQueuedJobIds.push(job.job_id);
+      this.persistMcpJobs();
+      this.publishMcpJobEvent("job.progress", job);
+      return {
+        statusCode: 202,
+        body: {
+          status: "queued",
+          job_id: job.job_id,
+          approval_mode: job.approval_mode,
+          running_job_id: runningJobId,
+          message: "Task queued",
+        },
+      };
+    }
+
+    const startOutcome = this.startMcpJob(job);
+    if (!startOutcome.ok) {
+      if (startOutcome.queued) {
+        return {
+          statusCode: 202,
+          body: {
+            status: "queued",
+            job_id: job.job_id,
+            approval_mode: job.approval_mode,
+            running_job_id: this.mcpRunningJobId || "",
+            message: "Task queued",
+          },
+        };
+      }
+      return {
+        statusCode: 500,
+        body: this.withMcpErrorFeedback({
+          status: "failed",
+          job_id: job.job_id,
+          error_code: job.error_code || "E_INTERNAL",
+          error_message: job.error_message || "Failed to start job",
+          suggestion: job.suggestion || "",
+          recoverable: job.recoverable === true,
+        }),
+      };
+    }
+
+    this.persistMcpJobs();
+
+    return {
+      statusCode: 202,
+      body: {
+        status: "accepted",
+        job_id: job.job_id,
+        approval_mode: job.approval_mode,
+        message: "Task accepted. Progress can be queried with get_unity_task_status.",
+      },
+    };
+  }
+
+  getUnityTaskStatus(jobId) {
+    if (!this.enableMcpAdapter) {
+      return {
+        statusCode: 404,
+        body: this.withMcpErrorFeedback({
+          status: "rejected",
+          error_code: "E_NOT_FOUND",
+          message: "MCP adapter is disabled",
+        }),
+      };
+    }
+
+    this.turnStore.sweep();
+    this.refreshMcpJobs({ drainQueue: true });
+    this.mcpMetrics.status_query_calls += 1;
+
+    const validation = validateMcpGetUnityTaskStatus(jobId);
+    if (!validation.ok) {
+      return this.mcpValidationError(validation);
+    }
+
+    const normalizedJobId = String(jobId || "").trim();
+    const job = this.mcpJobsById.get(normalizedJobId) || null;
+    if (!job) {
+      return {
+        statusCode: 404,
+        body: this.withMcpErrorFeedback({
+          status: "failed",
+          error_code: "E_JOB_NOT_FOUND",
+          message: "job_id not found",
+        }),
+      };
+    }
+
+    return {
+      statusCode: 200,
+      body: this.buildMcpJobStatusPayload(job),
+    };
+  }
+
+  cancelUnityTask(body) {
+    if (!this.enableMcpAdapter) {
+      return {
+        statusCode: 404,
+        body: this.withMcpErrorFeedback({
+          status: "rejected",
+          error_code: "E_NOT_FOUND",
+          message: "MCP adapter is disabled",
+        }),
+      };
+    }
+
+    this.turnStore.sweep();
+    this.cleanupSessionCache();
+    this.cleanupFileActionCache();
+    this.refreshMcpJobs({ drainQueue: true });
+
+    const validation = validateMcpCancelUnityTask(body);
+    if (!validation.ok) {
+      return this.mcpValidationError(validation);
+    }
+
+    const jobId = String(body.job_id || "").trim();
+    const job = this.mcpJobsById.get(jobId) || null;
+    if (!job) {
+      return {
+        statusCode: 404,
+        body: this.withMcpErrorFeedback({
+          status: "failed",
+          error_code: "E_JOB_NOT_FOUND",
+          message: "job_id not found",
+        }),
+      };
+    }
+
+    if (job.status === "queued") {
+      this.mcpQueuedJobIds = this.mcpQueuedJobIds.filter((item) => item !== jobId);
+      job.status = "cancelled";
+      job.stage = "cancelled";
+      job.progress_message = "Job cancelled while in queue";
+      job.updated_at = Date.now();
+      job.terminal_at = job.updated_at;
+      job.error_code = "";
+      job.error_message = "";
+      job.suggestion = "";
+      job.recoverable = false;
+      this.persistMcpJobs();
+      this.publishMcpJobEvent("job.completed", job);
+      this.refreshMcpJobs({ drainQueue: true });
+      return {
+        statusCode: 200,
+        body: {
+          status: "cancelled",
+          job_id: jobId,
+          message: "Queued job cancelled",
+        },
+      };
+    }
+
+    if (isTerminalMcpStatus(job.status)) {
+      return {
+        statusCode: 200,
+        body: {
+          status: job.status,
+          job_id: jobId,
+          message: "Job is already terminal",
+        },
+      };
+    }
+
+    const cancelEnvelope = this.buildMcpTurnCancelEnvelope(job);
+    const cancelOutcome = this.cancelTurn(cancelEnvelope, {
+      skipMcpRefresh: true,
+    });
+    if (cancelOutcome.statusCode >= 400) {
+      const failure = this.withMcpErrorFeedback({
+        status: "failed",
+        error_code:
+          cancelOutcome.body && cancelOutcome.body.error_code
+            ? cancelOutcome.body.error_code
+            : "E_INTERNAL",
+        message:
+          cancelOutcome.body && cancelOutcome.body.message
+            ? cancelOutcome.body.message
+            : "Failed to cancel job",
+      });
+      return {
+        statusCode: cancelOutcome.statusCode,
+        body: {
+          job_id: jobId,
+          ...failure,
+        },
+      };
+    }
+
+    this.refreshMcpJobs({ drainQueue: true });
+    return {
+      statusCode: 200,
+      body: {
+        status: "cancelled",
+        job_id: jobId,
+        message: "Cancel requested",
+      },
+    };
   }
 
   startSession(body) {
     this.turnStore.sweep();
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
+    this.refreshMcpJobs({ drainQueue: true });
 
     const validation = validateSessionStart(body);
     if (!validation.ok) {
@@ -167,10 +546,14 @@ class TurnService {
     };
   }
 
-  sendTurn(body) {
+  sendTurn(body, options) {
+    const opts = options && typeof options === "object" ? options : {};
     this.turnStore.sweep();
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
+    if (opts.skipMcpRefresh !== true) {
+      this.refreshMcpJobs({ drainQueue: true });
+    }
 
     const validation = validateTurnSend(body);
     if (!validation.ok) {
@@ -246,6 +629,7 @@ class TurnService {
     this.turnStore.sweep();
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
+    this.refreshMcpJobs({ drainQueue: true });
 
     const requestId = normalizeRequestId(queryRequestId);
     if (!requestId) {
@@ -278,10 +662,14 @@ class TurnService {
     };
   }
 
-  cancelTurn(body) {
+  cancelTurn(body, options) {
+    const opts = options && typeof options === "object" ? options : {};
     this.turnStore.sweep();
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
+    if (opts.skipMcpRefresh !== true) {
+      this.refreshMcpJobs({ drainQueue: true });
+    }
 
     const validation = validateTurnCancel(body);
     if (!validation.ok) {
@@ -356,6 +744,426 @@ class TurnService {
     };
   }
 
+  buildMcpJobStatusPayload(job) {
+    const item = job && typeof job === "object" ? job : {};
+    return {
+      job_id: item.job_id || "",
+      status: item.status || "pending",
+      stage: item.stage || "",
+      progress_message: item.progress_message || "",
+      error_code: item.error_code || "",
+      error_message: item.error_message || "",
+      suggestion: item.suggestion || "",
+      recoverable: item.recoverable === true,
+      request_id: item.request_id || "",
+      running_job_id: this.mcpRunningJobId || "",
+      execution_report:
+        item.execution_report && typeof item.execution_report === "object"
+          ? item.execution_report
+          : null,
+      approval_mode: item.approval_mode || "auto",
+      created_at:
+        Number.isFinite(item.created_at) && item.created_at > 0
+          ? new Date(item.created_at).toISOString()
+          : this.nowIso(),
+      updated_at:
+        Number.isFinite(item.updated_at) && item.updated_at > 0
+          ? new Date(item.updated_at).toISOString()
+          : this.nowIso(),
+    };
+  }
+
+  startMcpJob(job, options) {
+    const item = job && typeof job === "object" ? job : null;
+    if (!item) {
+      return {
+        ok: false,
+      };
+    }
+    const opts = options && typeof options === "object" ? options : {};
+    const fromQueue = opts.fromQueue === true;
+    const envelope = this.buildMcpTurnSendEnvelope(item);
+    const outcome = this.sendTurn(envelope, {
+      skipMcpRefresh: true,
+    });
+    const now = Date.now();
+    item.updated_at = now;
+
+    const accepted =
+      outcome &&
+      outcome.body &&
+      typeof outcome.body.accepted === "boolean" &&
+      outcome.body.accepted === true;
+    if (accepted) {
+      item.status = "pending";
+      item.stage =
+        outcome.body && typeof outcome.body.stage === "string"
+          ? outcome.body.stage
+          : "codex_pending";
+      item.progress_message =
+        outcome.body && typeof outcome.body.message === "string"
+          ? outcome.body.message
+          : "Job pending";
+      item.error_code = "";
+      item.error_message = "";
+      item.suggestion = "";
+      item.recoverable = false;
+      this.mcpRunningJobId = item.job_id;
+      this.persistMcpJobs();
+      this.publishMcpJobEvent("job.progress", item);
+      return {
+        ok: true,
+      };
+    }
+
+    if (outcome && outcome.statusCode === 429) {
+      item.status = "queued";
+      item.stage = "queued";
+      item.progress_message = "Queued and waiting for running job to finish";
+      if (!this.mcpQueuedJobIds.includes(item.job_id)) {
+        this.mcpQueuedJobIds.push(item.job_id);
+      }
+      this.persistMcpJobs();
+      this.publishMcpJobEvent("job.progress", item);
+      if (!fromQueue) {
+        return {
+          ok: false,
+          queued: true,
+        };
+      }
+      return {
+        ok: false,
+        retryable: true,
+      };
+    }
+
+    item.status = "failed";
+    item.stage = "failed";
+    item.error_code =
+      outcome &&
+      outcome.body &&
+      typeof outcome.body.error_code === "string"
+        ? outcome.body.error_code
+        : "E_INTERNAL";
+    item.error_message =
+      outcome &&
+      outcome.body &&
+      ((typeof outcome.body.error_message === "string" &&
+        outcome.body.error_message) ||
+        (typeof outcome.body.message === "string" && outcome.body.message))
+        ? typeof outcome.body.error_message === "string" &&
+          outcome.body.error_message
+          ? outcome.body.error_message
+          : outcome.body.message
+        : "Failed to start Unity job";
+    const feedback = mapMcpErrorFeedback(item.error_code, item.error_message);
+    item.suggestion = feedback.suggestion;
+    item.recoverable = feedback.recoverable;
+    item.progress_message = item.error_message;
+    item.terminal_at = now;
+    this.persistMcpJobs();
+    this.publishMcpJobEvent("job.completed", item);
+    return {
+      ok: false,
+    };
+  }
+
+  buildMcpTurnSendEnvelope(job) {
+    return {
+      event: "turn.send",
+      request_id: job.request_id,
+      thread_id: job.thread_id,
+      turn_id: job.turn_id,
+      timestamp: this.nowIso(),
+      payload: {
+        user_message: job.user_intent,
+        approval_mode: normalizeApprovalMode(job.approval_mode, "auto"),
+        context:
+          job.context && typeof job.context === "object"
+            ? job.context
+            : buildDefaultTurnContext(),
+      },
+    };
+  }
+
+  buildMcpTurnCancelEnvelope(job) {
+    return {
+      event: "turn.cancel",
+      request_id: job.request_id,
+      thread_id: job.thread_id,
+      turn_id: job.turn_id,
+      timestamp: this.nowIso(),
+      payload: {
+        reason: "mcp_cancel_unity_task",
+      },
+    };
+  }
+
+  refreshMcpJobs(options) {
+    if (!this.enableMcpAdapter) {
+      return;
+    }
+
+    const opts = options && typeof options === "object" ? options : {};
+    const now = Date.now();
+    const activeRequestId = this.turnStore.getActiveRequestId() || "";
+    let changed = false;
+    let runningJobId = "";
+    const jobsToEmit = [];
+
+    const prevQueued = this.mcpQueuedJobIds.join("|");
+    this.mcpQueuedJobIds = this.mcpQueuedJobIds.filter((jobId) => {
+      const job = this.mcpJobsById.get(jobId);
+      return !!job && job.status === "queued";
+    });
+    if (prevQueued !== this.mcpQueuedJobIds.join("|")) {
+      changed = true;
+    }
+
+    for (const [jobId, job] of this.mcpJobsById.entries()) {
+      if (!job || typeof job !== "object") {
+        this.mcpJobsById.delete(jobId);
+        changed = true;
+        continue;
+      }
+      if (
+        isTerminalMcpStatus(job.status) &&
+        Number.isFinite(job.terminal_at) &&
+        job.terminal_at > 0 &&
+        now - job.terminal_at > this.mcpJobTtlMs
+      ) {
+        if (typeof job.idempotency_key === "string" && job.idempotency_key) {
+          this.mcpIdempotencyToJobId.delete(job.idempotency_key);
+        }
+        this.mcpQueuedJobIds = this.mcpQueuedJobIds.filter((item) => item !== jobId);
+        this.mcpJobsById.delete(jobId);
+        changed = true;
+        continue;
+      }
+
+      let jobChanged = false;
+      const turn =
+        typeof job.request_id === "string" && job.request_id
+          ? this.turnStore.getTurn(job.request_id)
+          : null;
+      if (!turn) {
+        if (job.status === "pending") {
+          const isActivePending = !!activeRequestId && job.request_id === activeRequestId;
+          if (!isActivePending) {
+            if (job.status !== "failed") {
+              job.status = "failed";
+              jobChanged = true;
+            }
+            if (job.stage !== "failed") {
+              job.stage = "failed";
+              jobChanged = true;
+            }
+            if (job.error_code !== "E_JOB_RECOVERY_STALE") {
+              job.error_code = "E_JOB_RECOVERY_STALE";
+              jobChanged = true;
+            }
+            const recoveredMessage = "Recovered pending job without active running turn";
+            if (job.error_message !== recoveredMessage) {
+              job.error_message = recoveredMessage;
+              jobChanged = true;
+            }
+            const feedback = mapMcpErrorFeedback(job.error_code, job.error_message);
+            if (job.suggestion !== feedback.suggestion) {
+              job.suggestion = feedback.suggestion;
+              jobChanged = true;
+            }
+            if (job.recoverable !== feedback.recoverable) {
+              job.recoverable = feedback.recoverable;
+              jobChanged = true;
+            }
+            if (job.progress_message !== recoveredMessage) {
+              job.progress_message = recoveredMessage;
+              jobChanged = true;
+            }
+            if (!job.terminal_at) {
+              job.terminal_at = now;
+              jobChanged = true;
+            }
+          }
+        }
+        if (jobChanged) {
+          job.updated_at = now;
+          changed = true;
+          jobsToEmit.push(job);
+        }
+        continue;
+      }
+
+      const mappedStatus = mapTurnStateToMcpStatus(turn.state);
+      const mappedStage = typeof turn.stage === "string" ? turn.stage : "";
+      const mappedMessage = typeof turn.message === "string" ? turn.message : "";
+      if (job.stage !== mappedStage) {
+        job.stage = mappedStage;
+        jobChanged = true;
+      }
+      if (job.progress_message !== mappedMessage) {
+        job.progress_message = mappedMessage;
+        jobChanged = true;
+      }
+
+      if (mappedStatus === "pending") {
+        if (job.status !== "queued" && job.status !== "pending") {
+          job.status = "pending";
+          jobChanged = true;
+        }
+        if (job.status !== "queued") {
+          if (job.error_code || job.error_message || job.suggestion || job.recoverable) {
+            job.error_code = "";
+            job.error_message = "";
+            job.suggestion = "";
+            job.recoverable = false;
+            jobChanged = true;
+          }
+        }
+      } else if (mappedStatus === "succeeded") {
+        if (job.status !== "succeeded") {
+          job.status = "succeeded";
+          jobChanged = true;
+        }
+        const executionReport =
+          turn.execution_report && typeof turn.execution_report === "object"
+            ? turn.execution_report
+            : null;
+        if (!sameJson(job.execution_report, executionReport)) {
+          job.execution_report = executionReport;
+          jobChanged = true;
+        }
+        if (job.error_code || job.error_message || job.suggestion || job.recoverable) {
+          job.error_code = "";
+          job.error_message = "";
+          job.suggestion = "";
+          job.recoverable = false;
+          jobChanged = true;
+        }
+        if (!job.terminal_at) {
+          job.terminal_at = now;
+          jobChanged = true;
+        }
+      } else if (mappedStatus === "failed") {
+        if (job.status !== "failed") {
+          job.status = "failed";
+          jobChanged = true;
+        }
+        const nextErrorCode = typeof turn.error_code === "string" ? turn.error_code : "";
+        const nextErrorMessage = typeof turn.message === "string" ? turn.message : "";
+        if (job.error_code !== nextErrorCode) {
+          job.error_code = nextErrorCode;
+          jobChanged = true;
+        }
+        if (job.error_message !== nextErrorMessage) {
+          job.error_message = nextErrorMessage;
+          jobChanged = true;
+        }
+        const feedback = mapMcpErrorFeedback(job.error_code, job.error_message);
+        if (job.suggestion !== feedback.suggestion) {
+          job.suggestion = feedback.suggestion;
+          jobChanged = true;
+        }
+        if (job.recoverable !== feedback.recoverable) {
+          job.recoverable = feedback.recoverable;
+          jobChanged = true;
+        }
+        const executionReport =
+          turn.execution_report && typeof turn.execution_report === "object"
+            ? turn.execution_report
+            : null;
+        if (!sameJson(job.execution_report, executionReport)) {
+          job.execution_report = executionReport;
+          jobChanged = true;
+        }
+        if (!job.terminal_at) {
+          job.terminal_at = now;
+          jobChanged = true;
+        }
+      } else if (mappedStatus === "cancelled") {
+        if (job.status !== "cancelled") {
+          job.status = "cancelled";
+          jobChanged = true;
+        }
+        if (job.error_code || job.error_message || job.suggestion || job.recoverable) {
+          job.error_code = "";
+          job.error_message = "";
+          job.suggestion = "";
+          job.recoverable = false;
+          jobChanged = true;
+        }
+        if (!job.terminal_at) {
+          job.terminal_at = now;
+          jobChanged = true;
+        }
+      }
+
+      if (jobChanged) {
+        job.updated_at = now;
+        changed = true;
+        jobsToEmit.push(job);
+      }
+
+      if (
+        !isTerminalMcpStatus(job.status) &&
+        activeRequestId &&
+        job.request_id === activeRequestId
+      ) {
+        runningJobId = job.job_id;
+      }
+    }
+
+    if (this.mcpRunningJobId !== runningJobId) {
+      this.mcpRunningJobId = runningJobId;
+      changed = true;
+    }
+    if (changed) {
+      this.persistMcpJobs();
+    }
+    for (const changedJob of jobsToEmit) {
+      this.publishMcpJobEvent(
+        isTerminalMcpStatus(changedJob.status) ? "job.completed" : "job.progress",
+        changedJob
+      );
+    }
+    if (opts.drainQueue === true) {
+      this.drainMcpQueue();
+    }
+  }
+
+  drainMcpQueue() {
+    if (!this.enableMcpAdapter) {
+      return;
+    }
+    if (this.mcpRunningJobId) {
+      return;
+    }
+    let queueChanged = false;
+    while (this.mcpQueuedJobIds.length > 0) {
+      const nextJobId = this.mcpQueuedJobIds.shift();
+      queueChanged = true;
+      if (!nextJobId) {
+        continue;
+      }
+      const job = this.mcpJobsById.get(nextJobId);
+      if (!job || job.status !== "queued") {
+        continue;
+      }
+      const start = this.startMcpJob(job, { fromQueue: true });
+      if (start.ok) {
+        break;
+      }
+      if (start.retryable) {
+        this.mcpQueuedJobIds.unshift(nextJobId);
+        queueChanged = true;
+        break;
+      }
+    }
+    if (queueChanged) {
+      this.persistMcpJobs();
+    }
+  }
+
   validationError(validation) {
     return {
       statusCode: validation.statusCode,
@@ -363,6 +1171,497 @@ class TurnService {
         error_code: validation.errorCode,
         message: validation.message,
       },
+    };
+  }
+
+  mcpValidationError(validation) {
+    return {
+      statusCode: validation.statusCode,
+      body: this.withMcpErrorFeedback({
+        status: "rejected",
+        error_code: validation.errorCode,
+        message: validation.message,
+      }),
+    };
+  }
+
+  withMcpErrorFeedback(body) {
+    const source = body && typeof body === "object" ? body : {};
+    const errorCode = normalizeErrorCode(source.error_code, "E_INTERNAL");
+    const errorMessage =
+      typeof source.error_message === "string" && source.error_message.trim()
+        ? source.error_message.trim()
+        : typeof source.message === "string" && source.message.trim()
+          ? source.message.trim()
+          : "Unknown error";
+    const feedback = mapMcpErrorFeedback(errorCode, errorMessage);
+    return {
+      ...source,
+      error_code: errorCode,
+      error_message: errorMessage,
+      suggestion:
+        typeof source.suggestion === "string" && source.suggestion.trim()
+          ? source.suggestion.trim()
+          : feedback.suggestion,
+      recoverable:
+        typeof source.recoverable === "boolean"
+          ? source.recoverable
+          : feedback.recoverable,
+      message:
+        typeof source.message === "string" && source.message.trim()
+          ? source.message.trim()
+          : errorMessage,
+    };
+  }
+
+  resolveTurnApprovalMode(requestId) {
+    const normalizedRequestId = normalizeRequestId(requestId);
+    if (!normalizedRequestId) {
+      return "require_user";
+    }
+    for (const job of this.mcpJobsById.values()) {
+      if (!job || typeof job !== "object") {
+        continue;
+      }
+      if (
+        typeof job.request_id === "string" &&
+        job.request_id === normalizedRequestId
+      ) {
+        return normalizeApprovalMode(job.approval_mode, "auto");
+      }
+    }
+    return "require_user";
+  }
+
+  registerMcpStreamSubscriber(options) {
+    if (!this.enableMcpAdapter) {
+      return {
+        ok: false,
+        statusCode: 404,
+        body: this.withMcpErrorFeedback({
+          status: "rejected",
+          error_code: "E_NOT_FOUND",
+          message: "MCP adapter is disabled",
+        }),
+      };
+    }
+    const opts = options && typeof options === "object" ? options : {};
+    if (typeof opts.onEvent !== "function") {
+      return {
+        ok: false,
+        statusCode: 400,
+        body: this.withMcpErrorFeedback({
+          status: "rejected",
+          error_code: "E_SCHEMA_INVALID",
+          message: "onEvent callback is required",
+        }),
+      };
+    }
+    if (this.mcpStreamSubscribers.size >= this.mcpStreamMaxSubscribers) {
+      this.mcpMetrics.stream_subscriber_rejects += 1;
+      return {
+        ok: false,
+        statusCode: 429,
+        body: this.withMcpErrorFeedback({
+          status: "rejected",
+          error_code: "E_STREAM_SUBSCRIBERS_EXCEEDED",
+          message: `Too many active MCP stream subscribers (${this.mcpStreamSubscribers.size}/${this.mcpStreamMaxSubscribers})`,
+        }),
+      };
+    }
+    this.refreshMcpJobs({ drainQueue: true });
+    const threadId = typeof opts.thread_id === "string" ? opts.thread_id.trim() : "";
+    const cursor =
+      Number.isFinite(Number(opts.cursor)) && Number(opts.cursor) >= 0
+        ? Math.floor(Number(opts.cursor))
+        : 0;
+    const replayEvents = this.listMcpStreamEventsSince(cursor, threadId);
+    const oldestEventSeq = this.getOldestMcpStreamSeq(threadId);
+    const latestEventSeq = this.mcpStreamNextEventSeq - 1;
+    const replayTruncated =
+      Number.isFinite(oldestEventSeq) &&
+      oldestEventSeq > 0 &&
+      cursor + 1 < oldestEventSeq;
+    const replayFromSeq =
+      replayEvents.length > 0 &&
+      Number.isFinite(Number(replayEvents[0].seq)) &&
+      Number(replayEvents[0].seq) > 0
+        ? Math.floor(Number(replayEvents[0].seq))
+        : 0;
+    const recoveryJobs =
+      replayTruncated && threadId
+        ? this.listMcpJobRecoverySnapshot(threadId, this.mcpStreamRecoveryJobsMax)
+        : [];
+    const subscriberId = `mcp_sub_${Date.now()}_${this.mcpStreamNextSubscriberSeq++}`;
+    this.mcpStreamSubscribers.set(subscriberId, {
+      thread_id: threadId,
+      onEvent: opts.onEvent,
+    });
+    this.mcpMetrics.stream_connect_calls += 1;
+    this.mcpMetrics.stream_replay_events_sent += replayEvents.length;
+    this.mcpMetrics.stream_recovery_jobs_sent += recoveryJobs.length;
+    return {
+      ok: true,
+      subscriber_id: subscriberId,
+      requested_cursor: cursor,
+      replay_events: replayEvents,
+      replay_from_seq: replayFromSeq,
+      replay_truncated: replayTruncated,
+      recovery_jobs_count: recoveryJobs.length,
+      recovery_jobs: recoveryJobs,
+      oldest_event_seq: oldestEventSeq,
+      latest_event_seq: latestEventSeq,
+    };
+  }
+
+  unregisterMcpStreamSubscriber(subscriberId) {
+    const id = typeof subscriberId === "string" ? subscriberId : "";
+    if (!id) {
+      return false;
+    }
+    return this.mcpStreamSubscribers.delete(id);
+  }
+
+  listMcpStreamEventsSince(cursor, threadId) {
+    const since =
+      Number.isFinite(Number(cursor)) && Number(cursor) >= 0
+        ? Math.floor(Number(cursor))
+        : 0;
+    const normalizedThreadId =
+      typeof threadId === "string" ? threadId.trim() : "";
+    return this.mcpStreamRecentEvents.filter((eventItem) => {
+      if (!eventItem || typeof eventItem !== "object") {
+        return false;
+      }
+      if (!Number.isFinite(eventItem.seq) || eventItem.seq <= since) {
+        return false;
+      }
+      if (normalizedThreadId && eventItem.thread_id !== normalizedThreadId) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  getOldestMcpStreamSeq(threadId) {
+    const normalizedThreadId =
+      typeof threadId === "string" ? threadId.trim() : "";
+    let oldest = 0;
+    for (const eventItem of this.mcpStreamRecentEvents) {
+      if (!eventItem || typeof eventItem !== "object") {
+        continue;
+      }
+      if (normalizedThreadId && eventItem.thread_id !== normalizedThreadId) {
+        continue;
+      }
+      const seq =
+        Number.isFinite(Number(eventItem.seq)) && Number(eventItem.seq) > 0
+          ? Math.floor(Number(eventItem.seq))
+          : 0;
+      if (!seq) {
+        continue;
+      }
+      if (!oldest || seq < oldest) {
+        oldest = seq;
+      }
+    }
+    return oldest;
+  }
+
+  listMcpJobRecoverySnapshot(threadId, limit) {
+    const normalizedThreadId =
+      typeof threadId === "string" ? threadId.trim() : "";
+    if (!normalizedThreadId) {
+      return [];
+    }
+    const maxItems =
+      Number.isFinite(Number(limit)) && Number(limit) >= 0
+        ? Math.floor(Number(limit))
+        : MCP_STREAM_RECOVERY_JOBS_MAX;
+    if (maxItems <= 0) {
+      return [];
+    }
+    const candidates = [];
+    for (const job of this.mcpJobsById.values()) {
+      if (!job || typeof job !== "object") {
+        continue;
+      }
+      if (
+        typeof job.thread_id !== "string" ||
+        job.thread_id !== normalizedThreadId
+      ) {
+        continue;
+      }
+      const updatedAt =
+        Number.isFinite(Number(job.updated_at)) && Number(job.updated_at) > 0
+          ? Math.floor(Number(job.updated_at))
+          : 0;
+      candidates.push({
+        updated_at: updatedAt,
+        payload: this.buildMcpJobStatusPayload(job),
+      });
+    }
+    candidates.sort((a, b) => b.updated_at - a.updated_at);
+    return candidates.slice(0, maxItems).map((item) => item.payload);
+  }
+
+  publishMcpJobEvent(eventName, job) {
+    if (!this.enableMcpAdapter) {
+      return null;
+    }
+    const item = job && typeof job === "object" ? job : null;
+    if (!item) {
+      return null;
+    }
+    const seq = this.mcpStreamNextEventSeq++;
+    const payload = this.buildMcpJobStreamEventPayload(seq, eventName, item);
+    this.mcpMetrics.stream_events_published += 1;
+    this.mcpStreamRecentEvents.push(payload);
+    if (this.mcpStreamRecentEvents.length > this.mcpStreamMaxEvents) {
+      this.mcpStreamRecentEvents = this.mcpStreamRecentEvents.slice(
+        this.mcpStreamRecentEvents.length - this.mcpStreamMaxEvents
+      );
+    }
+    for (const [subscriberId, subscriber] of this.mcpStreamSubscribers.entries()) {
+      if (!subscriber || typeof subscriber !== "object") {
+        continue;
+      }
+      if (
+        subscriber.thread_id &&
+        subscriber.thread_id !== payload.thread_id
+      ) {
+        continue;
+      }
+      try {
+        subscriber.onEvent(payload);
+        this.mcpMetrics.stream_events_delivered += 1;
+      } catch {
+        // Drop bad subscribers on write failures to avoid persistent leaks.
+        this.mcpStreamSubscribers.delete(subscriberId);
+        this.mcpMetrics.stream_subscriber_drops += 1;
+      }
+    }
+    return payload;
+  }
+
+  getMcpMetrics() {
+    if (!this.enableMcpAdapter) {
+      return {
+        statusCode: 404,
+        body: this.withMcpErrorFeedback({
+          status: "rejected",
+          error_code: "E_NOT_FOUND",
+          message: "MCP adapter is disabled",
+        }),
+      };
+    }
+    this.turnStore.sweep();
+    this.refreshMcpJobs({ drainQueue: true });
+    const statusQueries =
+      Number.isFinite(Number(this.mcpMetrics.status_query_calls)) &&
+      Number(this.mcpMetrics.status_query_calls) >= 0
+        ? Math.floor(Number(this.mcpMetrics.status_query_calls))
+        : 0;
+    const pushEventsTotal =
+      (Number.isFinite(Number(this.mcpMetrics.stream_events_delivered)) &&
+      Number(this.mcpMetrics.stream_events_delivered) >= 0
+        ? Math.floor(Number(this.mcpMetrics.stream_events_delivered))
+        : 0) +
+      (Number.isFinite(Number(this.mcpMetrics.stream_replay_events_sent)) &&
+      Number(this.mcpMetrics.stream_replay_events_sent) >= 0
+        ? Math.floor(Number(this.mcpMetrics.stream_replay_events_sent))
+        : 0);
+    return {
+      statusCode: 200,
+      body: {
+        status: "ok",
+        timestamp: this.nowIso(),
+        status_query_calls: statusQueries,
+        stream_connect_calls:
+          Number.isFinite(Number(this.mcpMetrics.stream_connect_calls)) &&
+          Number(this.mcpMetrics.stream_connect_calls) >= 0
+            ? Math.floor(Number(this.mcpMetrics.stream_connect_calls))
+            : 0,
+        stream_events_published:
+          Number.isFinite(Number(this.mcpMetrics.stream_events_published)) &&
+          Number(this.mcpMetrics.stream_events_published) >= 0
+            ? Math.floor(Number(this.mcpMetrics.stream_events_published))
+            : 0,
+        stream_events_delivered:
+          Number.isFinite(Number(this.mcpMetrics.stream_events_delivered)) &&
+          Number(this.mcpMetrics.stream_events_delivered) >= 0
+            ? Math.floor(Number(this.mcpMetrics.stream_events_delivered))
+            : 0,
+        stream_replay_events_sent:
+          Number.isFinite(Number(this.mcpMetrics.stream_replay_events_sent)) &&
+          Number(this.mcpMetrics.stream_replay_events_sent) >= 0
+            ? Math.floor(Number(this.mcpMetrics.stream_replay_events_sent))
+            : 0,
+        stream_recovery_jobs_sent:
+          Number.isFinite(Number(this.mcpMetrics.stream_recovery_jobs_sent)) &&
+          Number(this.mcpMetrics.stream_recovery_jobs_sent) >= 0
+            ? Math.floor(Number(this.mcpMetrics.stream_recovery_jobs_sent))
+            : 0,
+        stream_subscriber_rejects:
+          Number.isFinite(Number(this.mcpMetrics.stream_subscriber_rejects)) &&
+          Number(this.mcpMetrics.stream_subscriber_rejects) >= 0
+            ? Math.floor(Number(this.mcpMetrics.stream_subscriber_rejects))
+            : 0,
+        stream_subscriber_drops:
+          Number.isFinite(Number(this.mcpMetrics.stream_subscriber_drops)) &&
+          Number(this.mcpMetrics.stream_subscriber_drops) >= 0
+            ? Math.floor(Number(this.mcpMetrics.stream_subscriber_drops))
+            : 0,
+        push_events_total: pushEventsTotal,
+        query_to_push_ratio:
+          pushEventsTotal > 0
+            ? Number((statusQueries / pushEventsTotal).toFixed(4))
+            : null,
+        active_stream_subscribers: this.mcpStreamSubscribers.size,
+        stream_max_subscribers: this.mcpStreamMaxSubscribers,
+        stream_recovery_jobs_max: this.mcpStreamRecoveryJobsMax,
+        recent_stream_buffer_size: this.mcpStreamRecentEvents.length,
+        running_job_id: this.mcpRunningJobId || "",
+      },
+    };
+  }
+
+  buildMcpJobStreamEventPayload(seq, eventName, job) {
+    const statusPayload = this.buildMcpJobStatusPayload(job);
+    const eventType = normalizeMcpStreamEventType(eventName, statusPayload.status);
+    return {
+      seq,
+      event: eventType,
+      timestamp: this.nowIso(),
+      thread_id: typeof job.thread_id === "string" ? job.thread_id : "",
+      job_id: statusPayload.job_id,
+      status: statusPayload.status,
+      stage: statusPayload.stage,
+      message: statusPayload.progress_message,
+      progress_message: statusPayload.progress_message,
+      error_code: statusPayload.error_code,
+      error_message: statusPayload.error_message,
+      suggestion: statusPayload.suggestion,
+      recoverable: statusPayload.recoverable,
+      request_id: statusPayload.request_id,
+      running_job_id: statusPayload.running_job_id,
+      approval_mode: statusPayload.approval_mode,
+      execution_report: statusPayload.execution_report,
+      created_at: statusPayload.created_at,
+      updated_at: statusPayload.updated_at,
+    };
+  }
+
+  persistMcpJobs() {
+    if (
+      !this.enableMcpAdapter ||
+      !this.mcpSnapshotStore ||
+      typeof this.mcpSnapshotStore.saveSnapshot !== "function"
+    ) {
+      return;
+    }
+    const snapshot = {
+      version: 1,
+      saved_at: this.nowIso(),
+      running_job_id: this.mcpRunningJobId || "",
+      queued_job_ids: this.mcpQueuedJobIds.slice(),
+      jobs: Array.from(this.mcpJobsById.values()).map((job) =>
+        this.buildPersistableMcpJob(job)
+      ),
+    };
+    this.mcpSnapshotStore.saveSnapshot(snapshot);
+  }
+
+  restoreMcpJobsFromSnapshot() {
+    if (
+      !this.enableMcpAdapter ||
+      !this.mcpSnapshotStore ||
+      typeof this.mcpSnapshotStore.loadSnapshot !== "function"
+    ) {
+      return;
+    }
+    const snapshot = this.mcpSnapshotStore.loadSnapshot();
+    if (!snapshot || typeof snapshot !== "object" || !Array.isArray(snapshot.jobs)) {
+      return;
+    }
+
+    this.mcpJobsById.clear();
+    this.mcpIdempotencyToJobId.clear();
+    this.mcpQueuedJobIds = [];
+    this.mcpRunningJobId = "";
+
+    const queuedSet = new Set();
+    if (Array.isArray(snapshot.queued_job_ids)) {
+      for (const jobId of snapshot.queued_job_ids) {
+        if (typeof jobId === "string" && jobId.trim()) {
+          queuedSet.add(jobId.trim());
+        }
+      }
+    }
+
+    for (const item of snapshot.jobs) {
+      const job = normalizeMcpJobSnapshotItem(item);
+      if (!job) {
+        continue;
+      }
+      if (queuedSet.has(job.job_id)) {
+        job.status = "queued";
+        job.stage = "queued";
+      }
+      this.mcpJobsById.set(job.job_id, job);
+      if (job.idempotency_key) {
+        this.mcpIdempotencyToJobId.set(job.idempotency_key, job.job_id);
+      }
+      if (job.status === "queued") {
+        this.mcpQueuedJobIds.push(job.job_id);
+      }
+    }
+
+    if (this.mcpQueuedJobIds.length === 0) {
+      this.mcpQueuedJobIds = Array.from(this.mcpJobsById.values())
+        .filter((job) => job && job.status === "queued")
+        .sort((a, b) => a.created_at - b.created_at)
+        .map((job) => job.job_id);
+    }
+
+    const restoredRunningJobId =
+      typeof snapshot.running_job_id === "string" ? snapshot.running_job_id.trim() : "";
+    if (restoredRunningJobId) {
+      const restoredRunningJob = this.mcpJobsById.get(restoredRunningJobId);
+      if (restoredRunningJob && !isTerminalMcpStatus(restoredRunningJob.status)) {
+        this.mcpRunningJobId = restoredRunningJobId;
+      }
+    }
+  }
+
+  buildPersistableMcpJob(job) {
+    const item = job && typeof job === "object" ? job : {};
+    return {
+      job_id: item.job_id || "",
+      idempotency_key: item.idempotency_key || "",
+      approval_mode: normalizeApprovalMode(item.approval_mode, "auto"),
+      user_intent: item.user_intent || "",
+      thread_id: item.thread_id || "",
+      request_id: item.request_id || "",
+      turn_id: item.turn_id || "",
+      context:
+        item.context && typeof item.context === "object"
+          ? item.context
+          : buildDefaultTurnContext(),
+      status: item.status || "pending",
+      stage: item.stage || "",
+      progress_message: item.progress_message || "",
+      error_code: item.error_code || "",
+      error_message: item.error_message || "",
+      suggestion: item.suggestion || "",
+      recoverable: item.recoverable === true,
+      execution_report:
+        item.execution_report && typeof item.execution_report === "object"
+          ? item.execution_report
+          : null,
+      created_at: Number.isFinite(item.created_at) ? Number(item.created_at) : Date.now(),
+      updated_at: Number.isFinite(item.updated_at) ? Number(item.updated_at) : Date.now(),
+      terminal_at: Number.isFinite(item.terminal_at) ? Number(item.terminal_at) : 0,
     };
   }
 
@@ -394,6 +1693,7 @@ class TurnService {
     this.turnStore.sweep();
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
+    this.refreshMcpJobs({ drainQueue: true });
 
     const validation = validateFileActionsApply(body);
     if (!validation.ok) {
@@ -490,6 +1790,7 @@ class TurnService {
     this.turnStore.sweep();
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
+    this.refreshMcpJobs({ drainQueue: true });
 
     const validation = validateUnityCompileResult(body);
     if (!validation.ok) {
@@ -522,9 +1823,9 @@ class TurnService {
       return {
         statusCode: 409,
         body: {
+          ...this.turnStore.buildTurnStatus(turn),
           error_code: "E_PHASE_INVALID",
           message: "turn is not active",
-          ...this.turnStore.buildTurnStatus(turn),
         },
       };
     }
@@ -533,9 +1834,9 @@ class TurnService {
       return {
         statusCode: 409,
         body: {
+          ...this.turnStore.buildTurnStatus(turn),
           error_code: "E_PHASE_INVALID",
           message: "turn is not in compile_pending stage",
-          ...this.turnStore.buildTurnStatus(turn),
         },
       };
     }
@@ -622,6 +1923,7 @@ class TurnService {
     this.turnStore.sweep();
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
+    this.refreshMcpJobs({ drainQueue: true });
 
     const validation = validateUnityActionResult(body);
     if (!validation.ok) {
@@ -654,9 +1956,9 @@ class TurnService {
       return {
         statusCode: 409,
         body: {
+          ...this.turnStore.buildTurnStatus(turn),
           error_code: "E_PHASE_INVALID",
           message: "turn is not active",
-          ...this.turnStore.buildTurnStatus(turn),
         },
       };
     }
@@ -668,9 +1970,9 @@ class TurnService {
       return {
         statusCode: 409,
         body: {
+          ...this.turnStore.buildTurnStatus(turn),
           error_code: "E_PHASE_INVALID",
           message: "turn is not in action_confirm_pending/action_executing stage",
-          ...this.turnStore.buildTurnStatus(turn),
         },
       };
     }
@@ -698,9 +2000,9 @@ class TurnService {
       return {
         statusCode: 409,
         body: {
+          ...this.turnStore.buildTurnStatus(turn),
           error_code: "E_SCHEMA_INVALID",
           message: actionMatch.message,
-          ...this.turnStore.buildTurnStatus(turn),
         },
       };
     }
@@ -713,6 +2015,43 @@ class TurnService {
         "E_ACTION_EXECUTION_FAILED"
       );
       const summary = this.buildActionFailureSummary(body.payload);
+      if (isUnityRebootWaitErrorCode(errorCode)) {
+        this.turnStore.setActionConfirmPending(requestId);
+        const pending = this.turnStore.getTurn(requestId);
+        const unityActionRequest = this.buildUnityActionRequestEnvelope(
+          body,
+          pendingAction
+        );
+        this.turnStore.appendEvent(requestId, "chat.message", {
+          phase: "planning",
+          role: "assistant",
+          message:
+            "Unity reported domain reload in progress. Waiting for runtime ping to retry the pending visual action.",
+          stage: "action_confirm_pending",
+          error_code: errorCode,
+          unity_action_request: unityActionRequest,
+        });
+        this.turnStore.appendEvent(requestId, "unity.action.request", {
+          phase: "planning",
+          message: "Action paused by domain reload; waiting for retry confirmation.",
+          stage: "action_confirm_pending",
+          error_code: errorCode,
+          unity_action_request: unityActionRequest,
+        });
+        return {
+          statusCode: 202,
+          body: {
+            ok: true,
+            recoverable: true,
+            waiting_for_unity_reboot: true,
+            action_success: false,
+            error_code: errorCode,
+            message: summary,
+            ...(pending ? this.turnStore.buildTurnStatus(pending) : {}),
+            unity_action_request: unityActionRequest,
+          },
+        };
+      }
       const autoFixOutcome = this.tryAutoFixActionFailure(
         requestId,
         body,
@@ -801,6 +2140,7 @@ class TurnService {
     this.turnStore.sweep();
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
+    this.refreshMcpJobs({ drainQueue: true });
 
     const validation = validateUnityQueryComponentsResult(body);
     if (!validation.ok) {
@@ -866,6 +2206,9 @@ class TurnService {
       typeof body.payload.error_message === "string"
         ? body.payload.error_message
         : "";
+    const errorCode = normalizeUnityQueryErrorCode(
+      body.payload.error_code
+    );
 
     this.pendingUnityComponentQueries.delete(queryId);
     if (pending.timer) {
@@ -876,6 +2219,7 @@ class TurnService {
         query_id: queryId,
         target_path: targetPath,
         components,
+        error_code: errorCode,
         error_message: errorMessage,
       });
     } catch {
@@ -883,10 +2227,13 @@ class TurnService {
     }
 
     this.touchCodexHeartbeat(requestId);
+    const queryResultMessage = errorCode
+      ? `Unity components query resolved with ${errorCode}: ${targetPath}`
+      : `Unity components query resolved: ${targetPath} (${components.length})`;
     this.turnStore.appendEvent(requestId, "unity.query.components.result", {
       phase: "planning",
       stage: "codex_pending",
-      message: `Unity components query resolved: ${targetPath} (${components.length})`,
+      message: queryResultMessage,
       unity_query_components_result: {
         event: "unity.query.components.result",
         request_id: requestId,
@@ -897,6 +2244,7 @@ class TurnService {
           query_id: queryId,
           target_path: targetPath,
           components,
+          error_code: errorCode,
           error_message: errorMessage,
         },
       },
@@ -910,6 +2258,7 @@ class TurnService {
         request_id: requestId,
         query_id: queryId,
         components_count: components.length,
+        error_code: errorCode,
         ...(turn ? this.turnStore.buildTurnStatus(turn) : {}),
       },
     };
@@ -919,6 +2268,7 @@ class TurnService {
     this.turnStore.sweep();
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
+    this.refreshMcpJobs({ drainQueue: true });
 
     const validation = validateUnityRuntimePing(body);
     if (!validation.ok) {
@@ -1050,7 +2400,29 @@ class TurnService {
     let extractionStartEmitted = false;
     let extractionCompleteEmitted = false;
 
-    const emitStageEvent = (eventName, message) => {
+    const normalizePlannerMetrics = (value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return null;
+      }
+      const normalized = {};
+      for (const key of Object.keys(value)) {
+        const raw = value[key];
+        if (Number.isFinite(raw)) {
+          normalized[key] = Number(raw);
+          continue;
+        }
+        if (typeof raw === "string") {
+          normalized[key] = raw;
+          continue;
+        }
+        if (typeof raw === "boolean") {
+          normalized[key] = raw;
+        }
+      }
+      return Object.keys(normalized).length > 0 ? normalized : null;
+    };
+
+    const emitStageEvent = (eventName, message, plannerMetrics) => {
       this.turnStore.appendEvent(
         requestId,
         eventName,
@@ -1059,6 +2431,7 @@ class TurnService {
           stage: "codex_pending",
           message: message || "",
           role: "system",
+          planner_metrics: normalizePlannerMetrics(plannerMetrics),
         }
       );
     };
@@ -1075,6 +2448,9 @@ class TurnService {
         progressEvent && Number.isFinite(progressEvent.timestamp)
           ? Number(progressEvent.timestamp)
           : Date.now();
+      const plannerMetrics = normalizePlannerMetrics(
+        progressEvent && progressEvent.metrics
+      );
 
       if (stageName === "text_turn.started") {
         if (!textTurnStartEmitted) {
@@ -1103,6 +2479,116 @@ class TurnService {
         return;
       }
 
+      if (stageName === "text_turn.first_token") {
+        const ttftMs =
+          plannerMetrics && Number.isFinite(plannerMetrics.ttft_ms)
+            ? Math.max(0, Number(plannerMetrics.ttft_ms))
+            : 0;
+        emitStageEvent(
+          "text_turn_first_token",
+          ttftMs > 0
+            ? `text_turn first token in ${ttftMs}ms`
+            : "text_turn first token",
+          plannerMetrics
+        );
+        return;
+      }
+
+      if (stageName === "text_turn.usage") {
+        const totalTokens =
+          plannerMetrics && Number.isFinite(plannerMetrics.total_tokens)
+            ? Number(plannerMetrics.total_tokens)
+            : 0;
+        emitStageEvent(
+          "text_turn_usage",
+          totalTokens > 0
+            ? `text_turn usage total_tokens=${totalTokens}`
+            : "text_turn usage received",
+          plannerMetrics
+        );
+        return;
+      }
+
+      if (stageName === "text_turn.memory_policy") {
+        const memoryInjected =
+          plannerMetrics && plannerMetrics.memory_injected === true;
+        const memoryLines =
+          plannerMetrics && Number.isFinite(plannerMetrics.memory_lines)
+            ? Number(plannerMetrics.memory_lines)
+            : 0;
+        const memorySourceLines =
+          plannerMetrics && Number.isFinite(plannerMetrics.memory_source_lines)
+            ? Number(plannerMetrics.memory_source_lines)
+            : 0;
+        const memorySavedLines =
+          plannerMetrics && Number.isFinite(plannerMetrics.memory_saved_lines)
+            ? Number(plannerMetrics.memory_saved_lines)
+            : 0;
+        const memoryCompactionRatio =
+          plannerMetrics &&
+          Number.isFinite(plannerMetrics.memory_compaction_ratio)
+            ? Number(plannerMetrics.memory_compaction_ratio)
+            : 0;
+        const memoryRelevanceDroppedLines =
+          plannerMetrics &&
+          Number.isFinite(plannerMetrics.memory_relevance_dropped_lines)
+            ? Number(plannerMetrics.memory_relevance_dropped_lines)
+            : 0;
+        const memoryNoiseDroppedLines =
+          plannerMetrics &&
+          Number.isFinite(plannerMetrics.memory_noise_dropped_lines)
+            ? Number(plannerMetrics.memory_noise_dropped_lines)
+            : 0;
+        const memorySignalPinnedLines =
+          plannerMetrics &&
+          Number.isFinite(plannerMetrics.memory_signal_pinned_lines)
+            ? Number(plannerMetrics.memory_signal_pinned_lines)
+            : 0;
+        const memorySignalPinCompactedLines =
+          plannerMetrics &&
+          Number.isFinite(plannerMetrics.memory_signal_pin_compacted_lines)
+            ? Number(plannerMetrics.memory_signal_pin_compacted_lines)
+            : 0;
+        const memorySignalPinAddedChars =
+          plannerMetrics &&
+          Number.isFinite(plannerMetrics.memory_signal_pin_added_chars)
+            ? Number(plannerMetrics.memory_signal_pin_added_chars)
+            : 0;
+        const capsuleMode =
+          plannerMetrics && typeof plannerMetrics.memory_capsule_mode === "string"
+            ? plannerMetrics.memory_capsule_mode
+            : "";
+        emitStageEvent(
+          "text_turn_memory_policy",
+          memoryInjected
+            ? `memory capsule injected (${memoryLines}/${memorySourceLines} lines, saved=${memorySavedLines}, noise_dropped=${memoryNoiseDroppedLines}, relevance_dropped=${memoryRelevanceDroppedLines}, pinned=${memorySignalPinnedLines}, pin_compact=${memorySignalPinCompactedLines}, pin_chars=${memorySignalPinAddedChars}, ratio=${memoryCompactionRatio.toFixed(2)}, mode=${capsuleMode || "unknown"})`
+            : "memory capsule not injected",
+          plannerMetrics
+        );
+        return;
+      }
+
+      if (stageName === "text_turn.context_budget") {
+        const pathHintsCount =
+          plannerMetrics && Number.isFinite(plannerMetrics.path_hints_count)
+            ? Number(plannerMetrics.path_hints_count)
+            : 0;
+        const pathHintsLimit =
+          plannerMetrics && Number.isFinite(plannerMetrics.path_hints_limit)
+            ? Number(plannerMetrics.path_hints_limit)
+            : 0;
+        const contextTruncated =
+          plannerMetrics && plannerMetrics.context_truncated === true;
+        emitStageEvent(
+          "text_turn_context_budget",
+          contextTruncated
+            ? `context budget truncated (${pathHintsCount}/${pathHintsLimit} path hints)`
+            : `context budget applied (${pathHintsCount}/${pathHintsLimit} path hints)`,
+          plannerMetrics
+        );
+        return;
+      }
+
       if (stageName === "extraction_turn.started") {
         if (!extractionStartEmitted) {
           extractionStartedAt = timestamp;
@@ -1127,6 +2613,34 @@ class TurnService {
             `extraction_turn completed in ${durationMs}ms`
           );
         }
+        return;
+      }
+
+      if (stageName === "extraction_turn.usage") {
+        const totalTokens =
+          plannerMetrics && Number.isFinite(plannerMetrics.total_tokens)
+            ? Number(plannerMetrics.total_tokens)
+            : 0;
+        emitStageEvent(
+          "extraction_turn_usage",
+          totalTokens > 0
+            ? `extraction_turn usage total_tokens=${totalTokens}`
+            : "extraction_turn usage received",
+          plannerMetrics
+        );
+        return;
+      }
+
+      if (stageName === "extraction_turn.failed") {
+        const reason =
+          plannerMetrics && typeof plannerMetrics.reason === "string"
+            ? plannerMetrics.reason
+            : "unknown";
+        emitStageEvent(
+          "extraction_turn_failed",
+          `extraction_turn failed: ${reason}`,
+          plannerMetrics
+        );
       }
     };
 
@@ -1748,15 +3262,25 @@ class TurnService {
   }
 
   buildUnityActionRequestEnvelope(body, action) {
+    const approvalMode = this.resolveTurnApprovalMode(
+      body && typeof body === "object" ? body.request_id : ""
+    );
     return this.buildUnityActionRequestEnvelopeWithIds(
       body.request_id,
       body.thread_id,
       body.turn_id,
-      action
+      action,
+      { approvalMode }
     );
   }
 
-  buildUnityActionRequestEnvelopeWithIds(requestId, threadId, turnId, action) {
+  buildUnityActionRequestEnvelopeWithIds(requestId, threadId, turnId, action, options) {
+    const opts = options && typeof options === "object" ? options : {};
+    const approvalMode = normalizeApprovalMode(
+      opts.approvalMode,
+      this.resolveTurnApprovalMode(requestId)
+    );
+    const requiresConfirmation = approvalMode !== "auto";
     return {
       event: "unity.action.request",
       request_id: requestId,
@@ -1764,7 +3288,7 @@ class TurnService {
       turn_id: turnId,
       timestamp: this.nowIso(),
       payload: {
-        requires_confirmation: true,
+        requires_confirmation: requiresConfirmation,
         action: {
           type: action.type,
           target: action.target,
@@ -1861,10 +3385,36 @@ class TurnService {
         signal.addEventListener("abort", onAbort, { once: true });
       }
 
+      const timeoutMs =
+        Number.isFinite(this.unityComponentQueryTimeoutMs) &&
+        this.unityComponentQueryTimeoutMs > 0
+          ? this.unityComponentQueryTimeoutMs
+          : 5000;
       const timer = setTimeout(() => {
         cleanup();
-        reject(new Error("unity components query timed out"));
-      }, 30000);
+        const timeoutResult = {
+          query_id: queryId,
+          target_path: targetPath,
+          components: [],
+          error_code: "unity_busy_or_compiling",
+          error_message: `Unity components query timed out after ${timeoutMs}ms`,
+        };
+        this.touchCodexHeartbeat(requestId);
+        this.turnStore.appendEvent(requestId, "unity.query.components.result", {
+          phase: "planning",
+          stage: "codex_pending",
+          message: `Unity components query timed out: ${targetPath}`,
+          unity_query_components_result: {
+            event: "unity.query.components.result",
+            request_id: requestId,
+            thread_id: threadId,
+            turn_id: turnId,
+            timestamp: this.nowIso(),
+            payload: timeoutResult,
+          },
+        });
+        resolve(timeoutResult);
+      }, timeoutMs);
       if (timer && typeof timer.unref === "function") {
         timer.unref();
       }
@@ -2438,6 +3988,20 @@ function normalizeErrorCode(value, fallback) {
   return code || fallback;
 }
 
+function normalizeApprovalMode(value, fallback) {
+  if (value === "auto" || value === "require_user") {
+    return value;
+  }
+  return fallback === "auto" ? "auto" : "require_user";
+}
+
+function normalizeUnityQueryErrorCode(value) {
+  if (!value || typeof value !== "string") {
+    return "";
+  }
+  return value.trim();
+}
+
 function toOptionalBoolean(value) {
   if (typeof value !== "boolean") {
     return null;
@@ -2476,10 +4040,266 @@ function withAbortTimeout(promise, controller, timeoutMs, message) {
   });
 }
 
+function isUnityRebootWaitErrorCode(value) {
+  const code = String(value || "").trim().toUpperCase();
+  if (!code) {
+    return false;
+  }
+  return (
+    code === "WAITING_FOR_UNITY_REBOOT" ||
+    code === "E_WAITING_FOR_UNITY_REBOOT"
+  );
+}
+
 function createUnityQueryId() {
   const stamp = Date.now().toString(36);
   const rand = Math.random().toString(36).slice(2, 10);
   return `uq_${stamp}_${rand}`;
+}
+
+function normalizeMcpJobSnapshotItem(item) {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+  const jobId = typeof item.job_id === "string" ? item.job_id.trim() : "";
+  if (!jobId) {
+    return null;
+  }
+  const status = normalizeMcpJobStatus(item.status);
+  const now = Date.now();
+  const createdAt =
+    Number.isFinite(Number(item.created_at)) && Number(item.created_at) > 0
+      ? Math.floor(Number(item.created_at))
+      : now;
+  const updatedAt =
+    Number.isFinite(Number(item.updated_at)) && Number(item.updated_at) > 0
+      ? Math.floor(Number(item.updated_at))
+      : createdAt;
+  const terminalAt =
+    Number.isFinite(Number(item.terminal_at)) && Number(item.terminal_at) > 0
+      ? Math.floor(Number(item.terminal_at))
+      : 0;
+  return {
+    job_id: jobId,
+    idempotency_key:
+      typeof item.idempotency_key === "string" ? item.idempotency_key.trim() : "",
+    approval_mode: normalizeApprovalMode(item.approval_mode, "auto"),
+    user_intent: typeof item.user_intent === "string" ? item.user_intent : "",
+    thread_id: typeof item.thread_id === "string" ? item.thread_id : "",
+    request_id: typeof item.request_id === "string" ? item.request_id : "",
+    turn_id: typeof item.turn_id === "string" ? item.turn_id : "",
+    context:
+      item.context && typeof item.context === "object"
+        ? item.context
+        : buildDefaultTurnContext(),
+    status,
+    stage:
+      typeof item.stage === "string" && item.stage
+        ? item.stage
+        : status === "queued"
+          ? "queued"
+          : status === "failed"
+            ? "failed"
+            : "",
+    progress_message:
+      typeof item.progress_message === "string" ? item.progress_message : "",
+    error_code: typeof item.error_code === "string" ? item.error_code : "",
+    error_message: typeof item.error_message === "string" ? item.error_message : "",
+    suggestion: typeof item.suggestion === "string" ? item.suggestion : "",
+    recoverable: item.recoverable === true,
+    execution_report:
+      item.execution_report && typeof item.execution_report === "object"
+        ? item.execution_report
+        : null,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    terminal_at: terminalAt,
+  };
+}
+
+function normalizeMcpJobStatus(value) {
+  const status = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (
+    status === "queued" ||
+    status === "pending" ||
+    status === "succeeded" ||
+    status === "failed" ||
+    status === "cancelled"
+  ) {
+    return status;
+  }
+  return "pending";
+}
+
+function sameJson(a, b) {
+  if (a === b) {
+    return true;
+  }
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+function normalizeMcpStreamEventType(value, statusHint) {
+  const eventName = typeof value === "string" ? value.trim() : "";
+  if (eventName === "job.progress" || eventName === "job.completed") {
+    return eventName;
+  }
+  return isTerminalMcpStatus(statusHint) ? "job.completed" : "job.progress";
+}
+
+function mapMcpErrorFeedback(errorCode, errorMessage) {
+  const code = normalizeErrorCode(errorCode, "E_INTERNAL");
+  const message = typeof errorMessage === "string" ? errorMessage : "";
+  switch (code) {
+    case "E_SCHEMA_INVALID":
+      return {
+        recoverable: true,
+        suggestion:
+          "Fix request schema and resubmit. Ensure required fields are non-empty strings.",
+      };
+    case "E_CONTEXT_DEPTH_VIOLATION":
+      return {
+        recoverable: true,
+        suggestion:
+          "Set context.selection_tree.max_depth to 2 and retry submit_unity_task.",
+      };
+    case "E_JOB_CONFLICT":
+      return {
+        recoverable: true,
+        suggestion:
+          "Use running_job_id for status/cancel, then retry after the running job finishes.",
+      };
+    case "E_TOO_MANY_ACTIVE_TURNS":
+      return {
+        recoverable: true,
+        suggestion:
+          "Wait for the active turn to finish or cancel it before submitting another job.",
+      };
+    case "E_FILE_PATH_FORBIDDEN":
+      return {
+        recoverable: true,
+        suggestion:
+          "Write files only under Assets/Scripts/AIGenerated and retry with a safe path.",
+      };
+    case "E_FILE_SIZE_EXCEEDED":
+      return {
+        recoverable: true,
+        suggestion:
+          "Reduce file content size below the configured sidecar maxFileBytes limit and retry.",
+      };
+    case "E_FILE_EXISTS_BLOCKED":
+      return {
+        recoverable: true,
+        suggestion:
+          "Use overwrite_if_exists=true or choose a new file path before retrying.",
+      };
+    case "E_ACTION_COMPONENT_NOT_FOUND":
+      return {
+        recoverable: true,
+        suggestion:
+          "Query available components on target, then retry with a valid component name/type.",
+      };
+    case "WAITING_FOR_UNITY_REBOOT":
+    case "E_WAITING_FOR_UNITY_REBOOT":
+      return {
+        recoverable: true,
+        suggestion:
+          "Wait for unity.runtime.ping recovery, then retry the pending visual action.",
+      };
+    case "E_JOB_NOT_FOUND":
+      return {
+        recoverable: false,
+        suggestion: "Verify job_id and thread scope before polling or cancelling.",
+      };
+    case "E_JOB_RECOVERY_STALE":
+      return {
+        recoverable: true,
+        suggestion:
+          "Recovered stale pending job. Resubmit with a new idempotency_key if the task is still needed.",
+      };
+    case "E_STREAM_SUBSCRIBERS_EXCEEDED":
+      return {
+        recoverable: true,
+        suggestion:
+          "Too many active stream subscribers. Close stale streams and reconnect, or increase MCP_STREAM_MAX_SUBSCRIBERS.",
+      };
+    case "E_NOT_FOUND":
+      return {
+        recoverable: false,
+        suggestion:
+          "Enable MCP adapter (ENABLE_MCP_ADAPTER=true) or fallback to local direct endpoints.",
+      };
+    default:
+      return {
+        recoverable: false,
+        suggestion:
+          message && message.toLowerCase().includes("timeout")
+            ? "Retry once after backoff. If timeout persists, reduce task scope or inspect sidecar logs."
+            : "Inspect error_code/error_message, adjust task payload, then retry if safe.",
+      };
+  }
+}
+
+function mapTurnStateToMcpStatus(turnState) {
+  const state = typeof turnState === "string" ? turnState : "";
+  if (state === "completed") {
+    return "succeeded";
+  }
+  if (state === "error") {
+    return "failed";
+  }
+  if (state === "cancelled") {
+    return "cancelled";
+  }
+  return "pending";
+}
+
+function isTerminalMcpStatus(status) {
+  return status === "succeeded" || status === "failed" || status === "cancelled";
+}
+
+function createMcpJobId(nowMs) {
+  const ts = Number.isFinite(nowMs) && nowMs > 0 ? Number(nowMs) : Date.now();
+  const stamp = new Date(ts).toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `job_${stamp}_${rand}`;
+}
+
+function createMcpRequestId(nowMs) {
+  const ts = Number.isFinite(nowMs) && nowMs > 0 ? Number(nowMs) : Date.now();
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `mcp_req_${ts}_${rand}`;
+}
+
+function createMcpTurnId(nowMs) {
+  const ts = Number.isFinite(nowMs) && nowMs > 0 ? Number(nowMs) : Date.now();
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `mcp_turn_${ts}_${rand}`;
+}
+
+function buildDefaultTurnContext() {
+  return {
+    selection: {
+      mode: "selection",
+      target_object_path: "Scene/Canvas/Image",
+      prefab_path: "",
+    },
+    selection_tree: {
+      max_depth: 2,
+      root: {
+        name: "Image",
+        path: "Scene/Canvas/Image",
+        depth: 0,
+        components: ["Transform", "Image"],
+        children: [],
+      },
+      truncated_node_count: 0,
+      truncated_reason: "",
+    },
+  };
 }
 
 module.exports = {

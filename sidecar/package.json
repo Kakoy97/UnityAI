@@ -6,8 +6,27 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js --port 46321",
+    "start:mcp": "node -e \"process.env.ENABLE_MCP_ADAPTER='true';process.env.MCP_MAX_QUEUE='1';process.env.MCP_STREAM_MAX_EVENTS='500';process.env.MCP_STREAM_MAX_SUBSCRIBERS='32';process.env.MCP_STREAM_RECOVERY_JOBS_MAX='20';require('./index.js')\" --port 46321",
     "smoke": "node scripts/smoke-turn-runner.js --iterations 20 --include-turn-send",
     "smoke:fast": "node scripts/smoke-turn-runner.js --base-url http://127.0.0.1:46331 --iterations 3 --skip-turn-send --include-timeout-case --spawn-sidecar --compile-timeout-ms 1200",
-    "smoke:codex-timeout": "node scripts/smoke-turn-runner.js --base-url http://127.0.0.1:46330 --iterations 1 --skip-turn-send --include-codex-timeout-case --spawn-sidecar --fake-codex-timeout-planner --codex-soft-timeout-ms 1200 --codex-hard-timeout-ms 2400"
+    "smoke:codex-timeout": "node scripts/smoke-turn-runner.js --base-url http://127.0.0.1:46330 --iterations 1 --skip-turn-send --include-codex-timeout-case --spawn-sidecar --fake-codex-timeout-planner --codex-soft-timeout-ms 1200 --codex-hard-timeout-ms 2400",
+    "smoke:query-timeout": "node scripts/smoke-turn-runner.js --base-url http://127.0.0.1:46329 --iterations 1 --skip-turn-send --include-query-timeout-case --spawn-sidecar --unity-query-timeout-ms 1200",
+    "smoke:query-probe": "node scripts/smoke-turn-runner.js --base-url http://127.0.0.1:46328 --iterations 1 --skip-turn-send --include-query-probe-case --spawn-sidecar --fake-unity-query-mode remove_except_keep --fake-unity-query-keep-component KeepComponent --unity-query-timeout-ms 5000",
+    "smoke:planner-probe": "node scripts/planner-probe-regression.js",
+    "smoke:planner-memory": "node scripts/planner-memory-regression.js",
+    "smoke:mcp-job": "node scripts/mcp-job-runner.js --base-url http://127.0.0.1:46327 --spawn-sidecar --mcp-max-queue 1",
+    "smoke:mcp-stream": "node scripts/mcp-stream-runner.js --base-url http://127.0.0.1:46326 --spawn-sidecar --mcp-max-queue 1 --mcp-stream-max-events 6 --mcp-stream-max-subscribers 2 --mcp-stream-recovery-jobs-max 2",
+    "gate:step8": "node scripts/step8-quality-gate.js",
+    "replay:failed": "node scripts/replay-failed-report.js",
+    "metrics:step2": "node scripts/step2-metrics-compare.js --rounds 12 --spawn-sidecar",
+    "metrics:step8": "node scripts/step8-quality-gate.js --skip-matrix",
+    "metrics:step7-memory": "node scripts/step7-memory-compare.js --rounds 24",
+    "metrics:step7-scope": "node scripts/step7-scope-filter-compare.js --rounds 20 --min-keep-lines 1",
+    "metrics:step7-noise": "node scripts/step7-noise-filter-compare.js --rounds 20 --min-keep-lines 1",
+    "metrics:step7-pin": "node scripts/step7-pin-compare.js --rounds 20 --min-keep-lines 1 --signal-pin-max-lines 2",
+    "metrics:step7-pin-compact": "node scripts/step7-pin-compact-compare.js --rounds 20 --max-chars 90 --max-added-chars 120",
+    "mcp:server": "node src/mcp/mcpServer.js",
+    "mcp:setup-cursor": "node scripts/setup-cursor-mcp.js",
+    "mcp:verify": "node scripts/verify-mcp-setup.js"
   }
 }

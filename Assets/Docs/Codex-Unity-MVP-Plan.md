@@ -83,6 +83,19 @@ Unity Editor
 4. 进入条件判定：
    - 可进入 Step 2（Planner/Prompt 轻量化）。
 
+## 2.8 2026-02-24 Step 2 正式量化对比回填
+
+1. 对比执行状态：
+   - 已在可用 Codex app-server 环境执行 `npm run metrics:step2`。
+   - 报表：`sidecar/.state/step2-metrics-compare-20260224_045836592_25664_344.json`（`comparable=true`）。
+2. 核心结果：
+   - TTFT：P50 `10638ms -> 7495ms`，P95 `15993ms -> 8339ms`（均改善）。
+   - 提取失败率：baseline/candidate 均为 `0%`（无回归）。
+   - total_tokens：P50 `107 -> 149`，P95 `190 -> 315`（当前样本集上升）。
+3. 结论：
+   - Step 2 的“正式对比证据回填”已闭环，不再是待办。
+   - token 体积项继续由 Step 7 的记忆/注入治理策略持续收敛。
+
 ### 2.1 分层结构（高内聚 + 低耦合）
 
 #### Unity 进程分层

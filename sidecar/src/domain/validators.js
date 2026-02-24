@@ -712,6 +712,137 @@ function validateUnityRuntimePing(body) {
   return { ok: true };
 }
 
+function validateMcpSubmitUnityTask(body) {
+  if (!isObject(body)) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "Body must be a JSON object",
+      statusCode: 400,
+    };
+  }
+
+  if (!isNonEmptyString(body.thread_id)) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "thread_id is required",
+      statusCode: 400,
+    };
+  }
+
+  if (!isNonEmptyString(body.idempotency_key)) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "idempotency_key is required",
+      statusCode: 400,
+    };
+  }
+
+  if (!isNonEmptyString(body.user_intent)) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "user_intent is required",
+      statusCode: 400,
+    };
+  }
+
+  if (
+    body.approval_mode !== undefined &&
+    body.approval_mode !== "auto" &&
+    body.approval_mode !== "require_user"
+  ) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "approval_mode must be auto/require_user when provided",
+      statusCode: 400,
+    };
+  }
+
+  if (
+    body.task_allocation !== undefined &&
+    body.task_allocation !== null &&
+    !isObject(body.task_allocation)
+  ) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "task_allocation must be an object when provided",
+      statusCode: 400,
+    };
+  }
+
+  if (body.context !== undefined) {
+    if (!isObject(body.context)) {
+      return {
+        ok: false,
+        errorCode: "E_SCHEMA_INVALID",
+        message: "context must be an object when provided",
+        statusCode: 400,
+      };
+    }
+
+    const selectionTree = body.context.selection_tree;
+    if (!isObject(selectionTree)) {
+      return {
+        ok: false,
+        errorCode: "E_SCHEMA_INVALID",
+        message: "context.selection_tree is required when context is provided",
+        statusCode: 400,
+      };
+    }
+
+    if (selectionTree.max_depth !== 2) {
+      return {
+        ok: false,
+        errorCode: "E_CONTEXT_DEPTH_VIOLATION",
+        message: "context.selection_tree.max_depth must be 2",
+        statusCode: 400,
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
+function validateMcpGetUnityTaskStatus(jobId) {
+  const value = typeof jobId === "string" ? jobId.trim() : "";
+  if (!value) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "job_id query parameter is required",
+      statusCode: 400,
+    };
+  }
+  return { ok: true };
+}
+
+function validateMcpCancelUnityTask(body) {
+  if (!isObject(body)) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "Body must be a JSON object",
+      statusCode: 400,
+    };
+  }
+
+  if (!isNonEmptyString(body.job_id)) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "job_id is required",
+      statusCode: 400,
+    };
+  }
+
+  return { ok: true };
+}
+
 function validateUnityQueryComponentsResult(body) {
   const envelope = validateEnvelope(body, "unity.query.components.result");
   if (!envelope.ok) {
@@ -781,6 +912,18 @@ function validateUnityQueryComponentsResult(body) {
       ok: false,
       errorCode: "E_SCHEMA_INVALID",
       message: "payload.error_message must be a string when provided",
+      statusCode: 400,
+    };
+  }
+
+  if (
+    body.payload.error_code !== undefined &&
+    typeof body.payload.error_code !== "string"
+  ) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "payload.error_code must be a string when provided",
       statusCode: 400,
     };
   }
@@ -1167,12 +1310,27 @@ function validatePlannerOutputGuard(plannerResult, options) {
 
   const allocationKeys = Object.keys(allocation);
   for (const key of allocationKeys) {
-    if (key !== "file_actions" && key !== "visual_layer_actions") {
+    if (
+      key !== "reasoning_and_plan" &&
+      key !== "file_actions" &&
+      key !== "visual_layer_actions"
+    ) {
       return plannerGuardError(
         "E_PLANNING_FAILED",
         plannerGuardMessage(`unexpected task_allocation field: ${key}`)
       );
     }
+  }
+
+  const reasoningAndPlan =
+    typeof allocation.reasoning_and_plan === "string"
+      ? allocation.reasoning_and_plan.trim()
+      : "";
+  if (!reasoningAndPlan) {
+    return plannerGuardError(
+      "E_PLANNING_FAILED",
+      plannerGuardMessage("task_allocation.reasoning_and_plan must be a non-empty string")
+    );
   }
 
   if (!Array.isArray(allocation.file_actions)) {
@@ -1488,6 +1646,7 @@ function validatePlannerOutputGuard(plannerResult, options) {
   return {
     ok: true,
     task_allocation: {
+      reasoning_and_plan: reasoningAndPlan,
       file_actions: normalizedFileActions,
       visual_layer_actions: normalizedVisualActions,
     },
@@ -1592,6 +1751,9 @@ module.exports = {
   validateSessionStart,
   validateTurnSend,
   validateTurnCancel,
+  validateMcpSubmitUnityTask,
+  validateMcpGetUnityTaskStatus,
+  validateMcpCancelUnityTask,
   validateFileActionsApply,
   validateUnityCompileResult,
   validateUnityActionResult,

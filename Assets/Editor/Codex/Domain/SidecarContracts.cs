@@ -542,6 +542,7 @@ namespace UnityAI.Editor.Codex.Domain
         public string query_id;
         public string target_path;
         public UnityComponentDescriptor[] components;
+        public string error_code;
         public string error_message;
     }
 
@@ -552,6 +553,7 @@ namespace UnityAI.Editor.Codex.Domain
         public string request_id;
         public string query_id;
         public int components_count;
+        public string error_code;
     }
 
     [Serializable]

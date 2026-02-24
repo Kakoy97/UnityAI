@@ -694,6 +694,7 @@ class TurnStore {
       unity_query_components_result: cloneUnityQueryComponentsResult(
         data.unity_query_components_result
       ),
+      planner_metrics: clonePlannerMetrics(data.planner_metrics),
       execution_report: cloneExecutionReport(data.execution_report),
     };
     entry.events.push(event);
@@ -1039,6 +1040,29 @@ function cloneExecutionReport(value) {
   }
 }
 
+function clonePlannerMetrics(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const normalized = {};
+  const keys = Object.keys(value);
+  for (const key of keys) {
+    const raw = value[key];
+    if (Number.isFinite(raw)) {
+      normalized[key] = Number(raw);
+      continue;
+    }
+    if (typeof raw === "string") {
+      normalized[key] = raw;
+      continue;
+    }
+    if (typeof raw === "boolean") {
+      normalized[key] = raw;
+    }
+  }
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
 function cloneTurnEvents(events) {
   if (!Array.isArray(events)) {
     return [];
@@ -1065,6 +1089,7 @@ function cloneTurnEvents(events) {
       unity_query_components_result: cloneUnityQueryComponentsResult(
         item.unity_query_components_result
       ),
+      planner_metrics: clonePlannerMetrics(item.planner_metrics),
       execution_report: cloneExecutionReport(item.execution_report),
     }));
 }
