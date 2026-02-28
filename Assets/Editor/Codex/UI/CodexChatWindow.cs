@@ -16,7 +16,6 @@ namespace UnityAI.Editor.Codex.UI
 
         private ConversationController _controller;
         private Vector2 _logScrollPosition;
-        private string _messageInput = string.Empty;
         private GUIStyle _logStyle;
 
         [MenuItem("Tools/Codex/Chat MVP")]
@@ -29,19 +28,14 @@ namespace UnityAI.Editor.Codex.UI
         {
             if (_controller == null)
             {
-                _controller = new ConversationController(
-                    new HttpSidecarGateway(),
-                    new SidecarProcessManager(),
-                    new UnitySelectionContextBuilder(),
-                    new EditorPrefsConversationStateStore(),
-                    new UnityVisualActionExecutor());
+                _controller = UnityRagQueryPollingBootstrap.GetController();
             }
 
             _controller.SidecarUrl = EditorPrefs.GetString(SidecarUrlEditorPrefKey, DefaultSidecarUrl);
             _controller.ThreadId = EditorPrefs.GetString(ThreadIdEditorPrefKey, DefaultThreadId);
-            _controller.InitializeFromPersistedState();
             _controller.Changed += OnControllerChanged;
-            EditorApplication.update += OnEditorUpdate;
+            Selection.selectionChanged += OnSelectionChanged;
+            _controller.NotifySelectionChanged(Selection.activeGameObject);
 
             if (_logStyle == null)
             {
@@ -59,16 +53,17 @@ namespace UnityAI.Editor.Codex.UI
                 EditorPrefs.SetString(ThreadIdEditorPrefKey, _controller.ThreadId);
                 _controller.Changed -= OnControllerChanged;
             }
-            EditorApplication.update -= OnEditorUpdate;
+            Selection.selectionChanged -= OnSelectionChanged;
         }
 
-        private void OnEditorUpdate()
+        private void OnSelectionChanged()
         {
-            var now = GetNowSeconds();
-            if (_controller != null && _controller.ShouldPoll(now))
+            if (_controller == null)
             {
-                _ = _controller.PollTurnStatusAsync(now);
+                return;
             }
+
+            _controller.NotifySelectionChanged(Selection.activeGameObject);
         }
 
         private void OnGUI()
@@ -103,11 +98,6 @@ namespace UnityAI.Editor.Codex.UI
                 if (GUILayout.Button("Health", GUILayout.Height(22)))
                 {
                     _ = _controller.CheckHealthAsync();
-                }
-
-                if (GUILayout.Button("Runtime Ping", GUILayout.Height(22)))
-                {
-                    _ = _controller.SendRuntimePingAsync();
                 }
             }
 
@@ -170,38 +160,6 @@ namespace UnityAI.Editor.Codex.UI
 
             EditorGUILayout.HelpBox("Status: " + _controller.GetStatusText(GetNowSeconds()), MessageType.Info);
 
-            EditorGUILayout.LabelField("Message");
-            _messageInput = EditorGUILayout.TextArea(_messageInput, GUILayout.MinHeight(90));
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                using (new EditorGUI.DisabledScope(_controller.IsBusy))
-                {
-                    if (GUILayout.Button("Send", GUILayout.Height(28)))
-                    {
-                        _ = SendAsync();
-                    }
-                }
-
-                var previousColor = GUI.backgroundColor;
-                GUI.backgroundColor = new Color(0.85f, 0.35f, 0.35f);
-                using (new EditorGUI.DisabledScope(!_controller.IsBusy))
-                {
-                    if (GUILayout.Button("Cancel", GUILayout.Height(28)))
-                    {
-                        _ = _controller.CancelTurnAsync();
-                    }
-                }
-
-                GUI.backgroundColor = previousColor;
-            }
-
-            if (_controller.IsWaitingForCodexReply)
-            {
-                var dots = BuildTypingDots(GetNowSeconds());
-                EditorGUILayout.LabelField("Codex is replying" + dots, EditorStyles.miniLabel);
-            }
-
             EditorGUILayout.Space(8);
             EditorGUILayout.LabelField("Logs", EditorStyles.boldLabel);
             _logScrollPosition = EditorGUILayout.BeginScrollView(_logScrollPosition);
@@ -214,22 +172,6 @@ namespace UnityAI.Editor.Codex.UI
             EditorGUILayout.EndScrollView();
         }
 
-        private async Task SendAsync()
-        {
-            var pendingInput = _messageInput;
-            _messageInput = string.Empty;
-            Repaint();
-
-            var notifySelection = await _controller.SendTurnAsync(
-                pendingInput,
-                Selection.activeGameObject,
-                GetNowSeconds());
-
-            if (notifySelection)
-            {
-                ShowNotification(new GUIContent("Select a target object first."));
-            }
-        }
 
         private void OnControllerChanged()
         {
@@ -242,22 +184,5 @@ namespace UnityAI.Editor.Codex.UI
             return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000d;
         }
 
-        private static string BuildTypingDots(double now)
-        {
-            var index = (int)(now * 2d) % 4;
-            if (index == 0)
-            {
-                return ".";
-            }
-            if (index == 1)
-            {
-                return "..";
-            }
-            if (index == 2)
-            {
-                return "...";
-            }
-            return "";
-        }
     }
 }

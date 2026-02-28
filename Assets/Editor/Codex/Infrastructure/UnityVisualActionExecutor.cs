@@ -18,11 +18,12 @@ namespace UnityAI.Editor.Codex.Infrastructure
     public sealed class UnityVisualActionExecutor : IUnityVisualActionExecutor
     {
         private const string MissingScriptAssemblyQualifiedName = "UnityEditor.MissingScript";
+        private const int MaxExecutionErrorMessageLength = 320;
 
         public UnityActionExecutionResult Execute(VisualLayerActionItem action, GameObject selected)
         {
             var watch = Stopwatch.StartNew();
-            var result = BuildInitialResult(action, selected);
+            var result = BuildInitialResult(action);
 
             try
             {
@@ -37,13 +38,13 @@ namespace UnityAI.Editor.Codex.Infrastructure
                 switch (actionType)
                 {
                     case "add_component":
-                        return ExecuteAddComponent(action, selected, result);
+                        return ExecuteAddComponent(action, result);
                     case "remove_component":
-                        return ExecuteRemoveComponent(action, selected, result);
+                        return ExecuteRemoveComponent(action, result);
                     case "replace_component":
-                        return ExecuteReplaceComponent(action, selected, result);
+                        return ExecuteReplaceComponent(action, result);
                     case "create_gameobject":
-                        return ExecuteCreateGameObject(action, selected, result);
+                        return ExecuteCreateGameObject(action, result);
                     default:
                         return Fail(
                             result,
@@ -64,7 +65,6 @@ namespace UnityAI.Editor.Codex.Infrastructure
 
         private static UnityActionExecutionResult ExecuteAddComponent(
             VisualLayerActionItem action,
-            GameObject selected,
             UnityActionExecutionResult result)
         {
             if (string.IsNullOrEmpty(action.component_assembly_qualified_name))
@@ -75,14 +75,19 @@ namespace UnityAI.Editor.Codex.Infrastructure
                     "component_assembly_qualified_name is required.");
             }
 
+            string targetResolveCode;
             string targetResolveError;
-            var target = ResolveTargetGameObject(selected, action, out targetResolveError);
+            var target = ResolveTargetGameObject(
+                action,
+                out targetResolveCode,
+                out targetResolveError);
             if (target == null)
             {
-                return Fail(result, "E_ACTION_TARGET_NOT_FOUND", targetResolveError);
+                return Fail(result, targetResolveCode, targetResolveError);
             }
 
             result.targetObjectPath = BuildGameObjectPath(target.transform);
+            result.targetObjectId = BuildObjectId(target);
 
             string resolveErrorCode;
             string resolveErrorMessage;
@@ -112,7 +117,6 @@ namespace UnityAI.Editor.Codex.Infrastructure
 
         private static UnityActionExecutionResult ExecuteRemoveComponent(
             VisualLayerActionItem action,
-            GameObject selected,
             UnityActionExecutionResult result)
         {
             if (string.IsNullOrEmpty(action.component_assembly_qualified_name))
@@ -123,14 +127,19 @@ namespace UnityAI.Editor.Codex.Infrastructure
                     "component_assembly_qualified_name is required.");
             }
 
+            string targetResolveCode;
             string targetResolveError;
-            var target = ResolveTargetGameObject(selected, action, out targetResolveError);
+            var target = ResolveTargetGameObject(
+                action,
+                out targetResolveCode,
+                out targetResolveError);
             if (target == null)
             {
-                return Fail(result, "E_ACTION_TARGET_NOT_FOUND", targetResolveError);
+                return Fail(result, targetResolveCode, targetResolveError);
             }
 
             result.targetObjectPath = BuildGameObjectPath(target.transform);
+            result.targetObjectId = BuildObjectId(target);
 
             if (string.Equals(
                     action.component_assembly_qualified_name,
@@ -188,7 +197,6 @@ namespace UnityAI.Editor.Codex.Infrastructure
 
         private static UnityActionExecutionResult ExecuteReplaceComponent(
             VisualLayerActionItem action,
-            GameObject selected,
             UnityActionExecutionResult result)
         {
             if (string.IsNullOrEmpty(action.source_component_assembly_qualified_name))
@@ -206,24 +214,29 @@ namespace UnityAI.Editor.Codex.Infrastructure
                     "component_assembly_qualified_name is required.");
             }
 
+            string targetResolveCode;
             string targetResolveError;
-            var target = ResolveTargetGameObject(selected, action, out targetResolveError);
+            var target = ResolveTargetGameObject(
+                action,
+                out targetResolveCode,
+                out targetResolveError);
             if (target == null)
             {
-                return Fail(result, "E_ACTION_TARGET_NOT_FOUND", targetResolveError);
+                return Fail(result, targetResolveCode, targetResolveError);
             }
 
             result.targetObjectPath = BuildGameObjectPath(target.transform);
+            result.targetObjectId = BuildObjectId(target);
 
-            string targetResolveCode;
-            string targetResolveMessage;
+            string componentResolveCode;
+            string componentResolveMessage;
             var targetType = ResolveComponentTypeWithFuzzyFallback(
                 action.component_assembly_qualified_name,
-                out targetResolveCode,
-                out targetResolveMessage);
+                out componentResolveCode,
+                out componentResolveMessage);
             if (targetType == null)
             {
-                return Fail(result, targetResolveCode, targetResolveMessage);
+                return Fail(result, componentResolveCode, componentResolveMessage);
             }
 
             string sourceResolveCode;
@@ -328,7 +341,6 @@ namespace UnityAI.Editor.Codex.Infrastructure
 
         private static UnityActionExecutionResult ExecuteCreateGameObject(
             VisualLayerActionItem action,
-            GameObject selected,
             UnityActionExecutionResult result)
         {
             if (string.IsNullOrWhiteSpace(action.name))
@@ -343,24 +355,16 @@ namespace UnityAI.Editor.Codex.Infrastructure
                     "create_gameobject cannot set both primitive_type and ui_type.");
             }
 
-            GameObject requestedParent = null;
-            var parentHint = !string.IsNullOrWhiteSpace(action.parent_object_path)
-                ? action.parent_object_path
-                : action.target_object_path;
-            if (!string.IsNullOrEmpty(parentHint))
+            string parentResolveCode;
+            string parentResolveError;
+            var requestedParent = ResolveGameObjectByAnchor(
+                action == null ? null : action.parent_anchor,
+                "Parent",
+                out parentResolveCode,
+                out parentResolveError);
+            if (requestedParent == null)
             {
-                requestedParent = FindGameObjectByScenePath(parentHint);
-                if (requestedParent == null)
-                {
-                    return Fail(
-                        result,
-                        "E_ACTION_TARGET_NOT_FOUND",
-                        "Parent object path not found in scene: " + parentHint);
-                }
-            }
-            else if (selected != null)
-            {
-                requestedParent = selected;
+                return Fail(result, parentResolveCode, parentResolveError);
             }
 
             var finalParent = requestedParent;
@@ -424,8 +428,11 @@ namespace UnityAI.Editor.Codex.Infrastructure
             result.targetObjectPath = finalParent != null
                 ? BuildGameObjectPath(finalParent.transform)
                 : string.Empty;
+            result.targetObjectId = BuildObjectId(finalParent);
             result.parentObjectPath = result.targetObjectPath;
+            result.parentObjectId = result.targetObjectId;
             result.createdObjectPath = BuildGameObjectPath(created.transform);
+            result.createdObjectId = BuildObjectId(created);
             result.success = true;
             result.errorCode = string.Empty;
             result.errorMessage = string.Empty;
@@ -562,20 +569,22 @@ namespace UnityAI.Editor.Codex.Infrastructure
         }
 
         private static UnityActionExecutionResult BuildInitialResult(
-            VisualLayerActionItem action,
-            GameObject selected)
+            VisualLayerActionItem action)
         {
             return new UnityActionExecutionResult
             {
                 actionType = action != null ? action.type : string.Empty,
-                targetObjectPath = selected == null ? string.Empty : BuildGameObjectPath(selected.transform),
+                targetObjectPath = action == null ? string.Empty : ReadAnchorPath(action.target_anchor),
+                targetObjectId = action == null ? string.Empty : ReadAnchorObjectId(action.target_anchor),
                 componentAssemblyQualifiedName =
                     action == null ? string.Empty : action.component_assembly_qualified_name,
                 sourceComponentAssemblyQualifiedName =
                     action == null ? string.Empty : action.source_component_assembly_qualified_name,
                 createdObjectPath = string.Empty,
+                createdObjectId = string.Empty,
                 name = action == null ? string.Empty : action.name,
-                parentObjectPath = action == null ? string.Empty : action.parent_object_path,
+                parentObjectPath = action == null ? string.Empty : ReadAnchorPath(action.parent_anchor),
+                parentObjectId = action == null ? string.Empty : ReadAnchorObjectId(action.parent_anchor),
                 primitiveType = action == null ? string.Empty : action.primitive_type,
                 uiType = action == null ? string.Empty : action.ui_type,
                 success = false,
@@ -591,38 +600,200 @@ namespace UnityAI.Editor.Codex.Infrastructure
             string message)
         {
             result.success = false;
-            result.errorCode = string.IsNullOrEmpty(code) ? "E_ACTION_EXECUTION_FAILED" : code;
-            result.errorMessage = string.IsNullOrEmpty(message) ? "Visual action execution failed." : message;
+            result.errorCode = NormalizeExecutionErrorCode(code);
+            result.errorMessage = NormalizeExecutionErrorMessage(result.errorCode, message);
             return result;
         }
 
+        private static string NormalizeExecutionErrorCode(string errorCode)
+        {
+            var normalized = string.IsNullOrWhiteSpace(errorCode)
+                ? string.Empty
+                : errorCode.Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(normalized))
+            {
+                return "E_ACTION_EXECUTION_FAILED";
+            }
+
+            if (string.Equals(normalized, "E_SCHEMA_INVALID", StringComparison.Ordinal))
+            {
+                return "E_ACTION_SCHEMA_INVALID";
+            }
+
+            if (string.Equals(normalized, "E_ACTION_TARGET_NOT_FOUND", StringComparison.Ordinal))
+            {
+                return "E_TARGET_NOT_FOUND";
+            }
+
+            if (string.Equals(normalized, "E_ACTION_SCHEMA_INVALID", StringComparison.Ordinal) ||
+                string.Equals(normalized, "E_TARGET_ANCHOR_CONFLICT", StringComparison.Ordinal) ||
+                string.Equals(normalized, "E_TARGET_NOT_FOUND", StringComparison.Ordinal) ||
+                string.Equals(normalized, "E_ACTION_COMPONENT_RESOLVE_FAILED", StringComparison.Ordinal) ||
+                string.Equals(normalized, "E_ACTION_COMPONENT_AMBIGUOUS", StringComparison.Ordinal) ||
+                string.Equals(normalized, "E_ACTION_COMPONENT_NOT_FOUND", StringComparison.Ordinal) ||
+                string.Equals(normalized, "E_ACTION_EXECUTION_FAILED", StringComparison.Ordinal))
+            {
+                return normalized;
+            }
+
+            return "E_ACTION_EXECUTION_FAILED";
+        }
+
+        private static string NormalizeExecutionErrorMessage(string errorCode, string errorMessage)
+        {
+            var normalizedInput = SanitizeSingleLine(errorMessage, MaxExecutionErrorMessageLength);
+            if (!string.IsNullOrEmpty(normalizedInput))
+            {
+                return normalizedInput;
+            }
+
+            if (string.Equals(errorCode, "E_ACTION_SCHEMA_INVALID", StringComparison.Ordinal))
+            {
+                return "Visual action payload schema validation failed.";
+            }
+
+            if (string.Equals(errorCode, "E_TARGET_ANCHOR_CONFLICT", StringComparison.Ordinal))
+            {
+                return "Target anchor conflict: object_id and path resolve to different objects.";
+            }
+
+            if (string.Equals(errorCode, "E_TARGET_NOT_FOUND", StringComparison.Ordinal))
+            {
+                return "Target object not found.";
+            }
+
+            return "Visual action execution failed.";
+        }
+
+        private static string SanitizeSingleLine(string raw, int maxLength)
+        {
+            var value = string.IsNullOrWhiteSpace(raw) ? string.Empty : raw.Trim();
+            if (string.IsNullOrEmpty(value))
+            {
+                return string.Empty;
+            }
+
+            var lines = value.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var singleLine = lines.Length > 0 ? lines[0].Trim() : value;
+            if (singleLine.Length <= maxLength)
+            {
+                return singleLine;
+            }
+            return singleLine.Substring(0, maxLength).TrimEnd();
+        }
+
+        private static string ReadAnchorObjectId(UnityObjectAnchor anchor)
+        {
+            return anchor == null || string.IsNullOrWhiteSpace(anchor.object_id)
+                ? string.Empty
+                : anchor.object_id.Trim();
+        }
+
+        private static string ReadAnchorPath(UnityObjectAnchor anchor)
+        {
+            return anchor == null || string.IsNullOrWhiteSpace(anchor.path)
+                ? string.Empty
+                : anchor.path.Trim();
+        }
+
         private static GameObject ResolveTargetGameObject(
-            GameObject selected,
             VisualLayerActionItem action,
+            out string errorCode,
             out string errorMessage)
         {
-            var requestedPath = action == null ? string.Empty : action.target_object_path;
-            if (!string.IsNullOrEmpty(requestedPath))
+            if (action == null)
             {
-                var fromPath = FindGameObjectByScenePath(requestedPath);
-                if (fromPath != null)
-                {
-                    errorMessage = string.Empty;
-                    return fromPath;
-                }
-
-                errorMessage = "Target object path not found in scene: " + requestedPath;
+                errorCode = "E_ACTION_SCHEMA_INVALID";
+                errorMessage = "Action payload is required.";
                 return null;
             }
 
-            if (selected != null)
+            return ResolveGameObjectByAnchor(
+                action.target_anchor,
+                "Target",
+                out errorCode,
+                out errorMessage);
+        }
+
+        private static GameObject ResolveGameObjectByAnchor(
+            UnityObjectAnchor anchor,
+            string anchorName,
+            out string errorCode,
+            out string errorMessage)
+        {
+            var label = string.IsNullOrWhiteSpace(anchorName) ? "Target" : anchorName;
+            if (anchor == null)
             {
-                errorMessage = string.Empty;
-                return selected;
+                errorCode = "E_ACTION_SCHEMA_INVALID";
+                errorMessage = label + " anchor is required.";
+                return null;
             }
 
-            errorMessage = "No selected GameObject found in Hierarchy.";
-            return null;
+            var requestedPath = ReadAnchorPath(anchor);
+            var requestedObjectId = ReadAnchorObjectId(anchor);
+            if (string.IsNullOrEmpty(requestedPath) || string.IsNullOrEmpty(requestedObjectId))
+            {
+                errorCode = "E_ACTION_SCHEMA_INVALID";
+                errorMessage = label + " anchor requires both object_id and path.";
+                return null;
+            }
+
+            GameObject fromPath = null;
+            GameObject fromObjectId = null;
+
+            fromPath = FindGameObjectByScenePath(requestedPath);
+            if (fromPath == null)
+            {
+                errorCode = "E_ACTION_TARGET_NOT_FOUND";
+                errorMessage = label + " object path not found in scene: " + requestedPath;
+                return null;
+            }
+
+            fromObjectId = FindGameObjectByObjectId(requestedObjectId);
+            if (fromObjectId == null)
+            {
+                var fromPathObjectId = BuildObjectId(fromPath);
+                if (!string.IsNullOrEmpty(fromPathObjectId) &&
+                    string.Equals(fromPathObjectId, requestedObjectId, StringComparison.Ordinal))
+                {
+                    // Fallback for unsaved/transient objects where object_id reverse lookup can miss
+                    // while the path-resolved object still carries the matching global id string.
+                    fromObjectId = fromPath;
+                }
+                else if (!string.IsNullOrEmpty(fromPathObjectId))
+                {
+                    errorCode = "E_TARGET_ANCHOR_CONFLICT";
+                    errorMessage =
+                        label +
+                        " object_id and path resolve to different objects: object_id=" +
+                        requestedObjectId +
+                        ", path=" +
+                        requestedPath;
+                    return null;
+                }
+                else
+                {
+                    errorCode = "E_ACTION_TARGET_NOT_FOUND";
+                    errorMessage = label + " object_id not found in scene: " + requestedObjectId;
+                    return null;
+                }
+            }
+
+            if (!ReferenceEquals(fromPath, fromObjectId))
+            {
+                errorCode = "E_TARGET_ANCHOR_CONFLICT";
+                errorMessage =
+                    label +
+                    " object_id and path resolve to different objects: object_id=" +
+                    requestedObjectId +
+                    ", path=" +
+                    requestedPath;
+                return null;
+            }
+
+            errorCode = string.Empty;
+            errorMessage = string.Empty;
+            return fromObjectId;
         }
 
         private static GameObject FindGameObjectByScenePath(string scenePath)
@@ -676,6 +847,42 @@ namespace UnityAI.Editor.Codex.Infrastructure
             }
 
             return null;
+        }
+
+        private static GameObject FindGameObjectByObjectId(string objectId)
+        {
+            if (string.IsNullOrWhiteSpace(objectId))
+            {
+                return null;
+            }
+
+            try
+            {
+                GlobalObjectId parsed;
+                if (!GlobalObjectId.TryParse(objectId.Trim(), out parsed))
+                {
+                    return null;
+                }
+
+                var obj = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(parsed);
+                if (obj == null)
+                {
+                    return null;
+                }
+
+                var asGameObject = obj as GameObject;
+                if (asGameObject != null)
+                {
+                    return asGameObject;
+                }
+
+                var asComponent = obj as Component;
+                return asComponent != null ? asComponent.gameObject : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static Transform FindChildBySegments(Transform current, string[] segments, int index)
@@ -1128,6 +1335,25 @@ namespace UnityAI.Editor.Codex.Infrastructure
             }
 
             return "Scene/" + path;
+        }
+
+        private static string BuildObjectId(GameObject gameObject)
+        {
+            if (gameObject == null)
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                var globalId = GlobalObjectId.GetGlobalObjectIdSlow(gameObject);
+                var text = globalId.ToString();
+                return string.IsNullOrEmpty(text) ? string.Empty : text;
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
     }
 }

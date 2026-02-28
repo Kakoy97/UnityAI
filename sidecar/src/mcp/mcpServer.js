@@ -11,6 +11,30 @@ const http = require("http");
 const https = require("https");
 const { URL } = require("url");
 const readline = require("readline");
+const {
+  ROUTER_PROTOCOL_FREEZE_CONTRACT,
+} = require("../ports/contracts");
+
+const MCP_WRITE_TOOL_ENDPOINTS = Object.freeze({
+  submit_unity_task: "/mcp/submit_unity_task",
+  apply_script_actions: "/mcp/apply_script_actions",
+  apply_visual_actions: "/mcp/apply_visual_actions",
+});
+const MCP_WRITE_TOOL_NAMES = Object.freeze(
+  Object.keys(MCP_WRITE_TOOL_ENDPOINTS)
+);
+const MCP_READ_TOOL_ENDPOINTS = Object.freeze({
+  list_assets_in_folder: "/mcp/list_assets_in_folder",
+  get_scene_roots: "/mcp/get_scene_roots",
+  find_objects_by_component: "/mcp/find_objects_by_component",
+  query_prefab_info: "/mcp/query_prefab_info",
+});
+const MCP_DEPRECATED_TOOL_NAMES = Object.freeze(
+  ROUTER_PROTOCOL_FREEZE_CONTRACT &&
+  Array.isArray(ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names)
+    ? ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names
+    : []
+);
 
 class UnityMcpServer {
   constructor(sidecarBaseUrl) {
@@ -74,20 +98,23 @@ class UnityMcpServer {
     try {
       switch (method) {
         case "initialize":
+          {
+            const capabilities = {
+              tools: {},
+            };
           return {
             jsonrpc: "2.0",
             id,
             result: {
               protocolVersion: "2024-11-05",
-              capabilities: {
-                tools: {},
-              },
+              capabilities,
               serverInfo: {
                 name: "unity-sidecar",
                 version: "0.1.0",
               },
             },
           };
+          }
         
         case "notifications/initialized":
           // 客户端初始化完成后的通知，直接忽略
@@ -118,6 +145,12 @@ class UnityMcpServer {
             result: toolResult,
           };
 
+        case "resources/list":
+          throw new Error("resources/list is removed; use MCP read tools");
+
+        case "resources/read":
+          throw new Error("resources/read is removed; use MCP read tools");
+
         default:
           if (!id) return null; // 忽略未知的通知
           throw new Error(`Method not found: ${method}`);
@@ -135,13 +168,14 @@ class UnityMcpServer {
   }
 
   getToolDefinitions() {
-    return [
+    const tools = [
       {
         name: "submit_unity_task",
         description:
-          "Submit a Unity task for execution. This includes file actions (create/update/rename/delete scripts) and visual actions (add/remove/replace components, create GameObjects). The task will be executed asynchronously, and progress will be pushed via SSE stream.",
+          "Submit an asynchronous Unity write job. You must provide based_on_read_token and top-level write_anchor (object_id + path). This endpoint only accepts explicit file_actions/visual_layer_actions; task_allocation is not supported.",
         inputSchema: {
           type: "object",
+          additionalProperties: false,
           properties: {
             thread_id: {
               type: "string",
@@ -163,56 +197,48 @@ class UnityMcpServer {
               type: "string",
               description: "Natural language description of what the user wants to accomplish",
             },
-            task_allocation: {
+            based_on_read_token: {
+              type: "string",
+              description:
+                "Read token from MCP eyes tools. Required for every write submission.",
+            },
+            write_anchor: {
               type: "object",
-              description: "Structured task allocation with reasoning and actions",
+              description:
+                "Top-level write anchor. Must contain both object_id and path.",
+              additionalProperties: false,
               properties: {
-                reasoning_and_plan: {
-                  type: "string",
-                  description: "Reasoning and plan for the task",
-                },
-                file_actions: {
-                  type: "array",
-                  description: "File actions to execute",
-                  items: {
-                    type: "object",
-                    properties: {
-                      type: {
-                        type: "string",
-                        enum: ["create_file", "update_file", "rename_file", "delete_file"],
-                      },
-                      path: { type: "string" },
-                      content: { type: "string" },
-                      new_path: { type: "string" },
-                    },
-                  },
-                },
-                visual_actions: {
-                  type: "array",
-                  description: "Visual actions to execute in Unity",
-                  items: {
-                    type: "object",
-                    properties: {
-                      type: {
-                        type: "string",
-                        enum: [
-                          "add_component",
-                          "remove_component",
-                          "replace_component",
-                          "create_gameobject",
-                        ],
-                      },
-                      target_path: { type: "string" },
-                      component_type: { type: "string" },
-                      source_component_type: { type: "string" },
-                    },
-                  },
-                },
+                object_id: { type: "string" },
+                path: { type: "string" },
               },
-              required: ["reasoning_and_plan"],
+              required: ["object_id", "path"],
+            },
+            context: {
+              type: "object",
+              description:
+                "Optional explicit Unity context. If omitted, sidecar uses latest reported selection context.",
+            },
+            file_actions: {
+              type: "array",
+              description:
+                "Optional file actions. At least one of file_actions or visual_layer_actions must be non-empty.",
+              items: { type: "object" },
+            },
+            visual_layer_actions: {
+              type: "array",
+              description:
+                "Optional visual actions. At least one of file_actions or visual_layer_actions must be non-empty.",
+              items: { type: "object" },
             },
           },
-          required: ["thread_id", "idempotency_key", "user_intent"],
+          required: [
+            "thread_id",
+            "idempotency_key",
+            "user_intent",
+            "based_on_read_token",
+            "write_anchor",
+          ],
+          oneOf: [{ required: ["file_actions"] }, { required: ["visual_layer_actions"] }],
         },
       },
       {
@@ -244,11 +270,328 @@ class UnityMcpServer {
           required: ["job_id"],
         },
       },
+      {
+        name: "apply_script_actions",
+        description:
+          "Apply structured script/file actions. Hard requirements: based_on_read_token + top-level write_anchor(object_id+path). This endpoint does not accept task_allocation.",
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            based_on_read_token: {
+              type: "string",
+              description:
+                "Read token from MCP eyes tools. Required for every write request.",
+            },
+            write_anchor: {
+              type: "object",
+              description:
+                "Top-level write anchor. Must contain both object_id and path.",
+              additionalProperties: false,
+              properties: {
+                object_id: { type: "string" },
+                path: { type: "string" },
+              },
+              required: ["object_id", "path"],
+            },
+            actions: {
+              type: "array",
+              description: "Script/file actions (create/update/rename/delete).",
+              items: {
+                type: "object",
+              },
+            },
+            preconditions: {
+              type: "array",
+              description:
+                "Optional preconditions: object_exists/component_exists/compile_idle.",
+              items: {
+                type: "object",
+              },
+            },
+            dry_run: {
+              type: "boolean",
+              description: "If true, only validate and report plan without executing.",
+            },
+            thread_id: {
+              type: "string",
+              description: "Optional thread id override.",
+            },
+            idempotency_key: {
+              type: "string",
+              description: "Optional idempotency key override.",
+            },
+            user_intent: {
+              type: "string",
+              description: "Optional user intent for async job traceability.",
+            },
+            approval_mode: {
+              type: "string",
+              enum: ["auto", "require_user"],
+              description: "Optional approval mode. Default auto.",
+            },
+          },
+          required: ["based_on_read_token", "write_anchor", "actions"],
+        },
+      },
+      {
+        name: "apply_visual_actions",
+        description:
+          "Apply structured Unity visual actions. Hard requirements: based_on_read_token + top-level write_anchor(object_id+path). Actions follow strict oneOf anchor rules: mutation requires target_anchor; create_gameobject requires parent_anchor.",
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            based_on_read_token: {
+              type: "string",
+              description:
+                "Read token from MCP eyes tools. Required for every write request.",
+            },
+            write_anchor: {
+              type: "object",
+              description:
+                "Top-level write anchor. Must contain both object_id and path.",
+              additionalProperties: false,
+              properties: {
+                object_id: { type: "string" },
+                path: { type: "string" },
+              },
+              required: ["object_id", "path"],
+            },
+            actions: {
+              type: "array",
+              description: "Visual actions with strict anchor union schema.",
+              items: {
+                type: "object",
+                oneOf: [
+                  {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      type: {
+                        type: "string",
+                        enum: ["add_component", "remove_component", "replace_component"],
+                      },
+                      target: { type: "string" },
+                      target_anchor: {
+                        type: "object",
+                        additionalProperties: false,
+                        properties: {
+                          object_id: { type: "string" },
+                          path: { type: "string" },
+                        },
+                        required: ["object_id", "path"],
+                      },
+                      component_name: { type: "string" },
+                      component_assembly_qualified_name: { type: "string" },
+                      source_component_assembly_qualified_name: { type: "string" },
+                      remove_mode: { type: "string" },
+                      expected_count: { type: "integer" },
+                    },
+                    required: ["type", "target_anchor"],
+                  },
+                  {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      type: { type: "string", const: "create_gameobject" },
+                      target: { type: "string" },
+                      parent_anchor: {
+                        type: "object",
+                        additionalProperties: false,
+                        properties: {
+                          object_id: { type: "string" },
+                          path: { type: "string" },
+                        },
+                        required: ["object_id", "path"],
+                      },
+                      name: { type: "string" },
+                      primitive_type: { type: "string" },
+                      ui_type: { type: "string" },
+                    },
+                    required: ["type", "parent_anchor", "name"],
+                  },
+                ],
+              },
+            },
+            preconditions: {
+              type: "array",
+              description:
+                "Optional preconditions: object_exists/component_exists/compile_idle.",
+              items: {
+                type: "object",
+              },
+            },
+            dry_run: {
+              type: "boolean",
+              description: "If true, only validate and report plan without executing.",
+            },
+            thread_id: {
+              type: "string",
+              description: "Optional thread id override.",
+            },
+            idempotency_key: {
+              type: "string",
+              description: "Optional idempotency key override.",
+            },
+            user_intent: {
+              type: "string",
+              description: "Optional user intent for async job traceability.",
+            },
+            approval_mode: {
+              type: "string",
+              enum: ["auto", "require_user"],
+              description: "Optional approval mode. Default auto.",
+            },
+          },
+          required: ["based_on_read_token", "write_anchor", "actions"],
+        },
+      },
     ];
+
+    tools.push(
+      {
+        name: "list_assets_in_folder",
+        description:
+          "List project assets under a folder path in Unity AssetDatabase. Use this before guessing file paths or prefab/script locations. When you need to discover candidate assets, call this first instead of assuming names.",
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            folder_path: {
+              type: "string",
+              description:
+                "Required Unity project folder path, e.g. Assets/Prefabs or Assets/Scripts.",
+            },
+            recursive: {
+              type: "boolean",
+              description:
+                "Whether to traverse subfolders recursively. Default false if omitted.",
+            },
+            include_meta: {
+              type: "boolean",
+              description:
+                "Whether .meta files should be included. Usually false.",
+            },
+            limit: {
+              type: "integer",
+              description:
+                "Optional max number of returned entries. Must be >= 1.",
+            },
+          },
+          required: ["folder_path"],
+        },
+      },
+      {
+        name: "get_scene_roots",
+        description:
+          "Get root GameObjects of a loaded scene, including object_id/path anchors. Use this to establish reliable hierarchy anchors before downstream reads or writes.",
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            scene_path: {
+              type: "string",
+              description:
+                "Optional scene asset path. If omitted, returns roots across currently loaded scenes.",
+            },
+            include_inactive: {
+              type: "boolean",
+              description:
+                "Whether inactive roots are included. Default true if omitted.",
+            },
+          },
+        },
+      },
+      {
+        name: "find_objects_by_component",
+        description:
+          "Find scene objects by component type/name match. When you need objects with specific behavior, use this tool instead of guessing object names from hierarchy text.",
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            component_query: {
+              type: "string",
+              description:
+                "Required component search term, e.g. Rigidbody, Button, UnityEngine.UI.Image.",
+            },
+            scene_path: {
+              type: "string",
+              description:
+                "Optional scene asset path to narrow search scope.",
+            },
+            under_path: {
+              type: "string",
+              description:
+                "Optional hierarchy path prefix to constrain search subtree.",
+            },
+            include_inactive: {
+              type: "boolean",
+              description:
+                "Whether inactive objects are included. Default true if omitted.",
+            },
+            limit: {
+              type: "integer",
+              description:
+                "Optional max number of matches. Must be >= 1.",
+            },
+          },
+          required: ["component_query"],
+        },
+      },
+      {
+        name: "query_prefab_info",
+        description:
+          "Inspect prefab tree structure and components with explicit depth budget. When parsing nested prefab hierarchies, call this tool and pass max_depth deliberately based on complexity. Do not guess deep structure without querying it.",
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            prefab_path: {
+              type: "string",
+              description:
+                "Required prefab asset path, e.g. Assets/Prefabs/UI/MainPanel.prefab.",
+            },
+            max_depth: {
+              type: "integer",
+              description:
+                "Required traversal depth budget (>=0). Must be explicitly provided each call.",
+            },
+            node_budget: {
+              type: "integer",
+              description:
+                "Optional max node budget (>=1).",
+            },
+            char_budget: {
+              type: "integer",
+              description:
+                "Optional output character budget (>=256).",
+            },
+            include_components: {
+              type: "boolean",
+              description:
+                "Whether component descriptors are included. Default true if omitted.",
+            },
+            include_missing_scripts: {
+              type: "boolean",
+              description:
+                "Whether missing-script placeholders are included. Default true if omitted.",
+            },
+          },
+          required: ["prefab_path", "max_depth"],
+        },
+      }
+    );
+
+    return tools;
   }
 
   async callTool(params) {
-    const { name, arguments: args } = params;
+    const { name, arguments: args } = params || {};
+    if (MCP_DEPRECATED_TOOL_NAMES.includes(name)) {
+      throw new Error(`Tool removed in phase6: ${name}`);
+    }
 
     switch (name) {
       case "submit_unity_task":
@@ -257,22 +600,25 @@ class UnityMcpServer {
         return await this.getUnityTaskStatus(args);
       case "cancel_unity_task":
         return await this.cancelUnityTask(args);
+      case "apply_script_actions":
+        return await this.applyScriptActions(args);
+      case "apply_visual_actions":
+        return await this.applyVisualActions(args);
+      case "list_assets_in_folder":
+        return await this.listAssetsInFolder(args);
+      case "get_scene_roots":
+        return await this.getSceneRoots(args);
+      case "find_objects_by_component":
+        return await this.findObjectsByComponent(args);
+      case "query_prefab_info":
+        return await this.queryPrefabInfo(args);
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
   }
 
   async submitUnityTask(args) {
-    const url = new URL(`${this.sidecarBaseUrl}/mcp/submit_unity_task`);
-    const response = await this.httpRequest("POST", url, args);
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(response, null, 2),
-        },
-      ],
-    };
+    return this.callMcpWriteTool("submit_unity_task", args);
   }
 
   async getUnityTaskStatus(args) {
@@ -303,6 +649,181 @@ class UnityMcpServer {
     };
   }
 
+  async applyScriptActions(args) {
+    return this.callMcpWriteTool("apply_script_actions", args);
+  }
+
+  async applyVisualActions(args) {
+    return this.callMcpWriteTool("apply_visual_actions", args);
+  }
+
+  async callMcpWriteTool(toolName, args) {
+    if (!MCP_WRITE_TOOL_NAMES.includes(toolName)) {
+      throw new Error(`Unknown MCP write tool mapping: ${toolName}`);
+    }
+    const endpoint = MCP_WRITE_TOOL_ENDPOINTS[toolName];
+    const url = new URL(`${this.sidecarBaseUrl}${endpoint}`);
+    const payload = args && typeof args === "object" ? args : {};
+    const response = await this.httpRequest("POST", url, payload);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  async getCurrentSelection(args) {
+    const url = new URL(`${this.sidecarBaseUrl}/mcp/get_current_selection`);
+    const response = await this.httpRequest("POST", url, args || {});
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  async listAssetsInFolder(args) {
+    return this.callMcpReadTool("list_assets_in_folder", args);
+  }
+
+  async getSceneRoots(args) {
+    return this.callMcpReadTool("get_scene_roots", args);
+  }
+
+  async findObjectsByComponent(args) {
+    return this.callMcpReadTool("find_objects_by_component", args);
+  }
+
+  async queryPrefabInfo(args) {
+    return this.callMcpReadTool("query_prefab_info", args);
+  }
+
+  async callMcpReadTool(toolName, args) {
+    const endpoint = MCP_READ_TOOL_ENDPOINTS[toolName];
+    if (!endpoint) {
+      throw new Error(`Unknown MCP read tool mapping: ${toolName}`);
+    }
+    const url = new URL(`${this.sidecarBaseUrl}${endpoint}`);
+    const payload = args && typeof args === "object" ? args : {};
+    const response = await this.httpRequest("POST", url, payload);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  async getGameObjectComponents(args) {
+    const url = new URL(`${this.sidecarBaseUrl}/mcp/get_gameobject_components`);
+    const payload = args && typeof args === "object" ? args : {};
+    const response = await this.httpRequest("POST", url, payload);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  async getHierarchySubtree(args) {
+    const url = new URL(`${this.sidecarBaseUrl}/mcp/get_hierarchy_subtree`);
+    const payload = args && typeof args === "object" ? args : {};
+    const response = await this.httpRequest("POST", url, payload);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  async getPrefabInfo(args) {
+    const url = new URL(`${this.sidecarBaseUrl}/mcp/get_prefab_info`);
+    const payload = args && typeof args === "object" ? args : {};
+    const response = await this.httpRequest("POST", url, payload);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  async getCompileState(args) {
+    const url = new URL(`${this.sidecarBaseUrl}/mcp/get_compile_state`);
+    const payload = args && typeof args === "object" ? args : {};
+    const response = await this.httpRequest("POST", url, payload);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  async getConsoleErrors(args) {
+    const url = new URL(`${this.sidecarBaseUrl}/mcp/get_console_errors`);
+    const payload = args && typeof args === "object" ? args : {};
+    const response = await this.httpRequest("POST", url, payload);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  async listResources() {
+    const url = new URL(`${this.sidecarBaseUrl}/mcp/resources/list`);
+    const response = await this.httpRequest("GET", url);
+    if (response && Array.isArray(response.resources)) {
+      return {
+        resources: response.resources,
+      };
+    }
+    return {
+      resources: [],
+    };
+  }
+
+  async readResource(params) {
+    const uri =
+      params && typeof params.uri === "string" ? params.uri.trim() : "";
+    if (!uri) {
+      throw new Error("resources/read requires params.uri");
+    }
+    const url = new URL(`${this.sidecarBaseUrl}/mcp/resources/read`);
+    url.searchParams.set("uri", uri);
+    const response = await this.httpRequest("GET", url);
+    if (response && Array.isArray(response.contents)) {
+      return {
+        contents: response.contents,
+      };
+    }
+    return {
+      contents: [],
+    };
+  }
+
   httpRequest(method, url, body = null) {
     return new Promise((resolve, reject) => {
       const options = {
@@ -325,20 +846,47 @@ class UnityMcpServer {
           data += chunk;
         });
         res.on("end", () => {
-          try {
-            const parsed = data ? JSON.parse(data) : {};
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-              resolve(parsed);
-            } else {
-              reject(
-                new Error(
-                  `HTTP ${res.statusCode}: ${parsed.message || parsed.error || data}`
-                )
-              );
+          const statusCode =
+            Number.isFinite(Number(res.statusCode)) && Number(res.statusCode) > 0
+              ? Math.floor(Number(res.statusCode))
+              : 0;
+          let parsed = null;
+          if (!data) {
+            parsed = {};
+          } else {
+            try {
+              parsed = JSON.parse(data);
+            } catch (err) {
+              if (statusCode >= 200 && statusCode < 300) {
+                reject(new Error(`Failed to parse response: ${err.message}`));
+                return;
+              }
             }
-          } catch (err) {
-            reject(new Error(`Failed to parse response: ${err.message}`));
           }
+
+          if (statusCode >= 200 && statusCode < 300) {
+            resolve(parsed && typeof parsed === "object" ? parsed : {});
+            return;
+          }
+
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            resolve(parsed);
+            return;
+          }
+
+          const fallbackMessage =
+            typeof data === "string" && data.trim()
+              ? data.trim()
+              : `HTTP ${statusCode || 0}`;
+          resolve({
+            status: "rejected",
+            error_code: statusCode > 0 ? `E_HTTP_${statusCode}` : "E_HTTP_ERROR",
+            error_message: fallbackMessage,
+            message: fallbackMessage,
+            suggestion:
+              "Inspect sidecar HTTP response and retry with a valid payload.",
+            recoverable: statusCode >= 500,
+          });
         });
       });
 

@@ -2,10 +2,32 @@
 
 const { URL } = require("url");
 const { readJsonBody, sendJson } = require("../infrastructure/httpIO");
-const ENABLE_QUERY_RESULT_DIAG_LOG = parseBoolEnv(
-  process.env.SIDECAR_DIAG_QUERY_RESULT,
-  false
+const {
+  ROUTER_PROTOCOL_FREEZE_CONTRACT,
+  OBSERVABILITY_FREEZE_CONTRACT,
+} = require("../ports/contracts");
+
+const DEPRECATED_HTTP_ROUTES = new Set(
+  ROUTER_PROTOCOL_FREEZE_CONTRACT &&
+  Array.isArray(ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_http_routes)
+    ? ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_http_routes
+    : []
 );
+const METRICS_CONTRACT_VERSION =
+  OBSERVABILITY_FREEZE_CONTRACT &&
+  typeof OBSERVABILITY_FREEZE_CONTRACT.metrics_contract_version === "string"
+    ? OBSERVABILITY_FREEZE_CONTRACT.metrics_contract_version
+    : "mcp.metrics.v1";
+const STREAM_EVENT_CONTRACT_VERSION =
+  OBSERVABILITY_FREEZE_CONTRACT &&
+  typeof OBSERVABILITY_FREEZE_CONTRACT.stream_event_contract_version === "string"
+    ? OBSERVABILITY_FREEZE_CONTRACT.stream_event_contract_version
+    : "mcp.stream.event.v1";
+const STREAM_READY_CONTRACT_VERSION =
+  OBSERVABILITY_FREEZE_CONTRACT &&
+  typeof OBSERVABILITY_FREEZE_CONTRACT.stream_ready_contract_version === "string"
+    ? OBSERVABILITY_FREEZE_CONTRACT.stream_ready_contract_version
+    : "mcp.stream.ready.v1";
 
 /**
  * @param {{
@@ -16,6 +38,13 @@ const ENABLE_QUERY_RESULT_DIAG_LOG = parseBoolEnv(
  */
 function createRouter(deps) {
   const { turnService, port, requestShutdown } = deps;
+  const mcpWriteRouteHandlers = Object.freeze({
+    "/mcp/submit_unity_task": (body) => turnService.submitUnityTask(body),
+    "/mcp/apply_script_actions": (body) =>
+      turnService.applyScriptActionsForMcp(body),
+    "/mcp/apply_visual_actions": (body) =>
+      turnService.applyVisualActionsForMcp(body),
+  });
 
   return async function route(req, res) {
     const origin = `http://${req.headers.host || `127.0.0.1:${port}`}`;
@@ -33,23 +62,26 @@ function createRouter(deps) {
     }
 
     if (method === "POST" && url.pathname === "/session/start") {
-      const body = await readJsonBody(req);
-      const outcome = turnService.startSession(body);
-      sendJson(res, outcome.statusCode, outcome.body);
+      sendJson(res, 410, {
+        error_code: "E_GONE",
+        message: "session/turn endpoints are removed; use MCP APIs",
+      });
       return;
     }
 
     if (method === "POST" && url.pathname === "/turn/send") {
-      const body = await readJsonBody(req);
-      const outcome = turnService.sendTurn(body);
-      sendJson(res, outcome.statusCode, outcome.body);
+      sendJson(res, 410, {
+        error_code: "E_GONE",
+        message: "session/turn endpoints are removed; use MCP APIs",
+      });
       return;
     }
 
-    if (method === "POST" && url.pathname === "/file-actions/apply") {
-      const body = await readJsonBody(req);
-      const outcome = turnService.applyFileActions(body);
-      sendJson(res, outcome.statusCode, outcome.body);
+    if (DEPRECATED_HTTP_ROUTES.has(url.pathname)) {
+      sendJson(res, 410, {
+        error_code: "E_GONE",
+        message: `Route removed in phase6: ${url.pathname}`,
+      });
       return;
     }
 
@@ -67,34 +99,6 @@ function createRouter(deps) {
       return;
     }
 
-    if (method === "POST" && url.pathname === "/unity/query/components/result") {
-      const body = await readJsonBody(req);
-      if (ENABLE_QUERY_RESULT_DIAG_LOG) {
-        try {
-          // Optional diagnostic breadcrumb for query roundtrip verification.
-          console.log(
-            "[sidecar] Got result from Unity: /unity/query/components/result",
-            JSON.stringify({
-              request_id: body && body.request_id,
-              query_id: body && body.payload ? body.payload.query_id : "",
-              target_path: body && body.payload ? body.payload.target_path : "",
-              components_count:
-                body &&
-                body.payload &&
-                Array.isArray(body.payload.components)
-                  ? body.payload.components.length
-                  : 0,
-            })
-          );
-        } catch {
-          // keep route robust even if log serialization fails
-        }
-      }
-      const outcome = turnService.reportUnityQueryComponentsResult(body);
-      sendJson(res, outcome.statusCode, outcome.body);
-      return;
-    }
-
     if (method === "POST" && url.pathname === "/unity/runtime/ping") {
       const body = await readJsonBody(req);
       const outcome = turnService.reportUnityRuntimePing(body);
@@ -102,25 +106,43 @@ function createRouter(deps) {
       return;
     }
 
-    if (method === "GET" && url.pathname === "/turn/status") {
-      const outcome = turnService.getTurnStatus(
-        url.searchParams.get("request_id"),
-        url.searchParams.get("cursor")
-      );
+    if (method === "POST" && url.pathname === "/unity/query/pull") {
+      const body = await readJsonBody(req);
+      const outcome = turnService.pullUnityQuery(body);
       sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "POST" && url.pathname === "/unity/query/report") {
+      const body = await readJsonBody(req);
+      const outcome = turnService.reportUnityQuery(body);
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "GET" && url.pathname === "/turn/status") {
+      sendJson(res, 410, {
+        error_code: "E_GONE",
+        message: "session/turn endpoints are removed; use MCP APIs",
+      });
       return;
     }
 
     if (method === "POST" && url.pathname === "/turn/cancel") {
-      const body = await readJsonBody(req);
-      const outcome = turnService.cancelTurn(body);
-      sendJson(res, outcome.statusCode, outcome.body);
+      sendJson(res, 410, {
+        error_code: "E_GONE",
+        message: "session/turn endpoints are removed; use MCP APIs",
+      });
       return;
     }
 
-    if (method === "POST" && url.pathname === "/mcp/submit_unity_task") {
+    if (
+      method === "POST" &&
+      Object.prototype.hasOwnProperty.call(mcpWriteRouteHandlers, url.pathname)
+    ) {
+      // All MCP write routes are centralized here to guarantee one validation/OCC chain.
       const body = await readJsonBody(req);
-      const outcome = turnService.submitUnityTask(body);
+      const outcome = mcpWriteRouteHandlers[url.pathname](body);
       sendJson(res, outcome.statusCode, outcome.body);
       return;
     }
@@ -140,9 +162,48 @@ function createRouter(deps) {
       return;
     }
 
+    if (method === "POST" && url.pathname === "/mcp/heartbeat") {
+      const body = await readJsonBody(req);
+      const outcome = turnService.heartbeatMcp(body);
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "POST" && url.pathname === "/mcp/list_assets_in_folder") {
+      const body = await readJsonBody(req);
+      const outcome = await turnService.listAssetsInFolderForMcp(body);
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "POST" && url.pathname === "/mcp/get_scene_roots") {
+      const body = await readJsonBody(req);
+      const outcome = await turnService.getSceneRootsForMcp(body);
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "POST" && url.pathname === "/mcp/find_objects_by_component") {
+      const body = await readJsonBody(req);
+      const outcome = await turnService.findObjectsByComponentForMcp(body);
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "POST" && url.pathname === "/mcp/query_prefab_info") {
+      const body = await readJsonBody(req);
+      const outcome = await turnService.queryPrefabInfoForMcp(body);
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
     if (method === "GET" && url.pathname === "/mcp/metrics") {
       const outcome = turnService.getMcpMetrics();
-      sendJson(res, outcome.statusCode, outcome.body);
+      sendJson(res, outcome.statusCode, outcome.body, {
+        "Cache-Control": "no-store",
+        Pragma: "no-cache",
+        "X-Codex-Metrics-Contract-Version": METRICS_CONTRACT_VERSION,
+      });
       return;
     }
 
@@ -168,6 +229,8 @@ function createRouter(deps) {
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
         "X-Accel-Buffering": "no",
+        "X-Codex-Stream-Contract-Version": STREAM_EVENT_CONTRACT_VERSION,
+        "X-Codex-Stream-Ready-Contract-Version": STREAM_READY_CONTRACT_VERSION,
       });
       if (typeof res.flushHeaders === "function") {
         res.flushHeaders();
@@ -175,6 +238,7 @@ function createRouter(deps) {
       res.write(": connected\n\n");
 
       writeSseEvent(res, {
+        stream_ready_contract_version: STREAM_READY_CONTRACT_VERSION,
         seq: registration.latest_event_seq || 0,
         event: "stream.ready",
         timestamp: new Date().toISOString(),
@@ -261,20 +325,6 @@ function createRouter(deps) {
 module.exports = {
   createRouter,
 };
-
-function parseBoolEnv(raw, fallback) {
-  if (raw === undefined || raw === null || raw === "") {
-    return !!fallback;
-  }
-  const value = String(raw).trim().toLowerCase();
-  if (value === "1" || value === "true" || value === "yes" || value === "on") {
-    return true;
-  }
-  if (value === "0" || value === "false" || value === "no" || value === "off") {
-    return false;
-  }
-  return !!fallback;
-}
 
 function writeSseEvent(res, payload) {
   if (!res || typeof res.write !== "function") {

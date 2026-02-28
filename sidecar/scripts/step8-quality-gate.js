@@ -47,8 +47,8 @@ async function main() {
       Number.isFinite(regression.pass_rate_pct) &&
       regression.pass_rate_pct >= args.minPassRatePct,
     observability_metrics_available:
-      (observability.stage_duration_ms.text_turn.count > 0 &&
-        observability.stage_duration_ms.extraction_turn.count > 0) ||
+      observability.turns_total > 0 ||
+      observability.action_attempt_turns > 0 ||
       fallbackMetricsAvailable,
     replay_script_present: fs.existsSync(
       path.join(SIDECAR_ROOT, "scripts", "replay-failed-report.js")
@@ -124,85 +124,6 @@ function parseArgs(argv) {
 function buildMatrix() {
   return [
     {
-      id: "smoke_fast",
-      label: "smoke:fast",
-      command: process.execPath,
-      args: [
-        "scripts/smoke-turn-runner.js",
-        "--base-url",
-        "http://127.0.0.1:46331",
-        "--iterations",
-        "3",
-        "--skip-turn-send",
-        "--include-timeout-case",
-        "--spawn-sidecar",
-        "--compile-timeout-ms",
-        "1200",
-      ],
-      cwd: SIDECAR_ROOT,
-    },
-    {
-      id: "smoke_codex_timeout",
-      label: "smoke:codex-timeout",
-      command: process.execPath,
-      args: [
-        "scripts/smoke-turn-runner.js",
-        "--base-url",
-        "http://127.0.0.1:46330",
-        "--iterations",
-        "1",
-        "--skip-turn-send",
-        "--include-codex-timeout-case",
-        "--spawn-sidecar",
-        "--fake-codex-timeout-planner",
-        "--codex-soft-timeout-ms",
-        "1200",
-        "--codex-hard-timeout-ms",
-        "2400",
-      ],
-      cwd: SIDECAR_ROOT,
-    },
-    {
-      id: "smoke_query_timeout",
-      label: "smoke:query-timeout",
-      command: process.execPath,
-      args: [
-        "scripts/smoke-turn-runner.js",
-        "--base-url",
-        "http://127.0.0.1:46329",
-        "--iterations",
-        "1",
-        "--skip-turn-send",
-        "--include-query-timeout-case",
-        "--spawn-sidecar",
-        "--unity-query-timeout-ms",
-        "1200",
-      ],
-      cwd: SIDECAR_ROOT,
-    },
-    {
-      id: "smoke_query_probe",
-      label: "smoke:query-probe",
-      command: process.execPath,
-      args: [
-        "scripts/smoke-turn-runner.js",
-        "--base-url",
-        "http://127.0.0.1:46328",
-        "--iterations",
-        "1",
-        "--skip-turn-send",
-        "--include-query-probe-case",
-        "--spawn-sidecar",
-        "--fake-unity-query-mode",
-        "remove_except_keep",
-        "--fake-unity-query-keep-component",
-        "KeepComponent",
-        "--unity-query-timeout-ms",
-        "5000",
-      ],
-      cwd: SIDECAR_ROOT,
-    },
-    {
       id: "mcp_job",
       label: "smoke:mcp-job",
       command: process.execPath,
@@ -237,17 +158,10 @@ function buildMatrix() {
       cwd: SIDECAR_ROOT,
     },
     {
-      id: "planner_probe",
-      label: "smoke:planner-probe",
+      id: "mcp_visual_anchor",
+      label: "smoke:mcp-visual-anchor",
       command: process.execPath,
-      args: ["scripts/planner-probe-regression.js"],
-      cwd: SIDECAR_ROOT,
-    },
-    {
-      id: "planner_memory",
-      label: "smoke:planner-memory",
-      command: process.execPath,
-      args: ["scripts/planner-memory-regression.js"],
+      args: ["scripts/mcp-visual-anchor-regression.js"],
       cwd: SIDECAR_ROOT,
     },
   ];
@@ -397,7 +311,8 @@ function hasFallbackMetrics(reportSummaries) {
         item.metrics.file_compile_round_duration_ms &&
         item.metrics.file_compile_round_duration_ms.count
     );
-    if (caseCount > 0 || compileCount > 0) {
+    const summaryTotal = toInt(item.summary && item.summary.total);
+    if (caseCount > 0 || compileCount > 0 || summaryTotal > 0) {
       return true;
     }
   }
@@ -417,11 +332,8 @@ function detectReportType(report) {
   if (fileName.startsWith("mcp-stream-report-")) {
     return "mcp_stream";
   }
-  if (fileName.startsWith("planner-probe-regression-")) {
-    return "planner_probe";
-  }
-  if (fileName.startsWith("planner-memory-regression-")) {
-    return "planner_memory";
+  if (fileName.startsWith("mcp-visual-anchor-regression-")) {
+    return "mcp_visual_anchor";
   }
   return "unknown";
 }
@@ -490,13 +402,7 @@ function buildObservabilitySummary(stateFilePath) {
     timeout_turns: 0,
     timeout_rate_pct: 0,
     cancelled_turns: 0,
-    stage_duration_ms: {
-      text_turn: emptyQuantiles(),
-      extraction_turn: emptyQuantiles(),
-    },
-    extraction_started_count: 0,
-    extraction_failed_count: 0,
-    extraction_failure_rate_pct: 0,
+    compile_round_duration_ms: emptyQuantiles(),
     action_attempt_turns: 0,
     action_success_turns: 0,
     action_success_rate_pct: 0,
@@ -509,12 +415,9 @@ function buildObservabilitySummary(stateFilePath) {
   const turns = Array.isArray(snapshot.turns) ? snapshot.turns : [];
   payload.turns_total = turns.length;
 
-  const textDurations = [];
-  const extractionDurations = [];
-  const timeoutCodes = new Set(["E_CODEX_TIMEOUT", "E_COMPILE_TIMEOUT"]);
+  const compileDurations = [];
+  const timeoutCodes = new Set(["E_COMPILE_TIMEOUT"]);
   const errorHistogram = new Map();
-  let extractionStartedCount = 0;
-  let extractionFailedCount = 0;
   let actionAttemptTurns = 0;
   let actionSuccessTurns = 0;
   let terminalTurns = 0;
@@ -541,20 +444,14 @@ function buildObservabilitySummary(stateFilePath) {
     }
 
     const events = Array.isArray(turn.events) ? turn.events : [];
-    const textDuration = pickStageDuration(events, "text_turn_started", "text_turn_completed");
-    if (textDuration >= 0) {
-      textDurations.push(textDuration);
-    }
-    const extractionDuration = pickStageDuration(
+    const compileDuration = pickStageDuration(
       events,
-      "extraction_started",
-      "extraction_completed"
+      "unity.compile.request",
+      "unity.compile.result"
     );
-    if (extractionDuration >= 0) {
-      extractionDurations.push(extractionDuration);
+    if (compileDuration >= 0) {
+      compileDurations.push(compileDuration);
     }
-    extractionStartedCount += countEvents(events, "extraction_started");
-    extractionFailedCount += countEvents(events, "extraction_turn_failed");
 
     const hasActionRequest = events.some(
       (event) => event && typeof event.event === "string" && event.event === "unity.action.request"
@@ -575,14 +472,7 @@ function buildObservabilitySummary(stateFilePath) {
   payload.timeout_turns = timeoutTurns;
   payload.timeout_rate_pct = safePercent(timeoutTurns, terminalTurns);
   payload.cancelled_turns = cancelledTurns;
-  payload.stage_duration_ms.text_turn = quantiles(textDurations);
-  payload.stage_duration_ms.extraction_turn = quantiles(extractionDurations);
-  payload.extraction_started_count = extractionStartedCount;
-  payload.extraction_failed_count = extractionFailedCount;
-  payload.extraction_failure_rate_pct = safePercent(
-    extractionFailedCount,
-    extractionStartedCount
-  );
+  payload.compile_round_duration_ms = quantiles(compileDurations);
   payload.action_attempt_turns = actionAttemptTurns;
   payload.action_success_turns = actionSuccessTurns;
   payload.action_success_rate_pct = safePercent(actionSuccessTurns, actionAttemptTurns);
@@ -786,7 +676,7 @@ function printSummary(report, outputPath) {
   );
   // eslint-disable-next-line no-console
   console.log(
-    `[step8] timeout_rate_pct=${observability.timeout_rate_pct || 0} extraction_failure_rate_pct=${observability.extraction_failure_rate_pct || 0} action_success_rate_pct=${observability.action_success_rate_pct || 0}`
+    `[step8] timeout_rate_pct=${observability.timeout_rate_pct || 0} action_success_rate_pct=${observability.action_success_rate_pct || 0}`
   );
   // eslint-disable-next-line no-console
   console.log(`[step8] report=${outputPath}`);

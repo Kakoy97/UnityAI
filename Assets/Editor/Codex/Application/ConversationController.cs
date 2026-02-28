@@ -18,27 +18,32 @@ namespace UnityAI.Editor.Codex.Application
         private const double PollIntervalSeconds = 0.6d;
         private const double CodexTimeoutSeconds = 60d;
         private const double CompileTimeoutSeconds = 120d;
-        private const bool EnableDiagnosticLogs = false;
+        private static readonly bool EnableDiagnosticLogs = false;
         private const string MissingScriptShortName = "MissingScript";
         private const string MissingScriptAssemblyQualifiedName = "UnityEditor.MissingScript";
-        private const string UnityQueryErrorBusyOrCompiling = "unity_busy_or_compiling";
-        private const string UnityQueryErrorTargetNotFound = "target_not_found";
-        private const string UnityQueryErrorFailed = "unity_query_failed";
+        private const string UnityQueryErrorBusyOrCompiling = "E_SELECTION_UNAVAILABLE";
+        private const string UnityQueryErrorTargetNotFound = "E_TARGET_NOT_FOUND";
+        private const string UnityQueryErrorFailed = "E_QUERY_HANDLER_FAILED";
+        private const int MaxTransportErrorMessageLength = 320;
+        private const int MaxConsoleConditionLength = 320;
+        private const int MaxConsoleStackTraceLength = 640;
+        private const int SelectionSnapshotMaxDepth = 2;
+        private const int SelectionSnapshotIndexDepth = 6;
+        private const int SelectionSnapshotIndexNodeBudget = 192;
+        private const int ConsoleSnapshotMaxErrors = 50;
+        private const double RuntimePingProbeIntervalSeconds = 4d;
 
         private readonly ISidecarGateway _sidecarGateway;
         private readonly ISidecarProcessManager _processManager;
         private readonly ISelectionContextBuilder _contextBuilder;
         private readonly IConversationStateStore _stateStore;
         private readonly IUnityVisualActionExecutor _visualActionExecutor;
+        private readonly UnityRagReadService _ragReadService;
         private readonly SynchronizationContext _unitySynchronizationContext;
         private readonly List<UiLogEntry> _logs = new List<UiLogEntry>();
 
         private string _activeRequestId = string.Empty;
         private string _turnId = string.Empty;
-        private bool _sessionStarted;
-        private bool _pollInFlight;
-        private double _nextPollAt;
-        private double _codexDeadlineAt;
         private double _compileDeadlineAt;
         private TurnRuntimeState _runtimeState = TurnRuntimeState.Idle;
         private string _lastTerminalEvent = string.Empty;
@@ -54,12 +59,14 @@ namespace UnityAI.Editor.Codex.Application
         private UnityActionRequestEnvelope _pendingUnityActionRequest;
         private int _transportErrorStreak;
         private double _lastTransportErrorLogAt;
-        private int _lastSeenEventSeq;
-        private string _lastStatusDiagnosticSignature = string.Empty;
-        private string _lastAssistantMessageSignature = string.Empty;
-        private readonly HashSet<string> _inflightUnityComponentQueryIds =
-            new HashSet<string>(StringComparer.Ordinal);
-        private readonly object _unityComponentQueryLock = new object();
+        private bool _selectionSnapshotInFlight;
+        private string _lastSelectionSnapshotSignature = string.Empty;
+        private bool _consoleSnapshotInFlight;
+        private string _lastConsoleSnapshotSignature = string.Empty;
+        private bool _ragQueryPollInFlight;
+        private double _lastRagQueryPollAt;
+        private bool _runtimePingProbeInFlight;
+        private double _lastRuntimePingProbeAt;
 
         public ConversationController(
             ISidecarGateway sidecarGateway,
@@ -73,6 +80,7 @@ namespace UnityAI.Editor.Codex.Application
             _contextBuilder = contextBuilder;
             _stateStore = stateStore;
             _visualActionExecutor = visualActionExecutor;
+            _ragReadService = new UnityRagReadService();
             _unitySynchronizationContext = SynchronizationContext.Current;
 
             SidecarUrl = "http://127.0.0.1:46321";
@@ -156,9 +164,7 @@ namespace UnityAI.Editor.Codex.Application
         {
             get
             {
-                return IsBusy &&
-                       (_runtimeState == TurnRuntimeState.CodexPending ||
-                        _runtimeState == TurnRuntimeState.AutoFixPending);
+                return false; // L3 no longer handles Codex/LLM phases
             }
         }
 
@@ -204,7 +210,6 @@ namespace UnityAI.Editor.Codex.Application
                 BusyReason = string.IsNullOrEmpty(persisted.busy_reason)
                     ? "Recovered"
                     : persisted.busy_reason;
-                _lastSeenEventSeq = 0;
                 ResetDeadlinesForState(EditorApplicationTimeFallback());
                 AddLog(UiLogLevel.Warning, "Recovered pending turn from EditorPrefs state.");
             }
@@ -226,9 +231,10 @@ namespace UnityAI.Editor.Codex.Application
             {
                 AddLog(UiLogLevel.Warning, result.Message);
                 await CheckHealthAsync();
-                await EnsureSessionStartedAsync();
                 await SyncWithSidecarSnapshotAsync(EditorApplicationTimeFallback());
                 await SendRuntimePingInternalAsync("just_recompiled", false);
+                await ReportSelectionSnapshotAsync(Selection.activeGameObject, "startup_sync", true);
+                await ReportConsoleSnapshotAsync("startup_sync", true);
                 return;
             }
 
@@ -240,15 +246,15 @@ namespace UnityAI.Editor.Codex.Application
 
             AddLog(UiLogLevel.Info, result.Message);
             await CheckHealthAsync();
-            await EnsureSessionStartedAsync();
             await SyncWithSidecarSnapshotAsync(EditorApplicationTimeFallback());
             await SendRuntimePingInternalAsync("just_recompiled", false);
+            await ReportSelectionSnapshotAsync(Selection.activeGameObject, "startup_sync", true);
+            await ReportConsoleSnapshotAsync("startup_sync", true);
         }
 
         public void StopSidecar()
         {
             var result = _processManager.Stop();
-            _sessionStarted = false;
 
             if (IsBusy)
             {
@@ -303,6 +309,159 @@ namespace UnityAI.Editor.Codex.Application
                 " active_request_id=" + SafeString(result.Data.active_request_id));
         }
 
+        public void NotifySelectionChanged(GameObject selected)
+        {
+            _ = ReportSelectionSnapshotAsync(selected, "selection_changed", false);
+        }
+
+        public async Task ReportSelectionSnapshotAsync(GameObject selected, string reason, bool force)
+        {
+            if (_selectionSnapshotInFlight && !force)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(ThreadId))
+            {
+                ThreadId = "t_default";
+            }
+
+            var normalizedReason = string.IsNullOrWhiteSpace(reason)
+                ? "selection_changed"
+                : reason.Trim();
+            var snapshotRequestId = "req_selection_" + Guid.NewGuid().ToString("N");
+            var snapshotTurnId = "u_selection_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var request = new UnitySelectionSnapshotRequest
+            {
+                @event = "unity.selection.snapshot",
+                request_id = snapshotRequestId,
+                thread_id = ThreadId,
+                turn_id = snapshotTurnId,
+                timestamp = DateTime.UtcNow.ToString("o"),
+                payload = new UnitySelectionSnapshotPayload
+                {
+                    reason = normalizedReason,
+                    selection_empty = selected == null,
+                    context = null,
+                    component_index = null
+                }
+            };
+
+            string signature;
+            if (selected == null)
+            {
+                signature = "empty";
+            }
+            else
+            {
+                var context = _contextBuilder.BuildContext(selected, SelectionSnapshotMaxDepth);
+                request.payload.context = context;
+                request.payload.component_index = BuildSelectionComponentIndex(
+                    selected,
+                    SelectionSnapshotIndexDepth,
+                    SelectionSnapshotIndexNodeBudget);
+                signature =
+                    (context != null && !string.IsNullOrEmpty(context.scene_revision)
+                        ? context.scene_revision
+                        : "rev_unknown") +
+                    "|" +
+                    BuildSelectedPath(selected);
+            }
+
+            if (!force && string.Equals(signature, _lastSelectionSnapshotSignature, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _selectionSnapshotInFlight = true;
+            try
+            {
+                var result = await _sidecarGateway.ReportSelectionSnapshotAsync(SidecarUrl, request);
+                if (!result.TransportSuccess || !result.IsHttpSuccess || result.Data == null || !result.Data.ok)
+                {
+                    if (force)
+                    {
+                        AddLog(
+                            UiLogLevel.Warning,
+                            "unity.selection.snapshot failed: " +
+                            (result.TransportSuccess
+                                ? ReadErrorCode(result)
+                                : result.ErrorMessage));
+                    }
+                    return;
+                }
+
+                _lastSelectionSnapshotSignature = signature;
+            }
+            finally
+            {
+                _selectionSnapshotInFlight = false;
+            }
+        }
+
+        public async Task ReportConsoleSnapshotAsync(string reason, bool force)
+        {
+            if (_consoleSnapshotInFlight && !force)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(ThreadId))
+            {
+                ThreadId = "t_default";
+            }
+
+            var normalizedReason = string.IsNullOrWhiteSpace(reason)
+                ? "console_probe"
+                : reason.Trim();
+            var errors = BuildConsoleErrorItemsForSnapshot(ConsoleSnapshotMaxErrors);
+            var signature = BuildConsoleSnapshotSignature(errors);
+            if (!force && string.Equals(signature, _lastConsoleSnapshotSignature, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var request = new UnityConsoleSnapshotRequest
+            {
+                @event = "unity.console.snapshot",
+                request_id = "req_console_" + Guid.NewGuid().ToString("N"),
+                thread_id = ThreadId,
+                turn_id = "u_console_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                timestamp = DateTime.UtcNow.ToString("o"),
+                payload = new UnityConsoleSnapshotPayload
+                {
+                    reason = normalizedReason,
+                    errors = errors
+                }
+            };
+
+            _consoleSnapshotInFlight = true;
+            try
+            {
+                var result = await _sidecarGateway.ReportConsoleSnapshotAsync(SidecarUrl, request);
+                if (!result.TransportSuccess || !result.IsHttpSuccess || result.Data == null || !result.Data.ok)
+                {
+                    if (force)
+                    {
+                        AddLog(
+                            UiLogLevel.Warning,
+                            "unity.console.snapshot failed: " +
+                            (result.TransportSuccess
+                                ? ReadErrorCode(result)
+                                : result.ErrorMessage));
+                    }
+
+                    return;
+                }
+
+                _lastConsoleSnapshotSignature = signature;
+            }
+            finally
+            {
+                _consoleSnapshotInFlight = false;
+            }
+        }
+
         public async Task ApplyPhase6SmokeWriteAsync(GameObject selected)
         {
             if (IsBusy)
@@ -317,21 +476,13 @@ namespace UnityAI.Editor.Codex.Application
                 return;
             }
 
-            if (!_sessionStarted)
-            {
-                await EnsureSessionStartedAsync();
-                if (!_sessionStarted)
-                {
-                    AddLog(UiLogLevel.Error, "Cannot apply file actions before session.start succeeds.");
-                    return;
-                }
-            }
-
             var requestId = "req_file_" + Guid.NewGuid().ToString("N");
             var turnId = "u_file_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var smokeSuffix = requestId.Replace("req_file_", string.Empty).Substring(0, 8);
             var className = "HelloPhase6_" + smokeSuffix;
             var scriptPath = "Assets/Scripts/AIGenerated/Phase6Smoke/" + className + ".cs";
+            var selectedPath = BuildSelectedPath(selected);
+            var selectedObjectId = BuildObjectId(selected);
             _lastSmokeScriptPath = scriptPath;
             _pendingCompileComponentAssemblyQualifiedName = className + ", Assembly-CSharp";
             var request = new FileActionsApplyRequest
@@ -366,8 +517,11 @@ namespace UnityAI.Editor.Codex.Application
                         new VisualLayerActionItem
                         {
                             type = "add_component",
-                            target = "selection",
-                            target_object_path = BuildSelectedPath(selected),
+                            target_anchor = new UnityObjectAnchor
+                            {
+                                object_id = selectedObjectId,
+                                path = selectedPath
+                            },
                             component_assembly_qualified_name = _pendingCompileComponentAssemblyQualifiedName
                         }
                     }
@@ -415,8 +569,6 @@ namespace UnityAI.Editor.Codex.Application
             _lastCompilePendingHeartbeatAt = EditorApplicationTimeFallback();
             _compileRefreshIssued = true;
             _lastCompileRefreshAt = EditorApplicationTimeFallback();
-            _codexDeadlineAt = 0d;
-            _nextPollAt = 0d;
             _pendingUnityActionRequest = null;
             SaveState();
             EmitChanged();
@@ -478,6 +630,8 @@ namespace UnityAI.Editor.Codex.Application
                 UiLogLevel.Info,
                 "unity.compile.result => " + _activeRequestId + " success=" + success);
 
+            await ReportConsoleSnapshotAsync("compile_result", true);
+
             var result = await _sidecarGateway.ReportCompileResultAsync(SidecarUrl, request);
             if (!result.TransportSuccess)
             {
@@ -498,16 +652,10 @@ namespace UnityAI.Editor.Codex.Application
                 return;
             }
 
-            LogAutoFixProgress(
-                report.auto_fix_applied,
-                report.auto_fix_attempts,
-                report.auto_fix_max_attempts,
-                report.auto_fix_reason,
-                report.files_changed);
+            // AutoFix removed - no longer logging auto fix progress
 
             var status = ToTurnStatus(report);
             LogStatusDiagnostics("unity.compile.result.response", status);
-            ProcessTurnEvents(status);
             if (IsTerminalStatus(status))
             {
                 HandleTerminalStatus(status);
@@ -516,17 +664,12 @@ namespace UnityAI.Editor.Codex.Application
 
             if (TryCapturePendingUnityActionRequest(
                     report.unity_action_request,
-                    report.pending_visual_action,
                     "unity.compile.result",
-                    status != null ? status.request_id : string.Empty,
-                    status != null ? status.stage : string.Empty,
-                    status != null ? status.pending_visual_action_count : 0))
+                    status != null ? status.request_id : string.Empty))
             {
-                _runtimeState = TurnRuntimeState.ActionConfirmPending;
-                BusyReason = "Action Confirmation";
-                SaveState();
-                EmitChanged();
-                AddLog(UiLogLevel.Info, "Received unity.action.request. Waiting for confirmation.");
+                await HandleCapturedPendingActionAsync(
+                    "unity.compile.result",
+                    "Received unity.action.request. Waiting for confirmation.");
                 return;
             }
 
@@ -539,6 +682,66 @@ namespace UnityAI.Editor.Codex.Application
         public async Task SendRuntimePingAsync()
         {
             await SendRuntimePingInternalAsync("just_recompiled", true);
+        }
+
+        public async Task PollRagQueriesAsync(double now)
+        {
+            if (_ragQueryPollInFlight)
+            {
+                return;
+            }
+            if (_lastRagQueryPollAt > 0d && now - _lastRagQueryPollAt < PollIntervalSeconds)
+            {
+                return;
+            }
+
+            _ragQueryPollInFlight = true;
+            _lastRagQueryPollAt = now;
+            try
+            {
+                await TryHandlePulledReadQueryAsync();
+                await TryBackgroundRuntimePingAsync(now);
+                await TryAutoReportCompileResultAsync();
+                TryTripTimeout(now);
+            }
+            catch (Exception ex)
+            {
+                AddLog(
+                    UiLogLevel.Error,
+                    "poll loop failed: " + NormalizeErrorMessageForTransport(
+                        ex == null ? string.Empty : ex.Message,
+                        "poll loop failed."));
+                Debug.LogError("[Codex] PollRagQueriesAsync failed: " + ex);
+            }
+            finally
+            {
+                _ragQueryPollInFlight = false;
+            }
+        }
+
+        private async Task TryBackgroundRuntimePingAsync(double now)
+        {
+            if (_runtimePingProbeInFlight)
+            {
+                return;
+            }
+
+            if (_lastRuntimePingProbeAt > 0d &&
+                now - _lastRuntimePingProbeAt < RuntimePingProbeIntervalSeconds)
+            {
+                return;
+            }
+
+            _runtimePingProbeInFlight = true;
+            _lastRuntimePingProbeAt = now;
+            try
+            {
+                await SendRuntimePingInternalAsync("heartbeat", false);
+            }
+            finally
+            {
+                _runtimePingProbeInFlight = false;
+            }
         }
 
         public async Task ConfirmPendingActionAsync(GameObject selected)
@@ -556,12 +759,14 @@ namespace UnityAI.Editor.Codex.Application
             if (!CanConfirmPendingAction)
             {
                 AddLog(UiLogLevel.Warning, "No pending unity.action.request to handle.");
+                Debug.LogWarning("[Codex] No pending unity.action.request to handle.");
                 return;
             }
 
             if (approved && EditorApplication.isCompiling)
             {
                 AddLog(UiLogLevel.Warning, "Unity is still compiling. Please approve action after compile completes.");
+                Debug.LogWarning("[Codex] Pending action blocked because Unity is compiling.");
                 return;
             }
 
@@ -569,7 +774,34 @@ namespace UnityAI.Editor.Codex.Application
             var action = actionEnvelope.payload.action;
 
             UnityActionExecutionResult execution;
-            if (approved)
+            if (approved && !IsActionPayloadValid(action))
+            {
+                AddLog(
+                    UiLogLevel.Warning,
+                    "Pending action schema check failed on execution gate. Execution blocked.");
+                execution = new UnityActionExecutionResult
+                {
+                    actionType = action != null ? action.type : string.Empty,
+                    targetObjectPath = action == null ? string.Empty : ReadAnchorPath(action.target_anchor),
+                    targetObjectId = action == null ? string.Empty : ReadAnchorObjectId(action.target_anchor),
+                    componentAssemblyQualifiedName =
+                        action == null ? string.Empty : action.component_assembly_qualified_name,
+                    sourceComponentAssemblyQualifiedName =
+                        action == null ? string.Empty : action.source_component_assembly_qualified_name,
+                    createdObjectPath = string.Empty,
+                    createdObjectId = string.Empty,
+                    name = action == null ? string.Empty : action.name,
+                    parentObjectPath = action == null ? string.Empty : ReadAnchorPath(action.parent_anchor),
+                    parentObjectId = action == null ? string.Empty : ReadAnchorObjectId(action.parent_anchor),
+                    primitiveType = action == null ? string.Empty : action.primitive_type,
+                    uiType = action == null ? string.Empty : action.ui_type,
+                    success = false,
+                    errorCode = "E_ACTION_SCHEMA_INVALID",
+                    errorMessage = "Visual action payload failed L3 pre-execution schema validation.",
+                    durationMs = 0
+                };
+            }
+            else if (approved)
             {
                 execution = _visualActionExecutor.Execute(action, selected);
                 if (!execution.success && execution.errorCode == "E_ACTION_COMPONENT_RESOLVE_FAILED")
@@ -588,15 +820,22 @@ namespace UnityAI.Editor.Codex.Application
             }
             else
             {
+                var rejectedTargetPath = ReadAnchorPath(action.target_anchor);
+                var rejectedTargetObjectId = ReadAnchorObjectId(action.target_anchor);
+                var rejectedParentPath = ReadAnchorPath(action.parent_anchor);
+                var rejectedParentObjectId = ReadAnchorObjectId(action.parent_anchor);
                 execution = new UnityActionExecutionResult
                 {
                     actionType = action.type,
-                    targetObjectPath = BuildSelectedPath(selected),
+                    targetObjectPath = rejectedTargetPath,
+                    targetObjectId = rejectedTargetObjectId,
                     componentAssemblyQualifiedName = action.component_assembly_qualified_name,
                     sourceComponentAssemblyQualifiedName = action.source_component_assembly_qualified_name,
                     createdObjectPath = string.Empty,
+                    createdObjectId = string.Empty,
                     name = action.name,
-                    parentObjectPath = action.parent_object_path,
+                    parentObjectPath = rejectedParentPath,
+                    parentObjectId = rejectedParentObjectId,
                     primitiveType = action.primitive_type,
                     uiType = action.ui_type,
                     success = false,
@@ -605,6 +844,29 @@ namespace UnityAI.Editor.Codex.Application
                     durationMs = 0
                 };
             }
+
+            if (approved && execution.success)
+            {
+                var postWriteSelection = selected != null
+                    ? selected
+                    : Selection.activeGameObject;
+                if (postWriteSelection != null)
+                {
+                    await ReportSelectionSnapshotAsync(postWriteSelection, "action_post_write", true);
+                }
+            }
+
+            var reportTarget = !string.IsNullOrWhiteSpace(execution.targetObjectPath)
+                    ? execution.targetObjectPath
+                    : execution.targetObjectId;
+            var normalizedActionErrorCode = execution.success
+                ? string.Empty
+                : NormalizeErrorCodeForTransport(execution.errorCode, "E_ACTION_EXECUTION_FAILED");
+            var normalizedActionErrorMessage = execution.success
+                ? string.Empty
+                : NormalizeErrorMessageForTransport(
+                    execution.errorMessage,
+                    "Visual action execution failed.");
 
             var request = new UnityActionResultRequest
             {
@@ -616,18 +878,22 @@ namespace UnityAI.Editor.Codex.Application
                 payload = new UnityActionResultPayload
                 {
                     action_type = execution.actionType,
-                    target = action.target,
+                    target = reportTarget,
                     target_object_path = execution.targetObjectPath,
+                    target_object_id = execution.targetObjectId,
+                    object_id = execution.targetObjectId,
                     component_assembly_qualified_name = execution.componentAssemblyQualifiedName,
                     source_component_assembly_qualified_name = execution.sourceComponentAssemblyQualifiedName,
                     created_object_path = execution.createdObjectPath,
+                    created_object_id = execution.createdObjectId,
                     name = execution.name,
                     parent_object_path = execution.parentObjectPath,
+                    parent_object_id = execution.parentObjectId,
                     primitive_type = execution.primitiveType,
                     ui_type = execution.uiType,
                     success = execution.success,
-                    error_code = execution.errorCode ?? string.Empty,
-                    error_message = execution.errorMessage ?? string.Empty,
+                    error_code = normalizedActionErrorCode,
+                    error_message = normalizedActionErrorMessage,
                     duration_ms = execution.durationMs
                 }
             };
@@ -636,7 +902,11 @@ namespace UnityAI.Editor.Codex.Application
                 UiLogLevel.Info,
                 "unity.action.result => " + _activeRequestId +
                 " success=" + execution.success +
-                (execution.success ? string.Empty : " code=" + execution.errorCode));
+                (execution.success ? string.Empty : " code=" + normalizedActionErrorCode));
+            Debug.Log(
+                "[Codex] unity.action.result => " + _activeRequestId +
+                " success=" + execution.success +
+                (execution.success ? string.Empty : " code=" + normalizedActionErrorCode));
 
             _runtimeState = TurnRuntimeState.ActionExecuting;
             BusyReason = "Action Executing";
@@ -647,6 +917,7 @@ namespace UnityAI.Editor.Codex.Application
             if (!result.TransportSuccess)
             {
                 AddLog(UiLogLevel.Error, "unity.action.result failed: " + result.ErrorMessage);
+                Debug.LogWarning("[Codex] unity.action.result failed: " + result.ErrorMessage);
                 _runtimeState = TurnRuntimeState.ActionConfirmPending;
                 BusyReason = "Action Confirmation";
                 SaveState();
@@ -657,6 +928,7 @@ namespace UnityAI.Editor.Codex.Application
             if (!result.IsHttpSuccess)
             {
                 AddLog(UiLogLevel.Error, "unity.action.result rejected: " + ReadErrorCode(result));
+                Debug.LogWarning("[Codex] unity.action.result rejected: " + ReadErrorCode(result));
                 _runtimeState = TurnRuntimeState.ActionConfirmPending;
                 BusyReason = "Action Confirmation";
                 SaveState();
@@ -668,6 +940,7 @@ namespace UnityAI.Editor.Codex.Application
             if (report == null)
             {
                 AddLog(UiLogLevel.Error, "unity.action.result response parse failed.");
+                Debug.LogWarning("[Codex] unity.action.result response parse failed.");
                 _runtimeState = TurnRuntimeState.ActionConfirmPending;
                 BusyReason = "Action Confirmation";
                 SaveState();
@@ -675,16 +948,10 @@ namespace UnityAI.Editor.Codex.Application
                 return;
             }
 
-            LogAutoFixProgress(
-                report.auto_fix_applied,
-                report.auto_fix_attempts,
-                report.auto_fix_max_attempts,
-                report.auto_fix_reason,
-                null);
+            // AutoFix removed - no longer logging auto fix progress
 
             var status = ToTurnStatus(report);
             LogStatusDiagnostics("unity.action.result.response", status);
-            ProcessTurnEvents(status);
             if (IsTerminalStatus(status))
             {
                 HandleTerminalStatus(status);
@@ -693,17 +960,12 @@ namespace UnityAI.Editor.Codex.Application
 
             if (TryCapturePendingUnityActionRequest(
                     report.unity_action_request,
-                    report.pending_visual_action,
                     "unity.action.result",
-                    status != null ? status.request_id : string.Empty,
-                    status != null ? status.stage : string.Empty,
-                    status != null ? status.pending_visual_action_count : 0))
+                    status != null ? status.request_id : string.Empty))
             {
-                _runtimeState = TurnRuntimeState.ActionConfirmPending;
-                BusyReason = "Action Confirmation";
-                SaveState();
-                EmitChanged();
-                AddLog(UiLogLevel.Info, "Next unity.action.request received. Waiting for confirmation.");
+                await HandleCapturedPendingActionAsync(
+                    "unity.action.result",
+                    "Next unity.action.request received. Waiting for confirmation.");
                 return;
             }
 
@@ -711,314 +973,6 @@ namespace UnityAI.Editor.Codex.Application
             BusyReason = BuildBusyReasonForRuntimeState();
             SaveState();
             EmitChanged();
-        }
-
-        public async Task<bool> SendTurnAsync(string message, GameObject selected, double now)
-        {
-            if (IsBusy)
-            {
-                AddLog(UiLogLevel.Warning, "A turn is already in progress.");
-                return false;
-            }
-
-            if (selected == null)
-            {
-                AddLog(UiLogLevel.Error, "Pre-flight failed: please select a target GameObject in Hierarchy.");
-                return true;
-            }
-
-            if (string.IsNullOrWhiteSpace(message))
-            {
-                AddLog(UiLogLevel.Warning, "Message is empty.");
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(ThreadId))
-            {
-                ThreadId = "t_default";
-            }
-
-            if (!_sessionStarted)
-            {
-                await EnsureSessionStartedAsync();
-                if (!_sessionStarted)
-                {
-                    AddLog(UiLogLevel.Error, "Cannot send turn before session.start succeeds.");
-                    return false;
-                }
-            }
-
-            LogUserMessage(message);
-
-            _activeRequestId = "req_" + Guid.NewGuid().ToString("N");
-            _turnId = "u_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            IsBusy = true;
-            BusyReason = "Planning/Executing";
-            _runtimeState = TurnRuntimeState.CodexPending;
-            _codexDeadlineAt = now + CodexTimeoutSeconds;
-            _compileDeadlineAt = 0d;
-            _nextPollAt = now + 0.2d;
-            _pendingUnityActionRequest = null;
-            _lastSeenEventSeq = 0;
-            _lastAssistantMessageSignature = string.Empty;
-            SaveState();
-            EmitChanged();
-
-            var request = new TurnSendRequest
-            {
-                @event = "turn.send",
-                request_id = _activeRequestId,
-                thread_id = ThreadId,
-                turn_id = _turnId,
-                timestamp = DateTime.UtcNow.ToString("o"),
-                payload = new TurnSendPayload
-                {
-                    user_message = message,
-                    context = _contextBuilder.BuildContext(selected, 2)
-                }
-            };
-
-            AddLog(UiLogLevel.Info, "turn.send => " + _activeRequestId);
-
-            var result = await _sidecarGateway.SendTurnAsync(SidecarUrl, request);
-            if (!result.TransportSuccess)
-            {
-                HandleLocalFailure("E_NETWORK", "turn.send failed: " + result.ErrorMessage);
-                return false;
-            }
-
-            if (result.StatusCode == 429)
-            {
-                HandleLocalFailure("E_TOO_MANY_ACTIVE_TURNS", "Sidecar rejected new turn (429): " + ReadErrorCode(result));
-                return false;
-            }
-
-            if (!result.IsHttpSuccess)
-            {
-                HandleLocalFailure("E_HTTP_" + result.StatusCode, "turn.send rejected: " + ReadErrorCode(result));
-                return false;
-            }
-
-            var status = result.Data;
-            if (status == null)
-            {
-                HandleLocalFailure("E_PARSE", "turn.send response parse failed.");
-                return false;
-            }
-
-            LogStatusDiagnostics("turn.send.response", status);
-            ProcessTurnEvents(status);
-            LogTurnSendPlan(status);
-            if (IsTerminalStatus(status))
-            {
-                HandleTerminalStatus(status);
-                return false;
-            }
-
-            if (TryCapturePendingUnityActionRequest(
-                    status.unity_action_request,
-                    status.pending_visual_action,
-                    "turn.send",
-                    status.request_id,
-                    status.stage,
-                    status.pending_visual_action_count))
-            {
-                _runtimeState = TurnRuntimeState.ActionConfirmPending;
-                BusyReason = "Action Confirmation";
-                SaveState();
-                EmitChanged();
-                AddLog(UiLogLevel.Info, "Received unity.action.request. Waiting for confirmation.");
-                return false;
-            }
-
-            ApplyStage(status.stage, now);
-            if (_runtimeState == TurnRuntimeState.CompilePending)
-            {
-                HandleCompileGateFromTurnSend(status, now);
-            }
-
-            BusyReason = BuildBusyReasonForRuntimeState();
-            SaveState();
-            EmitChanged();
-            return false;
-        }
-
-        public async Task CancelTurnAsync()
-        {
-            if (!IsBusy || string.IsNullOrEmpty(_activeRequestId))
-            {
-                AddLog(UiLogLevel.Warning, "No active turn to cancel.");
-                return;
-            }
-
-            var request = new TurnCancelRequest
-            {
-                @event = "turn.cancel",
-                request_id = _activeRequestId,
-                thread_id = ThreadId,
-                turn_id = _turnId,
-                timestamp = DateTime.UtcNow.ToString("o"),
-                payload = new TurnCancelPayload
-                {
-                    reason = "user_clicked_cancel"
-                }
-            };
-
-            var result = await _sidecarGateway.CancelTurnAsync(SidecarUrl, request);
-            if (!result.TransportSuccess)
-            {
-                AddLog(UiLogLevel.Error, "turn.cancel failed: " + result.ErrorMessage);
-                if (!_processManager.IsRunning)
-                {
-                    ForceLocalCancel("Sidecar is offline. Turn cancelled locally.");
-                }
-                return;
-            }
-
-            if (!result.IsHttpSuccess)
-            {
-                AddLog(UiLogLevel.Error, "turn.cancel rejected: " + ReadErrorCode(result));
-                if (result.StatusCode == 0)
-                {
-                    ForceLocalCancel("turn.cancel could not reach sidecar. Turn cancelled locally.");
-                }
-                return;
-            }
-
-            var status = result.Data;
-            if (status != null && (status.@event == "turn.cancelled" || status.state == "cancelled"))
-            {
-                HandleTerminalStatus(status);
-                return;
-            }
-
-            AddLog(UiLogLevel.Warning, "turn.cancel acknowledged, waiting for terminal status.");
-        }
-
-        public bool ShouldPoll(double now)
-        {
-            if (!IsBusy || string.IsNullOrEmpty(_activeRequestId))
-            {
-                return false;
-            }
-
-            if (_pollInFlight)
-            {
-                return false;
-            }
-
-            return now >= _nextPollAt;
-        }
-
-        public async Task PollTurnStatusAsync(double now)
-        {
-            if (!IsBusy || string.IsNullOrEmpty(_activeRequestId))
-            {
-                return;
-            }
-
-            if (TryTripTimeout(now))
-            {
-                return;
-            }
-
-            _pollInFlight = true;
-            try
-            {
-                var result = await _sidecarGateway.GetTurnStatusAsync(SidecarUrl, _activeRequestId, _lastSeenEventSeq);
-                if (!result.TransportSuccess)
-                {
-                    _transportErrorStreak += 1;
-                    if (result.StatusCode == 404)
-                    {
-                        AddLog(UiLogLevel.Warning, "turn.status: request not found yet.");
-                    }
-                    else
-                    {
-                        MaybeLogTransportFailure(now, result.ErrorMessage);
-                    }
-
-                    if (_transportErrorStreak >= 5)
-                    {
-                        ForceLocalAbort(
-                            "E_SIDECAR_UNREACHABLE",
-                            "Lost connection to sidecar during active turn. Local turn state has been cleared.");
-                    }
-                    return;
-                }
-
-                _transportErrorStreak = 0;
-
-                if (!result.IsHttpSuccess)
-                {
-                    if (result.StatusCode == 404)
-                    {
-                        AddLog(UiLogLevel.Warning, "turn.status: request not found yet.");
-                    }
-                    else
-                    {
-                        AddLog(UiLogLevel.Error, "turn.status returned HTTP " + result.StatusCode + ".");
-                    }
-                    return;
-                }
-
-                var status = result.Data;
-                if (status == null)
-                {
-                    AddLog(UiLogLevel.Error, "turn.status parse failed.");
-                    return;
-                }
-
-                LogStatusDiagnostics("turn.status.poll", status);
-                ProcessTurnEvents(status);
-                if (IsTerminalStatus(status))
-                {
-                    HandleTerminalStatus(status);
-                    return;
-                }
-
-                ApplyStage(status.stage, now);
-                if (_runtimeState == TurnRuntimeState.ActionConfirmPending)
-                {
-                    if (_pendingUnityActionRequest == null &&
-                        TryCapturePendingUnityActionRequest(
-                            null,
-                            status.pending_visual_action,
-                            "turn.status.poll",
-                            status.request_id,
-                            status.stage,
-                            status.pending_visual_action_count))
-                    {
-                        AddLog(UiLogLevel.Info, "Recovered pending unity.action.request from turn.status.");
-                    }
-                }
-
-                if (_runtimeState == TurnRuntimeState.CompilePending)
-                {
-                    if (status.pending_visual_action != null &&
-                        !string.IsNullOrEmpty(status.pending_visual_action.component_assembly_qualified_name))
-                    {
-                        _pendingCompileComponentAssemblyQualifiedName =
-                            status.pending_visual_action.component_assembly_qualified_name;
-                    }
-
-                    MaybeLogCompilePendingHeartbeat(now);
-                }
-
-                BusyReason = BuildBusyReasonForRuntimeState();
-                SaveState();
-                EmitChanged();
-
-                if (_runtimeState == TurnRuntimeState.CompilePending)
-                {
-                    await TryAutoReportCompileResultAsync();
-                }
-            }
-            finally
-            {
-                _pollInFlight = false;
-                _nextPollAt = now + PollIntervalSeconds;
-            }
         }
 
         public string GetStatusText(double now)
@@ -1031,40 +985,6 @@ namespace UnityAI.Editor.Codex.Application
             var spin = new[] { "|", "/", "-", "\\" };
             var index = (int)(now * 8d) % spin.Length;
             return BusyReason + " " + spin[index] + " (request_id=" + _activeRequestId + ")";
-        }
-
-        private async Task EnsureSessionStartedAsync()
-        {
-            var requestId = "req_session_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var request = new SessionStartRequest
-            {
-                @event = "session.start",
-                request_id = requestId,
-                thread_id = string.IsNullOrWhiteSpace(ThreadId) ? "t_default" : ThreadId,
-                turn_id = "u_000",
-                timestamp = DateTime.UtcNow.ToString("o"),
-                payload = new SessionStartPayload
-                {
-                    workspace_root = "UnityProject",
-                    model = "codex"
-                }
-            };
-
-            var result = await _sidecarGateway.StartSessionAsync(SidecarUrl, request);
-            if (!result.TransportSuccess)
-            {
-                AddLog(UiLogLevel.Error, "session.start failed: " + result.ErrorMessage);
-                return;
-            }
-
-            if (!result.IsHttpSuccess)
-            {
-                AddLog(UiLogLevel.Error, "session.start rejected: " + ReadErrorCode(result));
-                return;
-            }
-
-            _sessionStarted = true;
-            AddLog(UiLogLevel.Info, "session.started");
         }
 
         private async Task SyncWithSidecarSnapshotAsync(double now)
@@ -1092,12 +1012,6 @@ namespace UnityAI.Editor.Codex.Application
                 IsBusy = true;
                 BusyReason = "Recovered from sidecar snapshot";
                 ApplyStage(snapshot.active_state, now);
-                _lastSeenEventSeq = 0;
-                if (_runtimeState == TurnRuntimeState.Idle)
-                {
-                    _runtimeState = TurnRuntimeState.CodexPending;
-                    _codexDeadlineAt = now + CodexTimeoutSeconds;
-                }
                 SaveState();
                 EmitChanged();
                 AddLog(UiLogLevel.Warning, "Recovered active turn from sidecar snapshot: " + _activeRequestId);
@@ -1119,15 +1033,6 @@ namespace UnityAI.Editor.Codex.Application
                 ThreadId = "t_default";
             }
 
-            if (!_sessionStarted)
-            {
-                await EnsureSessionStartedAsync();
-                if (!_sessionStarted)
-                {
-                    return;
-                }
-            }
-
             var request = new UnityRuntimePingRequest
             {
                 @event = "unity.runtime.ping",
@@ -1146,6 +1051,9 @@ namespace UnityAI.Editor.Codex.Application
             var result = await _sidecarGateway.ReportRuntimePingAsync(SidecarUrl, request);
             if (!result.TransportSuccess)
             {
+                MaybeLogTransportFailure(
+                    EditorApplicationTimeFallback(),
+                    "unity.runtime.ping failed: " + result.ErrorMessage);
                 if (logWhenNoRecovery)
                 {
                     AddLog(UiLogLevel.Warning, "unity.runtime.ping failed: " + result.ErrorMessage);
@@ -1155,6 +1063,9 @@ namespace UnityAI.Editor.Codex.Application
 
             if (!result.IsHttpSuccess)
             {
+                MaybeLogTransportFailure(
+                    EditorApplicationTimeFallback(),
+                    "unity.runtime.ping rejected: " + ReadErrorCode(result));
                 if (logWhenNoRecovery)
                 {
                     AddLog(UiLogLevel.Warning, "unity.runtime.ping rejected: " + ReadErrorCode(result));
@@ -1165,6 +1076,9 @@ namespace UnityAI.Editor.Codex.Application
             var pong = result.Data;
             if (pong == null)
             {
+                MaybeLogTransportFailure(
+                    EditorApplicationTimeFallback(),
+                    "unity.runtime.ping response parse failed.");
                 if (logWhenNoRecovery)
                 {
                     AddLog(UiLogLevel.Warning, "unity.runtime.ping response parse failed.");
@@ -1172,56 +1086,62 @@ namespace UnityAI.Editor.Codex.Application
                 return;
             }
 
-            ProcessTurnEvents(
-                new TurnStatusResponse
-                {
-                    events = pong.events,
-                    latest_event_seq = pong.latest_event_seq
-                });
+            var statusFromPing = ToTurnStatus(pong);
+            if (EnableDiagnosticLogs)
+            {
+                AddLog(
+                    UiLogLevel.Info,
+                    "diag.runtime.ping.response: request_id=" + SafeString(pong.request_id) +
+                    ", state=" + SafeString(statusFromPing == null ? string.Empty : statusFromPing.state) +
+                    ", stage=" + SafeString(pong.stage) +
+                    ", recovered=" + pong.recovered +
+                    ", has_unity_action_request=" +
+                    (pong.unity_action_request != null &&
+                     pong.unity_action_request.payload != null &&
+                     pong.unity_action_request.payload.action != null) + ".");
+            }
 
-            AddLog(
-                UiLogLevel.Info,
-                "diag.runtime.ping.response: request_id=" + SafeString(pong.request_id) +
-                ", state=" + SafeString(pong.state) +
-                ", stage=" + SafeString(pong.stage) +
-                ", recovered=" + pong.recovered +
-                ", has_unity_action_request=" +
-                (pong.unity_action_request != null &&
-                 pong.unity_action_request.payload != null &&
-                 pong.unity_action_request.payload.action != null) +
-                ", has_pending_visual_action=" + IsActionPayloadValid(pong.pending_visual_action) + ".");
+            if (IsTerminalStatus(statusFromPing))
+            {
+                HandleTerminalStatus(statusFromPing);
+                return;
+            }
 
             var now = EditorApplicationTimeFallback();
-            if (!string.IsNullOrEmpty(pong.request_id) && pong.state == "running")
+            if (statusFromPing != null &&
+                !string.IsNullOrEmpty(statusFromPing.request_id) &&
+                string.Equals(statusFromPing.state, "running", StringComparison.Ordinal))
             {
-                _activeRequestId = pong.request_id;
+                _activeRequestId = statusFromPing.request_id;
                 if (string.IsNullOrEmpty(_turnId))
                 {
                     _turnId = request.turn_id;
                 }
 
                 IsBusy = true;
-                ApplyStage(pong.stage, now);
-                if (pong.pending_visual_action != null &&
-                    !string.IsNullOrEmpty(pong.pending_visual_action.component_assembly_qualified_name))
-                {
-                    _pendingCompileComponentAssemblyQualifiedName =
-                        pong.pending_visual_action.component_assembly_qualified_name;
-                }
-                if (_runtimeState == TurnRuntimeState.ActionConfirmPending)
-                {
-                    TryCapturePendingUnityActionRequest(
-                        pong.unity_action_request,
-                        pong.pending_visual_action,
+                ApplyStage(statusFromPing.stage, now);
+                if (TryCapturePendingUnityActionRequest(
+                        statusFromPing.unity_action_request,
                         "unity.runtime.ping",
-                        pong.request_id,
-                        pong.stage,
-                        pong.pending_visual_action_count);
+                        statusFromPing.request_id))
+                {
+                    await HandleCapturedPendingActionAsync(
+                        "unity.runtime.ping",
+                        "Received unity.action.request from runtime ping. Waiting for confirmation.");
+                    return;
                 }
                 BusyReason = BuildBusyReasonForRuntimeState();
-                _nextPollAt = now + PollIntervalSeconds;
                 SaveState();
                 EmitChanged();
+            }
+            else if (IsBusy &&
+                     statusFromPing != null &&
+                     string.Equals(statusFromPing.state, "idle", StringComparison.Ordinal))
+            {
+                AddLog(UiLogLevel.Warning, "unity.runtime.ping: sidecar has no active job; clearing local busy state.");
+                UnlockTurn();
+                SaveState();
+                return;
             }
 
             if (pong.recovered)
@@ -1232,7 +1152,11 @@ namespace UnityAI.Editor.Codex.Application
 
             if (logWhenNoRecovery)
             {
-                AddLog(UiLogLevel.Info, "unity.runtime.ping: " + SafeString(pong.message));
+                var pingMessage =
+                    statusFromPing != null && !string.IsNullOrEmpty(statusFromPing.message)
+                        ? statusFromPing.message
+                        : pong.message;
+                AddLog(UiLogLevel.Info, "unity.runtime.ping: " + SafeString(pingMessage));
             }
         }
 
@@ -1243,16 +1167,7 @@ namespace UnityAI.Editor.Codex.Application
                 return;
             }
 
-            if (stage == "codex_pending")
-            {
-                _runtimeState = TurnRuntimeState.CodexPending;
-                _codexDeadlineAt = now + CodexTimeoutSeconds;
-                _compileDeadlineAt = 0d;
-                _pendingUnityActionRequest = null;
-                return;
-            }
-
-            if (stage == "compile_pending")
+            if (string.Equals(stage, "compile_pending", StringComparison.OrdinalIgnoreCase))
             {
                 var enteringCompilePending = _runtimeState != TurnRuntimeState.CompilePending;
                 _runtimeState = TurnRuntimeState.CompilePending;
@@ -1275,54 +1190,36 @@ namespace UnityAI.Editor.Codex.Application
                 return;
             }
 
-            if (stage == "auto_fix_pending")
-            {
-                _runtimeState = TurnRuntimeState.AutoFixPending;
-                _codexDeadlineAt = now + CodexTimeoutSeconds;
-                _compileDeadlineAt = 0d;
-                return;
-            }
-
-            if (stage == "action_confirm_pending")
+            if (string.Equals(stage, "action_confirm_pending", StringComparison.OrdinalIgnoreCase))
             {
                 _runtimeState = TurnRuntimeState.ActionConfirmPending;
-                _codexDeadlineAt = 0d;
                 _compileDeadlineAt = 0d;
                 return;
             }
 
-            if (stage == "action_executing")
+            if (string.Equals(stage, "action_executing", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(stage, "action_pending", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(stage, "dispatch_pending", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(stage, "queued", StringComparison.OrdinalIgnoreCase))
             {
                 _runtimeState = TurnRuntimeState.ActionExecuting;
-                _codexDeadlineAt = 0d;
                 _compileDeadlineAt = 0d;
                 return;
             }
 
-            if (stage == "running")
+            if (string.Equals(stage, "waiting_for_unity_reboot", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(stage, "WAITING_FOR_UNITY_REBOOT", StringComparison.Ordinal))
             {
-                _runtimeState = TurnRuntimeState.Running;
-                _pendingUnityActionRequest = null;
+                _runtimeState = TurnRuntimeState.ActionExecuting;
+                _compileDeadlineAt = 0d;
             }
         }
 
         private bool TryTripTimeout(double now)
         {
-            if (_runtimeState == TurnRuntimeState.CodexPending && _codexDeadlineAt > 0d && now > _codexDeadlineAt)
-            {
-                HandleLocalTimeout("E_CODEX_TIMEOUT", "Codex phase timed out after 60s");
-                return true;
-            }
-
             if (_runtimeState == TurnRuntimeState.CompilePending && _compileDeadlineAt > 0d && now > _compileDeadlineAt)
             {
                 HandleLocalTimeout("E_COMPILE_TIMEOUT", "Compile phase timed out after 120s");
-                return true;
-            }
-
-            if (_runtimeState == TurnRuntimeState.AutoFixPending && _codexDeadlineAt > 0d && now > _codexDeadlineAt)
-            {
-                HandleLocalTimeout("E_CODEX_TIMEOUT", "Auto-fix phase timed out after 60s");
                 return true;
             }
 
@@ -1338,8 +1235,7 @@ namespace UnityAI.Editor.Codex.Application
                 @event = "turn.error",
                 message = message,
                 error_code = errorCode,
-                stage = "error",
-                replay = false
+                stage = "error"
             };
             HandleTerminalStatus(synthetic);
         }
@@ -1357,12 +1253,30 @@ namespace UnityAI.Editor.Codex.Application
 
         private void HandleTerminalStatus(TurnStatusResponse status)
         {
-            var state = SafeString(status.state);
-            var message = string.IsNullOrEmpty(status.message) ? "(no message)" : status.message;
-            var eventName = string.IsNullOrEmpty(status.@event) ? state : status.@event;
+            var state = NormalizeGatewayState(
+                status == null ? string.Empty : status.state,
+                status == null ? string.Empty : status.status,
+                status == null ? string.Empty : status.error_code);
+            if (string.IsNullOrEmpty(state))
+            {
+                state = "error";
+            }
+
+            var message =
+                FirstNonEmpty(
+                    status == null ? string.Empty : status.message,
+                    status == null ? string.Empty : status.progress_message,
+                    status == null ? string.Empty : status.error_message);
+            if (string.IsNullOrEmpty(message))
+            {
+                message = "(no message)";
+            }
+            var eventName = string.IsNullOrEmpty(status == null ? string.Empty : status.@event)
+                ? state
+                : status.@event;
 
             _lastTerminalEvent = eventName;
-            _lastErrorCode = status.error_code ?? string.Empty;
+            _lastErrorCode = status == null ? string.Empty : status.error_code ?? string.Empty;
             _lastMessage = message;
 
             if (state == "completed")
@@ -1381,6 +1295,11 @@ namespace UnityAI.Editor.Codex.Application
                 AddLog(UiLogLevel.Error, "turn.error: " + message + BuildErrorCodeSuffix(_lastErrorCode));
             }
 
+            if (status != null && !string.IsNullOrEmpty(status.suggestion))
+            {
+                AddLog(UiLogLevel.Info, "suggestion: " + status.suggestion);
+            }
+
             UnlockTurn();
             SaveState();
         }
@@ -1388,12 +1307,10 @@ namespace UnityAI.Editor.Codex.Application
         private void UnlockTurn()
         {
             IsBusy = false;
-            _pollInFlight = false;
             BusyReason = "Idle";
             _activeRequestId = string.Empty;
             _turnId = string.Empty;
             _runtimeState = TurnRuntimeState.Idle;
-            _codexDeadlineAt = 0d;
             _compileDeadlineAt = 0d;
             _compileGateOpenedAtUtcTicks = 0L;
             _compileResultAutoReportInFlight = false;
@@ -1401,13 +1318,9 @@ namespace UnityAI.Editor.Codex.Application
             _compileRefreshIssued = false;
             _lastCompileRefreshAt = 0d;
             _pendingCompileComponentAssemblyQualifiedName = string.Empty;
-            _nextPollAt = 0d;
             _pendingUnityActionRequest = null;
             _transportErrorStreak = 0;
             _lastTransportErrorLogAt = 0d;
-            _lastSeenEventSeq = 0;
-            _lastStatusDiagnosticSignature = string.Empty;
-            _lastAssistantMessageSignature = string.Empty;
             EmitChanged();
         }
 
@@ -1461,33 +1374,16 @@ namespace UnityAI.Editor.Codex.Application
                 }
                 _compileRefreshIssued = false;
                 _lastCompileRefreshAt = 0d;
-                _codexDeadlineAt = 0d;
-                return;
-            }
-
-            if (_runtimeState == TurnRuntimeState.CodexPending || _runtimeState == TurnRuntimeState.Running)
-            {
-                _codexDeadlineAt = now + CodexTimeoutSeconds;
-                _compileDeadlineAt = 0d;
-                return;
-            }
-
-            if (_runtimeState == TurnRuntimeState.AutoFixPending)
-            {
-                _codexDeadlineAt = now + CodexTimeoutSeconds;
-                _compileDeadlineAt = 0d;
                 return;
             }
 
             if (_runtimeState == TurnRuntimeState.ActionConfirmPending ||
                 _runtimeState == TurnRuntimeState.ActionExecuting)
             {
-                _codexDeadlineAt = 0d;
                 _compileDeadlineAt = 0d;
                 return;
             }
 
-            _codexDeadlineAt = 0d;
             _compileDeadlineAt = 0d;
         }
 
@@ -1502,32 +1398,12 @@ namespace UnityAI.Editor.Codex.Application
                 status.unity_action_request != null &&
                 status.unity_action_request.payload != null &&
                 status.unity_action_request.payload.action != null;
-            var hasPendingVisualAction = IsActionPayloadValid(status.pending_visual_action);
-            var signature =
-                SafeString(source) + "|" +
-                SafeString(status.request_id) + "|" +
-                SafeString(status.state) + "|" +
-                SafeString(status.stage) + "|" +
-                status.latest_event_seq + "|" +
-                status.pending_visual_action_count + "|" +
-                hasUnityActionRequest + "|" +
-                hasPendingVisualAction;
-
-            if (string.Equals(signature, _lastStatusDiagnosticSignature, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            _lastStatusDiagnosticSignature = signature;
             AddLog(
                 UiLogLevel.Info,
                 "diag.status[" + SafeString(source) + "]: request_id=" + SafeString(status.request_id) +
                 ", state=" + SafeString(status.state) +
                 ", stage=" + SafeString(status.stage) +
-                ", latest_event_seq=" + status.latest_event_seq +
-                ", pending_visual_action_count=" + status.pending_visual_action_count +
-                ", has_unity_action_request=" + hasUnityActionRequest +
-                ", has_pending_visual_action=" + hasPendingVisualAction + ".");
+                ", has_unity_action_request=" + hasUnityActionRequest + ".");
         }
 
         private static string BuildActionDebugText(VisualLayerActionItem action)
@@ -1539,23 +1415,19 @@ namespace UnityAI.Editor.Codex.Application
 
             return
                 "type=" + SafeString(action.type) +
-                ", target=" + SafeString(action.target) +
-                ", target_object_path=" + SafeString(action.target_object_path) +
+                ", target_anchor=" + FormatAnchorDebug(action.target_anchor) +
+                ", parent_anchor=" + FormatAnchorDebug(action.parent_anchor) +
                 ", component=" + SafeString(action.component_assembly_qualified_name) +
                 ", source_component=" + SafeString(action.source_component_assembly_qualified_name) +
                 ", name=" + SafeString(action.name) +
-                ", parent_object_path=" + SafeString(action.parent_object_path) +
                 ", primitive_type=" + SafeString(action.primitive_type) +
                 ", ui_type=" + SafeString(action.ui_type);
         }
 
         private bool TryCapturePendingUnityActionRequest(
             UnityActionRequestEnvelope envelope,
-            VisualLayerActionItem fallbackAction,
             string source,
-            string statusRequestId,
-            string statusStage,
-            int pendingVisualActionCount)
+            string statusRequestId)
         {
             var sourceTag = string.IsNullOrEmpty(source) ? "unknown" : source;
             if (envelope != null &&
@@ -1568,109 +1440,115 @@ namespace UnityAI.Editor.Codex.Application
                         UiLogLevel.Warning,
                         "diag.action.capture[" + sourceTag + "]: envelope action is incomplete, ignored. action=" +
                         BuildActionDebugText(envelope.payload.action) + ".");
-                    return false;
+                    Debug.LogWarning(
+                        "[Codex] envelope action invalid; strict envelope mode keeps action pending.");
                 }
-
-                LogDiagnostic(
-                    UiLogLevel.Info,
-                    "diag.action.capture[" + sourceTag + "]: source_request_id=" +
-                    SafeString(statusRequestId) +
-                    ", envelope_request_id=" + SafeString(envelope.request_id) +
-                    ", action=" + BuildActionDebugText(envelope.payload.action) + ".");
-
-                if (!string.IsNullOrEmpty(statusRequestId) &&
-                    !string.IsNullOrEmpty(envelope.request_id) &&
-                    !string.Equals(statusRequestId, envelope.request_id, StringComparison.Ordinal))
+                else
                 {
                     LogDiagnostic(
-                        UiLogLevel.Warning,
-                        "diag.action.capture[" + sourceTag + "]: request_id mismatch (source=" +
-                        statusRequestId + ", envelope=" + envelope.request_id + ").");
+                        UiLogLevel.Info,
+                        "diag.action.capture[" + sourceTag + "]: source_request_id=" +
+                        SafeString(statusRequestId) +
+                        ", envelope_request_id=" + SafeString(envelope.request_id) +
+                        ", action=" + BuildActionDebugText(envelope.payload.action) + ".");
+
+                    if (!string.IsNullOrEmpty(statusRequestId) &&
+                        !string.IsNullOrEmpty(envelope.request_id) &&
+                        !string.Equals(statusRequestId, envelope.request_id, StringComparison.Ordinal))
+                    {
+                        LogDiagnostic(
+                            UiLogLevel.Warning,
+                            "diag.action.capture[" + sourceTag + "]: request_id mismatch (source=" +
+                            statusRequestId + ", envelope=" + envelope.request_id + ").");
+                    }
+
+                    if (!string.IsNullOrEmpty(envelope.request_id))
+                    {
+                        _activeRequestId = envelope.request_id;
+                    }
+
+                    if (!string.IsNullOrEmpty(envelope.turn_id))
+                    {
+                        _turnId = envelope.turn_id;
+                    }
+
+                    if (!string.IsNullOrEmpty(envelope.payload.action.component_assembly_qualified_name))
+                    {
+                        _pendingCompileComponentAssemblyQualifiedName =
+                            envelope.payload.action.component_assembly_qualified_name;
+                    }
+
+                    _pendingUnityActionRequest = envelope;
+                    return true;
                 }
-
-                if (!string.IsNullOrEmpty(envelope.request_id))
-                {
-                    _activeRequestId = envelope.request_id;
-                }
-
-                if (!string.IsNullOrEmpty(envelope.turn_id))
-                {
-                    _turnId = envelope.turn_id;
-                }
-
-                if (!string.IsNullOrEmpty(envelope.payload.action.component_assembly_qualified_name))
-                {
-                    _pendingCompileComponentAssemblyQualifiedName =
-                        envelope.payload.action.component_assembly_qualified_name;
-                }
-
-                _pendingUnityActionRequest = envelope;
-                return true;
-            }
-
-            if (fallbackAction == null)
-            {
-                LogDiagnostic(
-                    UiLogLevel.Info,
-                    "diag.action.capture[" + sourceTag + "]: no envelope and no fallback action.");
-                return false;
-            }
-
-            var allowFallbackStage =
-                string.Equals(statusStage, "action_confirm_pending", StringComparison.Ordinal) ||
-                string.Equals(statusStage, "action_executing", StringComparison.Ordinal);
-            if (!allowFallbackStage)
-            {
-                LogDiagnostic(
-                    UiLogLevel.Warning,
-                    "diag.action.capture[" + sourceTag + "]: fallback action ignored due to stage=" +
-                    SafeString(statusStage) + ".");
-                return false;
-            }
-
-            if (pendingVisualActionCount <= 0)
-            {
-                LogDiagnostic(
-                    UiLogLevel.Warning,
-                    "diag.action.capture[" + sourceTag + "]: fallback action ignored because pending_visual_action_count=" +
-                    pendingVisualActionCount + ".");
-                return false;
-            }
-
-            if (!IsActionPayloadValid(fallbackAction))
-            {
-                LogDiagnostic(
-                    UiLogLevel.Warning,
-                    "diag.action.capture[" + sourceTag + "]: fallback action is incomplete, ignored. action=" +
-                    BuildActionDebugText(fallbackAction) + ".");
-                return false;
             }
 
             LogDiagnostic(
                 UiLogLevel.Warning,
-                "diag.action.capture[" + sourceTag + "]: using fallback pending_visual_action, source_request_id=" +
-                SafeString(statusRequestId) + ", action=" + BuildActionDebugText(fallbackAction) + ".");
+                "diag.action.capture[" + sourceTag + "]: envelope missing or invalid; " +
+                "pending action will not be synthesized from fallback fields. source_request_id=" +
+                SafeString(statusRequestId) + ".");
+            return false;
+        }
 
-            _pendingUnityActionRequest = new UnityActionRequestEnvelope
-            {
-                @event = "unity.action.request",
-                request_id = _activeRequestId,
-                thread_id = ThreadId,
-                turn_id = _turnId,
-                timestamp = DateTime.UtcNow.ToString("o"),
-                payload = new UnityActionRequestPayload
-                {
-                    requires_confirmation = true,
-                    action = fallbackAction
-                }
-            };
+        private async Task HandleCapturedPendingActionAsync(string source, string waitMessage)
+        {
+            _runtimeState = TurnRuntimeState.ActionConfirmPending;
+            BusyReason = "Action Confirmation";
+            SaveState();
+            EmitChanged();
 
-            if (!string.IsNullOrEmpty(fallbackAction.component_assembly_qualified_name))
+            if (!ShouldAutoApprovePendingAction())
             {
-                _pendingCompileComponentAssemblyQualifiedName =
-                    fallbackAction.component_assembly_qualified_name;
+                AddLog(UiLogLevel.Info, waitMessage);
+                Debug.Log("[Codex] " + waitMessage);
+                return;
             }
-            return true;
+
+            AddLog(
+                UiLogLevel.Info,
+                "Auto-approving unity.action.request (" + SafeString(source) + ").");
+            Debug.Log(
+                "[Codex] Auto-approving unity.action.request (" + SafeString(source) +
+                "), request_id=" + SafeString(_activeRequestId));
+            await ExecutePendingActionAndReportAsync(Selection.activeGameObject, true);
+        }
+
+        private bool ShouldAutoApprovePendingAction()
+        {
+            return _pendingUnityActionRequest != null &&
+                   _pendingUnityActionRequest.payload != null &&
+                   !_pendingUnityActionRequest.payload.requires_confirmation;
+        }
+
+        private static string FormatAnchorDebug(UnityObjectAnchor anchor)
+        {
+            if (anchor == null)
+            {
+                return "null";
+            }
+
+            return "{object_id=" + SafeString(anchor.object_id) + ", path=" + SafeString(anchor.path) + "}";
+        }
+
+        private static string ReadAnchorObjectId(UnityObjectAnchor anchor)
+        {
+            return anchor == null || string.IsNullOrWhiteSpace(anchor.object_id)
+                ? string.Empty
+                : anchor.object_id.Trim();
+        }
+
+        private static string ReadAnchorPath(UnityObjectAnchor anchor)
+        {
+            return anchor == null || string.IsNullOrWhiteSpace(anchor.path)
+                ? string.Empty
+                : anchor.path.Trim();
+        }
+
+        private static bool HasCompleteAnchor(UnityObjectAnchor anchor)
+        {
+            return !string.IsNullOrEmpty(ReadAnchorObjectId(anchor)) &&
+                   !string.IsNullOrEmpty(ReadAnchorPath(anchor));
         }
 
         private static bool IsActionPayloadValid(VisualLayerActionItem action)
@@ -1680,22 +1558,26 @@ namespace UnityAI.Editor.Codex.Application
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(action.type) ||
-                string.IsNullOrWhiteSpace(action.target))
+            if (string.IsNullOrWhiteSpace(action.type))
             {
                 return false;
             }
 
+            var hasTargetAnchor = HasCompleteAnchor(action.target_anchor);
+            var hasParentAnchor = HasCompleteAnchor(action.parent_anchor);
+
             if (string.Equals(action.type, "add_component", StringComparison.Ordinal) ||
                 string.Equals(action.type, "remove_component", StringComparison.Ordinal))
             {
-                return !string.IsNullOrWhiteSpace(action.target_object_path) &&
+                return hasTargetAnchor &&
+                       !hasParentAnchor &&
                        !string.IsNullOrWhiteSpace(action.component_assembly_qualified_name);
             }
 
             if (string.Equals(action.type, "replace_component", StringComparison.Ordinal))
             {
-                return !string.IsNullOrWhiteSpace(action.target_object_path) &&
+                return hasTargetAnchor &&
+                       !hasParentAnchor &&
                        !string.IsNullOrWhiteSpace(action.source_component_assembly_qualified_name) &&
                        !string.IsNullOrWhiteSpace(action.component_assembly_qualified_name);
             }
@@ -1707,110 +1589,13 @@ namespace UnityAI.Editor.Codex.Application
                     return false;
                 }
 
-                return string.IsNullOrWhiteSpace(action.primitive_type) ||
-                       string.IsNullOrWhiteSpace(action.ui_type);
+                return hasParentAnchor &&
+                       !hasTargetAnchor &&
+                       (string.IsNullOrWhiteSpace(action.primitive_type) ||
+                        string.IsNullOrWhiteSpace(action.ui_type));
             }
 
             return false;
-        }
-
-        private void ProcessTurnEvents(TurnStatusResponse status)
-        {
-            if (status == null)
-            {
-                return;
-            }
-
-            if (status.events == null || status.events.Length == 0)
-            {
-                if (status.latest_event_seq > _lastSeenEventSeq)
-                {
-                    _lastSeenEventSeq = status.latest_event_seq;
-                }
-                return;
-            }
-
-            for (var i = 0; i < status.events.Length; i++)
-            {
-                var item = status.events[i];
-                if (item == null || item.seq <= _lastSeenEventSeq)
-                {
-                    continue;
-                }
-
-                _lastSeenEventSeq = item.seq;
-                ProcessTurnEventItem(item);
-            }
-
-            if (status.latest_event_seq > _lastSeenEventSeq)
-            {
-                _lastSeenEventSeq = status.latest_event_seq;
-            }
-        }
-
-        private void ProcessTurnEventItem(TurnEventItem item)
-        {
-            if (item == null || string.IsNullOrEmpty(item.@event))
-            {
-                return;
-            }
-
-            if (item.@event == "chat.delta")
-            {
-                return;
-            }
-
-            if (item.@event == "chat.message")
-            {
-                var text = !string.IsNullOrEmpty(item.message) ? item.message : item.delta;
-                LogAssistantMessage(text);
-                return;
-            }
-
-            if (item.@event == "turn.completed" && string.Equals(item.phase, "planning", StringComparison.Ordinal))
-            {
-                if (!EnableDiagnosticLogs)
-                {
-                    return;
-                }
-
-                var message = string.IsNullOrEmpty(item.message)
-                    ? "Planning phase completed."
-                    : item.message;
-                AddLog(UiLogLevel.Info, "turn.completed(planning): " + message);
-
-                if (item.task_allocation != null)
-                {
-                    var fileCount = item.task_allocation.file_actions != null
-                        ? item.task_allocation.file_actions.Length
-                        : 0;
-                    var visualCount = item.task_allocation.visual_layer_actions != null
-                        ? item.task_allocation.visual_layer_actions.Length
-                        : 0;
-                    AddLog(
-                        UiLogLevel.Info,
-                        "planning payload: file_actions=" + fileCount +
-                        ", visual_layer_actions=" + visualCount + ".");
-                }
-
-                if (item.files_changed != null && item.files_changed.Length > 0)
-                {
-                    AddLog(UiLogLevel.Info, "planning files.changed: " + item.files_changed.Length + " file(s).");
-                }
-
-                return;
-            }
-
-            if (item.@event == "unity.query.components.request")
-            {
-                _ = HandleUnityQueryComponentsRequestAsync(item.unity_query_components_request);
-                return;
-            }
-
-            if (item.@event == "unity.action.request")
-            {
-                AddLog(UiLogLevel.Info, "unity.action.request: waiting for user confirmation.");
-            }
         }
 
         private async Task HandleUnityQueryComponentsRequestAsync(UnityQueryComponentsRequestEnvelope envelope)
@@ -1832,15 +1617,6 @@ namespace UnityAI.Editor.Codex.Application
                 "[Codex] 收到查询请求了！ query_id=" + queryId +
                 ", target_path=" + (string.IsNullOrEmpty(envelope.payload.target_path) ? "-" : envelope.payload.target_path));
 
-            lock (_unityComponentQueryLock)
-            {
-                if (_inflightUnityComponentQueryIds.Contains(queryId))
-                {
-                    return;
-                }
-                _inflightUnityComponentQueryIds.Add(queryId);
-            }
-
             try
             {
                 var targetPath = string.IsNullOrEmpty(envelope.payload.target_path)
@@ -1857,17 +1633,23 @@ namespace UnityAI.Editor.Codex.Application
                     components = snapshot != null && snapshot.components != null
                         ? snapshot.components
                         : new UnityComponentDescriptor[0];
-                    errorCode = snapshot != null && !string.IsNullOrEmpty(snapshot.error_code)
-                        ? snapshot.error_code
-                        : string.Empty;
-                    errorMessage = snapshot != null && !string.IsNullOrEmpty(snapshot.error_message)
-                        ? snapshot.error_message
-                        : string.Empty;
+                    errorCode = NormalizeErrorCodeForTransport(
+                        snapshot != null && !string.IsNullOrEmpty(snapshot.error_code)
+                            ? snapshot.error_code
+                            : string.Empty,
+                        string.Empty);
+                    errorMessage = NormalizeErrorMessageForTransport(
+                        snapshot != null && !string.IsNullOrEmpty(snapshot.error_message)
+                            ? snapshot.error_message
+                            : string.Empty,
+                        string.Empty);
                 }
                 catch (Exception ex)
                 {
                     errorCode = UnityQueryErrorFailed;
-                    errorMessage = ex.Message;
+                    errorMessage = NormalizeErrorMessageForTransport(
+                        ex == null ? string.Empty : ex.Message,
+                        "Unity query execution failed.");
                     components = new UnityComponentDescriptor[0];
                 }
 
@@ -1888,8 +1670,14 @@ namespace UnityAI.Editor.Codex.Application
                         query_id = queryId,
                         target_path = targetPath,
                         components = components,
-                        error_code = errorCode ?? string.Empty,
-                        error_message = errorMessage ?? string.Empty
+                        error_code = string.IsNullOrEmpty(errorCode)
+                            ? string.Empty
+                            : NormalizeErrorCodeForTransport(errorCode, UnityQueryErrorFailed),
+                        error_message = string.IsNullOrEmpty(errorCode)
+                            ? string.Empty
+                            : NormalizeErrorMessageForTransport(
+                                errorMessage,
+                                "Unity query execution failed.")
                     }
                 };
 
@@ -1916,13 +1704,343 @@ namespace UnityAI.Editor.Codex.Application
                     " (" + components.Length + " component(s))" +
                     (!string.IsNullOrEmpty(errorCode) ? ", error=" + errorCode : "."));
             }
-            finally
+            catch
             {
-                lock (_unityComponentQueryLock)
-                {
-                    _inflightUnityComponentQueryIds.Remove(queryId);
-                }
+                // Ignore errors in component query handling
             }
+        }
+
+        private async Task TryHandlePulledReadQueryAsync()
+        {
+            var pull = await _sidecarGateway.PullQueriesAsync(SidecarUrl);
+            if (!IsUsableQueryPull(pull))
+            {
+                return;
+            }
+
+            var pulledQuery = pull.Data.query;
+            if (pulledQuery == null || string.IsNullOrEmpty(pulledQuery.query_id))
+            {
+                AddLog(UiLogLevel.Warning, "unity.query.pull returned pending query without query_id.");
+                return;
+            }
+
+            var dispatchResult = await ExecutePulledReadQueryAsync(pulledQuery);
+            var report = await _sidecarGateway.ReportQueryResultAsync(
+                SidecarUrl,
+                pulledQuery.query_id,
+                dispatchResult.payload);
+            HandleQueryReportOutcome(
+                report,
+                string.IsNullOrEmpty(pulledQuery.query_type) ? "unknown_query" : pulledQuery.query_type,
+                pulledQuery.query_id,
+                dispatchResult.error_code);
+        }
+
+        private async Task<UnityRagQueryDispatchResult> ExecutePulledReadQueryAsync(UnityPulledQuery pulledQuery)
+        {
+            var queryType = NormalizeQueryType(pulledQuery == null ? string.Empty : pulledQuery.query_type);
+            if (string.IsNullOrEmpty(queryType))
+            {
+                return BuildQueryDispatchFailure(
+                    pulledQuery,
+                    "E_SCHEMA_INVALID",
+                    "Pulled query is missing query_type.");
+            }
+
+            try
+            {
+                if (string.Equals(queryType, "list_assets_in_folder", StringComparison.Ordinal))
+                {
+                    var request = BuildListAssetsInFolderRequest(pulledQuery);
+                    var response = await RunOnEditorMainThreadAsync(() => _ragReadService.ListAssetsInFolder(request));
+                    if (response == null)
+                    {
+                        return BuildQueryDispatchFailure(
+                            pulledQuery,
+                            "E_QUERY_HANDLER_FAILED",
+                            "list_assets_in_folder handler returned null.");
+                    }
+                    if (string.IsNullOrEmpty(response.request_id))
+                    {
+                        response.request_id = request.request_id;
+                    }
+                    return new UnityRagQueryDispatchResult
+                    {
+                        payload = response,
+                        error_code = string.IsNullOrEmpty(response.error_code) ? string.Empty : response.error_code
+                    };
+                }
+
+                if (string.Equals(queryType, "get_scene_roots", StringComparison.Ordinal))
+                {
+                    var request = BuildGetSceneRootsRequest(pulledQuery);
+                    var response = await RunOnEditorMainThreadAsync(() => _ragReadService.GetSceneRoots(request));
+                    if (response == null)
+                    {
+                        return BuildQueryDispatchFailure(
+                            pulledQuery,
+                            "E_QUERY_HANDLER_FAILED",
+                            "get_scene_roots handler returned null.");
+                    }
+                    if (string.IsNullOrEmpty(response.request_id))
+                    {
+                        response.request_id = request.request_id;
+                    }
+                    return new UnityRagQueryDispatchResult
+                    {
+                        payload = response,
+                        error_code = string.IsNullOrEmpty(response.error_code) ? string.Empty : response.error_code
+                    };
+                }
+
+                if (string.Equals(queryType, "find_objects_by_component", StringComparison.Ordinal))
+                {
+                    var request = BuildFindObjectsByComponentRequest(pulledQuery);
+                    var response = await RunOnEditorMainThreadAsync(() => _ragReadService.FindObjectsByComponent(request));
+                    if (response == null)
+                    {
+                        return BuildQueryDispatchFailure(
+                            pulledQuery,
+                            "E_QUERY_HANDLER_FAILED",
+                            "find_objects_by_component handler returned null.");
+                    }
+                    if (string.IsNullOrEmpty(response.request_id))
+                    {
+                        response.request_id = request.request_id;
+                    }
+                    return new UnityRagQueryDispatchResult
+                    {
+                        payload = response,
+                        error_code = string.IsNullOrEmpty(response.error_code) ? string.Empty : response.error_code
+                    };
+                }
+
+                if (string.Equals(queryType, "query_prefab_info", StringComparison.Ordinal))
+                {
+                    var request = BuildQueryPrefabInfoRequest(pulledQuery);
+                    var response = await RunOnEditorMainThreadAsync(() => _ragReadService.QueryPrefabInfo(request));
+                    if (response == null)
+                    {
+                        return BuildQueryDispatchFailure(
+                            pulledQuery,
+                            "E_QUERY_HANDLER_FAILED",
+                            "query_prefab_info handler returned null.");
+                    }
+                    if (string.IsNullOrEmpty(response.request_id))
+                    {
+                        response.request_id = request.request_id;
+                    }
+                    return new UnityRagQueryDispatchResult
+                    {
+                        payload = response,
+                        error_code = string.IsNullOrEmpty(response.error_code) ? string.Empty : response.error_code
+                    };
+                }
+
+                return BuildQueryDispatchFailure(
+                    pulledQuery,
+                    "E_UNSUPPORTED_QUERY_TYPE",
+                    "Unsupported Unity query_type: " + queryType);
+            }
+            catch (Exception ex)
+            {
+                return BuildQueryDispatchFailure(
+                    pulledQuery,
+                    "E_QUERY_HANDLER_FAILED",
+                    ex.Message);
+            }
+        }
+
+        private static UnityListAssetsInFolderRequest BuildListAssetsInFolderRequest(UnityPulledQuery pulledQuery)
+        {
+            var payload = pulledQuery != null && pulledQuery.payload != null
+                ? pulledQuery.payload
+                : new UnityPulledQueryPayload();
+            return new UnityListAssetsInFolderRequest
+            {
+                @event = "unity.query.list_assets_in_folder.request",
+                request_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.request_id),
+                thread_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.thread_id),
+                turn_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.turn_id),
+                timestamp = DateTime.UtcNow.ToString("o"),
+                payload = new UnityListAssetsInFolderPayload
+                {
+                    folder_path = NormalizeQueryField(payload.folder_path),
+                    recursive = payload.recursive,
+                    include_meta = payload.include_meta,
+                    limit = payload.limit
+                }
+            };
+        }
+
+        private static UnityGetSceneRootsRequest BuildGetSceneRootsRequest(UnityPulledQuery pulledQuery)
+        {
+            var payload = pulledQuery != null && pulledQuery.payload != null
+                ? pulledQuery.payload
+                : new UnityPulledQueryPayload();
+            return new UnityGetSceneRootsRequest
+            {
+                @event = "unity.query.get_scene_roots.request",
+                request_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.request_id),
+                thread_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.thread_id),
+                turn_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.turn_id),
+                timestamp = DateTime.UtcNow.ToString("o"),
+                payload = new UnityGetSceneRootsPayload
+                {
+                    scene_path = NormalizeQueryField(payload.scene_path),
+                    include_inactive = payload.include_inactive
+                }
+            };
+        }
+
+        private static UnityFindObjectsByComponentRequest BuildFindObjectsByComponentRequest(UnityPulledQuery pulledQuery)
+        {
+            var payload = pulledQuery != null && pulledQuery.payload != null
+                ? pulledQuery.payload
+                : new UnityPulledQueryPayload();
+            return new UnityFindObjectsByComponentRequest
+            {
+                @event = "unity.query.find_objects_by_component.request",
+                request_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.request_id),
+                thread_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.thread_id),
+                turn_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.turn_id),
+                timestamp = DateTime.UtcNow.ToString("o"),
+                payload = new UnityFindObjectsByComponentPayload
+                {
+                    component_query = NormalizeQueryField(payload.component_query),
+                    scene_path = NormalizeQueryField(payload.scene_path),
+                    under_path = NormalizeQueryField(payload.under_path),
+                    include_inactive = payload.include_inactive,
+                    limit = payload.limit
+                }
+            };
+        }
+
+        private static UnityQueryPrefabInfoRequest BuildQueryPrefabInfoRequest(UnityPulledQuery pulledQuery)
+        {
+            var payload = pulledQuery != null && pulledQuery.payload != null
+                ? pulledQuery.payload
+                : new UnityPulledQueryPayload();
+            return new UnityQueryPrefabInfoRequest
+            {
+                @event = "unity.query.query_prefab_info.request",
+                request_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.request_id),
+                thread_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.thread_id),
+                turn_id = NormalizeQueryField(pulledQuery == null ? string.Empty : pulledQuery.turn_id),
+                timestamp = DateTime.UtcNow.ToString("o"),
+                payload = new UnityQueryPrefabInfoPayload
+                {
+                    prefab_path = NormalizeQueryField(payload.prefab_path),
+                    max_depth = payload.max_depth,
+                    node_budget = payload.node_budget,
+                    char_budget = payload.char_budget,
+                    include_components = payload.include_components,
+                    include_missing_scripts = payload.include_missing_scripts
+                }
+            };
+        }
+
+        private static string NormalizeQueryType(string value)
+        {
+            return string.IsNullOrEmpty(value) ? string.Empty : value.Trim();
+        }
+
+        private static string NormalizeQueryField(string value)
+        {
+            return string.IsNullOrEmpty(value) ? string.Empty : value.Trim();
+        }
+
+        private UnityRagQueryDispatchResult BuildQueryDispatchFailure(
+            UnityPulledQuery pulledQuery,
+            string errorCode,
+            string errorMessage)
+        {
+            var requestId = pulledQuery == null || string.IsNullOrEmpty(pulledQuery.request_id)
+                ? string.Empty
+                : pulledQuery.request_id.Trim();
+            var payload = new UnityGenericQueryFailureResult
+            {
+                ok = false,
+                request_id = requestId,
+                captured_at = DateTime.UtcNow.ToString("o"),
+                error_code = NormalizeErrorCodeForTransport(errorCode, "E_QUERY_HANDLER_FAILED"),
+                error_message = NormalizeErrorMessageForTransport(
+                    errorMessage,
+                    "Unity query handler failed.")
+            };
+            return new UnityRagQueryDispatchResult
+            {
+                payload = payload,
+                error_code = payload.error_code
+            };
+        }
+
+        private bool IsUsableQueryPull(GatewayResponse<UnityQueryPullResponse> pull)
+        {
+            if (pull == null)
+            {
+                return false;
+            }
+            if (!pull.TransportSuccess)
+            {
+                return false;
+            }
+
+            if (pull.StatusCode == 404 || pull.StatusCode == 204)
+            {
+                return false;
+            }
+
+            if (!pull.IsHttpSuccess)
+            {
+                AddLog(UiLogLevel.Warning, "unity.query.pull rejected: " + ReadErrorCode(pull));
+                return false;
+            }
+
+            if (pull.Data == null || !pull.Data.ok || !pull.Data.pending)
+            {
+                return false;
+            }
+
+            return pull.Data.query != null;
+        }
+
+        private void HandleQueryReportOutcome(
+            GatewayResponse<UnityQueryReportResponse> report,
+            string queryName,
+            string queryId,
+            string localErrorCode)
+        {
+            if (report == null || !report.TransportSuccess)
+            {
+                AddLog(
+                    UiLogLevel.Warning,
+                    queryName + " result report failed: " +
+                    (report == null ? "null response" : report.ErrorMessage));
+                return;
+            }
+
+            if (!report.IsHttpSuccess)
+            {
+                AddLog(
+                    UiLogLevel.Warning,
+                    queryName + " result report rejected: " + ReadErrorCode(report));
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(localErrorCode))
+            {
+                AddLog(
+                    UiLogLevel.Warning,
+                    queryName + " result reported with error_code=" + localErrorCode +
+                    " query_id=" + SafeString(queryId));
+                return;
+            }
+
+            AddLog(
+                UiLogLevel.Info,
+                queryName + " result reported. query_id=" + SafeString(queryId));
         }
 
         private Task<T> RunOnEditorMainThreadAsync<T>(Func<T> action)
@@ -1961,6 +2079,23 @@ namespace UnityAI.Editor.Codex.Application
         }
 
         [Serializable]
+        private sealed class UnityRagQueryDispatchResult
+        {
+            public object payload;
+            public string error_code;
+        }
+
+        [Serializable]
+        private sealed class UnityGenericQueryFailureResult
+        {
+            public bool ok;
+            public string request_id;
+            public string captured_at;
+            public string error_code;
+            public string error_message;
+        }
+
+        [Serializable]
         private sealed class UnityComponentQuerySnapshot
         {
             public UnityComponentDescriptor[] components;
@@ -1981,7 +2116,9 @@ namespace UnityAI.Editor.Codex.Application
             if (EditorApplication.isCompiling)
             {
                 snapshot.error_code = UnityQueryErrorBusyOrCompiling;
-                snapshot.error_message = "Unity is compiling scripts; component query is temporarily unavailable.";
+                snapshot.error_message = NormalizeErrorMessageForTransport(
+                    "Unity is compiling scripts; component query is temporarily unavailable.",
+                    "Unity is compiling scripts; component query is temporarily unavailable.");
                 return snapshot;
             }
 
@@ -1989,7 +2126,9 @@ namespace UnityAI.Editor.Codex.Application
             if (target == null)
             {
                 snapshot.error_code = UnityQueryErrorTargetNotFound;
-                snapshot.error_message = "Target object path not found in scene: " + targetPath;
+                snapshot.error_message = NormalizeErrorMessageForTransport(
+                    "Target object path not found in scene: " + targetPath,
+                    "Target object path not found in scene.");
                 return snapshot;
             }
 
@@ -2001,7 +2140,9 @@ namespace UnityAI.Editor.Codex.Application
             catch (Exception ex)
             {
                 snapshot.error_code = UnityQueryErrorFailed;
-                snapshot.error_message = ex.Message;
+                snapshot.error_message = NormalizeErrorMessageForTransport(
+                    ex == null ? string.Empty : ex.Message,
+                    "Unity query handler failed.");
                 return snapshot;
             }
 
@@ -2143,14 +2284,7 @@ namespace UnityAI.Editor.Codex.Application
 
         private void LogTurnSendPlan(TurnStatusResponse status)
         {
-            if (status == null)
-            {
-                return;
-            }
-
-            LogAssistantMessage(status.assistant_summary);
-
-            if (!EnableDiagnosticLogs)
+            if (status == null || !EnableDiagnosticLogs)
             {
                 return;
             }
@@ -2158,37 +2292,6 @@ namespace UnityAI.Editor.Codex.Application
             if (!string.IsNullOrEmpty(status.phase))
             {
                 AddLog(UiLogLevel.Info, "turn.phase=" + status.phase);
-            }
-
-            if (status.task_allocation != null)
-            {
-                var fileCount = status.task_allocation.file_actions != null
-                    ? status.task_allocation.file_actions.Length
-                    : 0;
-                var visualCount = status.task_allocation.visual_layer_actions != null
-                    ? status.task_allocation.visual_layer_actions.Length
-                    : 0;
-                AddLog(
-                    UiLogLevel.Info,
-                    "task_allocation: file_actions=" + fileCount +
-                    ", visual_layer_actions=" + visualCount + ".");
-            }
-
-            if (status.files_changed == null || status.files_changed.Length == 0)
-            {
-                return;
-            }
-
-            AddLog(UiLogLevel.Info, "files.changed: " + status.files_changed.Length + " file(s).");
-            for (var i = 0; i < status.files_changed.Length; i++)
-            {
-                var item = status.files_changed[i];
-                if (item == null)
-                {
-                    continue;
-                }
-
-                AddLog(UiLogLevel.Info, " - " + item.type + ": " + item.path);
             }
         }
 
@@ -2210,12 +2313,6 @@ namespace UnityAI.Editor.Codex.Application
                 return;
             }
 
-            if (string.Equals(normalized, _lastAssistantMessageSignature, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            _lastAssistantMessageSignature = normalized;
             AddLog(UiLogLevel.Info, normalized, UiLogSource.Codex);
         }
 
@@ -2233,11 +2330,13 @@ namespace UnityAI.Editor.Codex.Application
         private void HandleCompileGateFromTurnSend(TurnStatusResponse status, double now)
         {
             if (status != null &&
-                status.pending_visual_action != null &&
-                !string.IsNullOrEmpty(status.pending_visual_action.component_assembly_qualified_name))
+                status.unity_action_request != null &&
+                status.unity_action_request.payload != null &&
+                status.unity_action_request.payload.action != null &&
+                !string.IsNullOrEmpty(status.unity_action_request.payload.action.component_assembly_qualified_name))
             {
                 _pendingCompileComponentAssemblyQualifiedName =
-                    status.pending_visual_action.component_assembly_qualified_name;
+                    status.unity_action_request.payload.action.component_assembly_qualified_name;
             }
 
             if (_compileGateOpenedAtUtcTicks <= 0L)
@@ -2249,27 +2348,17 @@ namespace UnityAI.Editor.Codex.Application
             _compileResultAutoReportInFlight = false;
             _lastCompilePendingHeartbeatAt = now;
 
-            var shouldRefresh = status != null &&
-                                status.compile_request != null &&
-                                status.compile_request.refresh_assets;
-            if (!shouldRefresh && _compileRefreshIssued)
+            // compile_request field removed from TurnStatusResponse
+            // Always refresh assets when compile gate opens
+            if (!_compileRefreshIssued)
             {
-                return;
+                var reason = "compile_gate_opened";
+                AddLog(UiLogLevel.Info, "Compile gate opened (" + reason + "). Step 2/3: refreshing assets.");
+                AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+                _compileRefreshIssued = true;
+                _lastCompileRefreshAt = now;
+                AddLog(UiLogLevel.Info, "Compile result will be auto-reported when Unity finishes compiling.");
             }
-
-            var reason = status != null && status.compile_request != null
-                ? status.compile_request.reason
-                : string.Empty;
-            if (string.IsNullOrEmpty(reason))
-            {
-                reason = "compile_gate_opened";
-            }
-
-            AddLog(UiLogLevel.Info, "Compile gate opened (" + reason + "). Step 2/3: refreshing assets.");
-            AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
-            _compileRefreshIssued = true;
-            _lastCompileRefreshAt = now;
-            AddLog(UiLogLevel.Info, "Compile result will be auto-reported when Unity finishes compiling.");
         }
 
         private string BuildBusyReasonForRuntimeState()
@@ -2277,11 +2366,6 @@ namespace UnityAI.Editor.Codex.Application
             if (_runtimeState == TurnRuntimeState.CompilePending)
             {
                 return "Compile Pending";
-            }
-
-            if (_runtimeState == TurnRuntimeState.AutoFixPending)
-            {
-                return "Auto Fix Pending";
             }
 
             if (_runtimeState == TurnRuntimeState.ActionConfirmPending)
@@ -2294,12 +2378,7 @@ namespace UnityAI.Editor.Codex.Application
                 return "Action Executing";
             }
 
-            if (_runtimeState == TurnRuntimeState.CodexPending)
-            {
-                return "Planning/Executing";
-            }
-
-            return "Running";
+            return "Idle";
         }
 
         private void LogAutoFixProgress(
@@ -2364,9 +2443,11 @@ namespace UnityAI.Editor.Codex.Application
                         file = snapshot == null || string.IsNullOrEmpty(snapshot.file) ? _lastSmokeScriptPath : snapshot.file,
                         line = snapshot != null && snapshot.line > 0 ? snapshot.line : 1,
                         column = snapshot != null && snapshot.column > 0 ? snapshot.column : 1,
-                        message = snapshot == null || string.IsNullOrEmpty(snapshot.message)
-                            ? "Compilation failed"
-                            : snapshot.message
+                        message = NormalizeErrorMessageForTransport(
+                            snapshot == null || string.IsNullOrEmpty(snapshot.message)
+                                ? "Compilation failed"
+                                : snapshot.message,
+                            "Compilation failed")
                     };
                 }
 
@@ -2384,6 +2465,56 @@ namespace UnityAI.Editor.Codex.Application
                     message = "Manual failure report from Unity panel"
                 }
             };
+        }
+
+        private static UnityConsoleErrorItem[] BuildConsoleErrorItemsForSnapshot(int maxCount)
+        {
+            var snapshots = UnityConsoleErrorTracker.GetRecentErrors(maxCount);
+            if (snapshots == null || snapshots.Length == 0)
+            {
+                return new UnityConsoleErrorItem[0];
+            }
+
+            var result = new UnityConsoleErrorItem[snapshots.Length];
+            for (var i = 0; i < snapshots.Length; i++)
+            {
+                var item = snapshots[i];
+                result[i] = new UnityConsoleErrorItem
+                {
+                    timestamp = item == null || string.IsNullOrEmpty(item.timestamp)
+                        ? DateTime.UtcNow.ToString("o")
+                        : item.timestamp,
+                    log_type = item == null || string.IsNullOrEmpty(item.log_type) ? "Error" : item.log_type,
+                    condition = SanitizeSingleLine(
+                        item == null || string.IsNullOrEmpty(item.condition) ? string.Empty : item.condition,
+                        MaxConsoleConditionLength),
+                    stack_trace = SanitizeSingleLine(
+                        item == null || string.IsNullOrEmpty(item.stack_trace) ? string.Empty : item.stack_trace,
+                        MaxConsoleStackTraceLength),
+                    file = item == null || string.IsNullOrEmpty(item.file) ? string.Empty : item.file,
+                    line = item != null && item.line > 0 ? item.line : 0,
+                    error_code = NormalizeErrorCodeForTransport(
+                        item == null || string.IsNullOrEmpty(item.error_code) ? string.Empty : item.error_code,
+                        string.Empty)
+                };
+            }
+
+            return result;
+        }
+
+        private static string BuildConsoleSnapshotSignature(UnityConsoleErrorItem[] errors)
+        {
+            if (errors == null || errors.Length == 0)
+            {
+                return "empty";
+            }
+
+            var first = errors[0];
+            var firstTimestamp = first != null ? first.timestamp ?? string.Empty : string.Empty;
+            var firstCode = first != null ? first.error_code ?? string.Empty : string.Empty;
+            var firstLine = first != null ? first.line.ToString() : "0";
+            var firstFile = first != null ? first.file ?? string.Empty : string.Empty;
+            return errors.Length + "|" + firstTimestamp + "|" + firstCode + "|" + firstFile + "|" + firstLine;
         }
 
         private void ForceLocalAbort(string errorCode, string message)
@@ -2418,6 +2549,7 @@ namespace UnityAI.Editor.Codex.Application
 
             _lastTransportErrorLogAt = now;
             AddLog(UiLogLevel.Error, "turn.status failed: " + errorMessage);
+            Debug.LogWarning("[Codex] turn.status failed: " + errorMessage);
         }
 
         private TurnStatusResponse ToTurnStatus(UnityCompileReportResponse report)
@@ -2427,25 +2559,35 @@ namespace UnityAI.Editor.Codex.Application
                 return null;
             }
 
+            var normalizedState = NormalizeGatewayState(
+                report.state,
+                report.status,
+                report.error_code);
             return new TurnStatusResponse
             {
+                job_id = report.job_id,
                 request_id = report.request_id,
-                state = report.state,
+                status = report.status,
+                state = normalizedState,
                 @event = report.@event,
-                message = report.message,
+                message = FirstNonEmpty(report.message, report.progress_message, report.error_message),
+                progress_message = report.progress_message,
                 error_code = report.error_code,
+                error_message = report.error_message,
+                suggestion = report.suggestion,
+                recoverable = report.recoverable,
                 stage = report.stage,
                 phase = report.phase,
+                auto_cancel_reason = report.auto_cancel_reason,
+                lease_state = report.lease_state,
+                lease_owner_client_id = report.lease_owner_client_id,
+                lease_last_heartbeat_at = report.lease_last_heartbeat_at,
+                lease_heartbeat_timeout_ms = report.lease_heartbeat_timeout_ms,
+                lease_max_runtime_ms = report.lease_max_runtime_ms,
+                lease_orphaned = report.lease_orphaned,
                 pending_visual_action_count = report.pending_visual_action_count,
                 pending_visual_action = report.pending_visual_action,
-                files_changed = report.files_changed,
-                compile_request = report.compile_request,
-                unity_action_request = report.unity_action_request,
-                events = report.events,
-                latest_event_seq = report.latest_event_seq,
-                auto_fix_attempts = report.auto_fix_attempts,
-                max_auto_fix_attempts = report.auto_fix_max_attempts,
-                replay = false
+                unity_action_request = report.unity_action_request
             };
         }
 
@@ -2456,24 +2598,219 @@ namespace UnityAI.Editor.Codex.Application
                 return null;
             }
 
+            var normalizedState = NormalizeGatewayState(
+                report.state,
+                report.status,
+                report.error_code);
             return new TurnStatusResponse
             {
+                job_id = report.job_id,
                 request_id = report.request_id,
-                state = report.state,
+                status = report.status,
+                state = normalizedState,
                 @event = report.@event,
-                message = report.message,
+                message = FirstNonEmpty(report.message, report.progress_message, report.error_message),
+                progress_message = report.progress_message,
                 error_code = report.error_code,
+                error_message = report.error_message,
+                suggestion = report.suggestion,
+                recoverable = report.recoverable,
                 stage = report.stage,
                 phase = report.phase,
+                auto_cancel_reason = report.auto_cancel_reason,
+                lease_state = report.lease_state,
+                lease_owner_client_id = report.lease_owner_client_id,
+                lease_last_heartbeat_at = report.lease_last_heartbeat_at,
+                lease_heartbeat_timeout_ms = report.lease_heartbeat_timeout_ms,
+                lease_max_runtime_ms = report.lease_max_runtime_ms,
+                lease_orphaned = report.lease_orphaned,
                 pending_visual_action_count = report.pending_visual_action_count,
                 pending_visual_action = report.pending_visual_action,
-                unity_action_request = report.unity_action_request,
-                events = report.events,
-                latest_event_seq = report.latest_event_seq,
-                auto_fix_attempts = report.auto_fix_attempts,
-                max_auto_fix_attempts = report.auto_fix_max_attempts,
-                replay = false
+                unity_action_request = report.unity_action_request
             };
+        }
+
+        private TurnStatusResponse ToTurnStatus(UnityRuntimePingResponse response)
+        {
+            if (response == null)
+            {
+                return null;
+            }
+
+            var normalizedState = NormalizeGatewayState(
+                response.state,
+                response.status,
+                response.error_code);
+            return new TurnStatusResponse
+            {
+                job_id = response.job_id,
+                request_id = response.request_id,
+                status = response.status,
+                state = normalizedState,
+                @event = response.@event,
+                message = FirstNonEmpty(response.message, response.progress_message, response.error_message),
+                progress_message = response.progress_message,
+                error_code = response.error_code,
+                error_message = response.error_message,
+                suggestion = response.suggestion,
+                recoverable = response.recoverable,
+                stage = response.stage,
+                phase = response.phase,
+                auto_cancel_reason = response.auto_cancel_reason,
+                lease_state = response.lease_state,
+                lease_owner_client_id = response.lease_owner_client_id,
+                lease_last_heartbeat_at = response.lease_last_heartbeat_at,
+                lease_heartbeat_timeout_ms = response.lease_heartbeat_timeout_ms,
+                lease_max_runtime_ms = response.lease_max_runtime_ms,
+                lease_orphaned = response.lease_orphaned,
+                pending_visual_action_count = response.pending_visual_action_count,
+                pending_visual_action = response.pending_visual_action,
+                unity_action_request = response.unity_action_request
+            };
+        }
+
+        private static string NormalizeGatewayState(string state, string status, string errorCode)
+        {
+            var normalizedState = NormalizeToken(state);
+            if (normalizedState == "running" ||
+                normalizedState == "idle" ||
+                normalizedState == "completed" ||
+                normalizedState == "cancelled" ||
+                normalizedState == "error")
+            {
+                return normalizedState;
+            }
+
+            var normalizedStatus = NormalizeToken(status);
+            if (normalizedStatus == "succeeded" || normalizedStatus == "completed")
+            {
+                return "completed";
+            }
+
+            if (normalizedStatus == "failed" || normalizedStatus == "error")
+            {
+                return "error";
+            }
+
+            if (normalizedStatus == "cancelled" || normalizedStatus == "canceled")
+            {
+                return "cancelled";
+            }
+
+            if (normalizedStatus == "pending" ||
+                normalizedStatus == "queued" ||
+                normalizedStatus == "accepted" ||
+                normalizedStatus == "running")
+            {
+                return "running";
+            }
+
+            if (IsAutoCancelErrorCode(errorCode))
+            {
+                return "cancelled";
+            }
+
+            if (normalizedState == "failed")
+            {
+                return "error";
+            }
+
+            return normalizedState;
+        }
+
+        private static bool IsAutoCancelErrorCode(string value)
+        {
+            var code = string.IsNullOrEmpty(value) ? string.Empty : value.Trim();
+            if (string.IsNullOrEmpty(code))
+            {
+                return false;
+            }
+
+            return string.Equals(code, "E_JOB_HEARTBEAT_TIMEOUT", StringComparison.Ordinal) ||
+                   string.Equals(code, "E_JOB_MAX_RUNTIME_EXCEEDED", StringComparison.Ordinal) ||
+                   string.Equals(code, "E_WAITING_FOR_UNITY_REBOOT_TIMEOUT", StringComparison.Ordinal);
+        }
+
+        private static string NormalizeToken(string value)
+        {
+            return string.IsNullOrEmpty(value) ? string.Empty : value.Trim().ToLowerInvariant();
+        }
+
+        private static string FirstNonEmpty(params string[] values)
+        {
+            if (values == null || values.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            for (var i = 0; i < values.Length; i++)
+            {
+                var item = values[i];
+                if (string.IsNullOrWhiteSpace(item))
+                {
+                    continue;
+                }
+
+                return item.Trim();
+            }
+
+            return string.Empty;
+        }
+
+        private static string NormalizeErrorCodeForTransport(string value, string fallback)
+        {
+            var normalized = string.IsNullOrWhiteSpace(value)
+                ? string.Empty
+                : value.Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(normalized))
+            {
+                return fallback;
+            }
+
+            if (string.Equals(normalized, "UNITY_BUSY_OR_COMPILING", StringComparison.Ordinal))
+            {
+                return UnityQueryErrorBusyOrCompiling;
+            }
+            if (string.Equals(normalized, "TARGET_NOT_FOUND", StringComparison.Ordinal))
+            {
+                return UnityQueryErrorTargetNotFound;
+            }
+            if (string.Equals(normalized, "UNITY_QUERY_FAILED", StringComparison.Ordinal))
+            {
+                return UnityQueryErrorFailed;
+            }
+            if (string.Equals(normalized, "E_ACTION_TARGET_NOT_FOUND", StringComparison.Ordinal))
+            {
+                return "E_TARGET_NOT_FOUND";
+            }
+
+            return normalized;
+        }
+
+        private static string NormalizeErrorMessageForTransport(string value, string fallback)
+        {
+            var sanitized = SanitizeSingleLine(value, MaxTransportErrorMessageLength);
+            return string.IsNullOrEmpty(sanitized)
+                ? fallback
+                : sanitized;
+        }
+
+        private static string SanitizeSingleLine(string value, int maxLength)
+        {
+            var normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+            if (string.IsNullOrEmpty(normalized))
+            {
+                return string.Empty;
+            }
+
+            var lines = normalized.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var singleLine = lines.Length > 0 ? lines[0].Trim() : normalized;
+            if (singleLine.Length <= maxLength)
+            {
+                return singleLine;
+            }
+
+            return singleLine.Substring(0, maxLength).TrimEnd();
         }
 
         private static string BuildSelectedPath(GameObject selected)
@@ -2494,6 +2831,144 @@ namespace UnityAI.Editor.Codex.Application
             return "Scene/" + path;
         }
 
+        private static string BuildObjectId(GameObject gameObject)
+        {
+            if (gameObject == null)
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                var globalId = GlobalObjectId.GetGlobalObjectIdSlow(gameObject);
+                var text = globalId.ToString();
+                return string.IsNullOrEmpty(text) ? string.Empty : text;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private static UnitySelectionComponentIndexItem[] BuildSelectionComponentIndex(
+            GameObject selected,
+            int maxDepth,
+            int nodeBudget)
+        {
+            if (selected == null || selected.transform == null)
+            {
+                return new UnitySelectionComponentIndexItem[0];
+            }
+
+            var depthLimit = maxDepth < 0 ? 0 : maxDepth;
+            var budget = nodeBudget <= 0 ? 1 : nodeBudget;
+            var items = new List<UnitySelectionComponentIndexItem>(Math.Min(budget, 64));
+            AppendSelectionComponentIndex(
+                selected.transform,
+                0,
+                depthLimit,
+                budget,
+                items);
+            return items.ToArray();
+        }
+
+        private static void AppendSelectionComponentIndex(
+            Transform transform,
+            int depth,
+            int depthLimit,
+            int nodeBudget,
+            List<UnitySelectionComponentIndexItem> sink)
+        {
+            if (transform == null || sink == null)
+            {
+                return;
+            }
+            if (sink.Count >= nodeBudget)
+            {
+                return;
+            }
+
+            sink.Add(
+                new UnitySelectionComponentIndexItem
+                {
+                    object_id = BuildObjectId(transform.gameObject),
+                    path = BuildSelectedPath(transform.gameObject),
+                    name = transform.name,
+                    depth = depth,
+                    prefab_path = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(transform.gameObject) ?? string.Empty,
+                    components = GetComponentDescriptors(transform)
+                });
+
+            if (depth >= depthLimit)
+            {
+                return;
+            }
+
+            for (var i = 0; i < transform.childCount; i++)
+            {
+                if (sink.Count >= nodeBudget)
+                {
+                    return;
+                }
+                var child = transform.GetChild(i);
+                AppendSelectionComponentIndex(
+                    child,
+                    depth + 1,
+                    depthLimit,
+                    nodeBudget,
+                    sink);
+            }
+        }
+
+        private static UnityComponentDescriptor[] GetComponentDescriptors(Transform transform)
+        {
+            if (transform == null)
+            {
+                return new UnityComponentDescriptor[0];
+            }
+
+            Component[] components;
+            try
+            {
+                components = transform.GetComponents<Component>();
+            }
+            catch
+            {
+                return new UnityComponentDescriptor[0];
+            }
+
+            var descriptors = new List<UnityComponentDescriptor>(components.Length);
+            for (var i = 0; i < components.Length; i++)
+            {
+                var component = components[i];
+                if (component == null)
+                {
+                    descriptors.Add(
+                        new UnityComponentDescriptor
+                        {
+                            short_name = MissingScriptShortName,
+                            assembly_qualified_name = MissingScriptAssemblyQualifiedName
+                        });
+                    continue;
+                }
+
+                var type = component.GetType();
+                if (type == null)
+                {
+                    continue;
+                }
+
+                descriptors.Add(
+                    new UnityComponentDescriptor
+                    {
+                        short_name = !string.IsNullOrEmpty(type.Name) ? type.Name : "-",
+                        assembly_qualified_name = BuildAssemblyQualifiedName(type)
+                    });
+            }
+
+            return descriptors.ToArray();
+        }
+
         private static bool IsTerminalStatus(TurnStatusResponse status)
         {
             if (status == null)
@@ -2501,7 +2976,13 @@ namespace UnityAI.Editor.Codex.Application
                 return false;
             }
 
-            return status.state == "completed" || status.state == "cancelled" || status.state == "error";
+            var normalizedState = NormalizeGatewayState(
+                status.state,
+                status.status,
+                status.error_code);
+            return normalizedState == "completed" ||
+                   normalizedState == "cancelled" ||
+                   normalizedState == "error";
         }
 
         private static string SafeString(string value)

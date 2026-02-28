@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityAI.Editor.Codex.Domain;
 using UnityAI.Editor.Codex.Ports;
@@ -8,6 +9,9 @@ namespace UnityAI.Editor.Codex.Infrastructure
 {
     public sealed class UnitySelectionContextBuilder : ISelectionContextBuilder
     {
+        private const string MissingScriptShortName = "MissingScript";
+        private const string MissingScriptAssemblyQualifiedName = "UnityEditor.MissingScript";
+
         public TurnContext BuildContext(GameObject selected, int maxDepth)
         {
             var prefabPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(selected);
@@ -22,10 +26,13 @@ namespace UnityAI.Editor.Codex.Infrastructure
 
             return new TurnContext
             {
+                scene_revision = UnitySceneRevisionTracker.CurrentRevision,
                 selection = new SelectionInfo
                 {
                     mode = "selection",
+                    object_id = BuildObjectId(selected),
                     target_object_path = BuildGameObjectPath(selected.transform),
+                    active = selected.activeInHierarchy,
                     prefab_path = prefabPath
                 },
                 selection_tree = new SelectionTreeInfo
@@ -43,9 +50,12 @@ namespace UnityAI.Editor.Codex.Infrastructure
             var node = new SelectionTreeNode
             {
                 name = transform.name,
+                object_id = BuildObjectId(transform.gameObject),
                 path = BuildGameObjectPath(transform),
                 depth = depth,
-                components = GetComponentNames(transform)
+                active = transform.gameObject != null && transform.gameObject.activeInHierarchy,
+                prefab_path = GetPrefabAssetPath(transform.gameObject),
+                components = GetComponentDescriptors(transform)
             };
 
             if (depth >= maxDepth)
@@ -68,17 +78,50 @@ namespace UnityAI.Editor.Codex.Infrastructure
             return node;
         }
 
-        private static string[] GetComponentNames(Transform transform)
+        private static string GetPrefabAssetPath(GameObject gameObject)
+        {
+            if (gameObject == null)
+            {
+                return string.Empty;
+            }
+
+            var path = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(gameObject);
+            return string.IsNullOrEmpty(path) ? string.Empty : path;
+        }
+
+        private static UnityComponentDescriptor[] GetComponentDescriptors(Transform transform)
         {
             var components = transform.GetComponents<Component>();
-            var names = new List<string>(components.Length);
+            var descriptors = new List<UnityComponentDescriptor>(components.Length);
             for (var i = 0; i < components.Length; i++)
             {
                 var component = components[i];
-                names.Add(component == null ? "MissingScript" : component.GetType().Name);
+                if (component == null)
+                {
+                    descriptors.Add(
+                        new UnityComponentDescriptor
+                        {
+                            short_name = MissingScriptShortName,
+                            assembly_qualified_name = MissingScriptAssemblyQualifiedName
+                        });
+                    continue;
+                }
+
+                var type = component.GetType();
+                if (type == null)
+                {
+                    continue;
+                }
+
+                descriptors.Add(
+                    new UnityComponentDescriptor
+                    {
+                        short_name = string.IsNullOrEmpty(type.Name) ? "-" : type.Name,
+                        assembly_qualified_name = BuildAssemblyQualifiedName(type)
+                    });
             }
 
-            return names.ToArray();
+            return descriptors.ToArray();
         }
 
         private static string BuildGameObjectPath(Transform transform)
@@ -93,6 +136,44 @@ namespace UnityAI.Editor.Codex.Infrastructure
 
             return "Scene/" + path;
         }
+
+        private static string BuildObjectId(GameObject gameObject)
+        {
+            if (gameObject == null)
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                var globalId = GlobalObjectId.GetGlobalObjectIdSlow(gameObject);
+                var text = globalId.ToString();
+                return string.IsNullOrEmpty(text) ? string.Empty : text;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private static string BuildAssemblyQualifiedName(Type type)
+        {
+            if (type == null)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrEmpty(type.AssemblyQualifiedName))
+            {
+                return type.AssemblyQualifiedName;
+            }
+
+            if (!string.IsNullOrEmpty(type.FullName))
+            {
+                return type.FullName;
+            }
+
+            return type.Name ?? string.Empty;
+        }
     }
 }
-

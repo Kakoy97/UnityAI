@@ -57,6 +57,15 @@ async function main() {
 
   await ensureSidecarAvailability(baseUrl);
 
+  if (spawned && spawned.startedByRunner) {
+    await runCase(report, "preflight_drain_stale_jobs", async () => {
+      return await drainRunningJobs(baseUrl, {
+        maxRounds: 24,
+        sleepMs: 50,
+      });
+    });
+  }
+
   await runCase(report, "health_check", async () => {
     const res = await requestJson({
       method: "GET",
@@ -96,14 +105,21 @@ async function main() {
   });
 
   const threadId = `t_mcp_${runId}`;
+  const submitContext = buildTestContext(2);
   const retryIdempotencyKey = `idem_retry_${runId}`;
   await runCase(report, "submit_schema_invalid_then_retryable", async () => {
+    const writeGate = await issueWriteGate(baseUrl);
+    const writeActions = buildSubmitActions(`schema_invalid_${runId}`);
     const res = await postJson(baseUrl, "/mcp/submit_unity_task", {
       thread_id: threadId,
       idempotency_key: retryIdempotencyKey,
       approval_mode: "auto",
       user_intent: "Schema invalid then fixed",
+      based_on_read_token: writeGate.token,
+      write_anchor: writeGate.write_anchor,
       context: buildTestContext(3),
+      file_actions: writeActions.file_actions,
+      visual_layer_actions: writeActions.visual_layer_actions,
     });
     assertStatus(res, 400, "submit_schema_invalid_then_retryable");
     assertMcpErrorFeedback(
@@ -123,11 +139,18 @@ async function main() {
   });
 
   const submitFirst = await runCase(report, "submit_job_pending", async () => {
+    const writeGate = await issueWriteGate(baseUrl);
+    const writeActions = buildSubmitActions(`first_${runId}`);
     const res = await postJson(baseUrl, "/mcp/submit_unity_task", {
       thread_id: threadId,
       idempotency_key: retryIdempotencyKey,
       approval_mode: "auto",
       user_intent: "MCP first running job",
+      based_on_read_token: writeGate.token,
+      write_anchor: writeGate.write_anchor,
+      context: submitContext,
+      file_actions: writeActions.file_actions,
+      visual_layer_actions: writeActions.visual_layer_actions,
     });
     assertStatus(res, 202, "submit_job_pending");
     if (!res.body || res.body.status !== "accepted") {
@@ -153,11 +176,18 @@ async function main() {
       : "";
 
   await runCase(report, "submit_job_idempotent_replay", async () => {
+    const writeGate = await issueWriteGate(baseUrl);
+    const writeActions = buildSubmitActions(`first_${runId}`);
     const res = await postJson(baseUrl, "/mcp/submit_unity_task", {
       thread_id: threadId,
       idempotency_key: retryIdempotencyKey,
       approval_mode: "auto",
       user_intent: "MCP first running job",
+      based_on_read_token: writeGate.token,
+      write_anchor: writeGate.write_anchor,
+      context: submitContext,
+      file_actions: writeActions.file_actions,
+      visual_layer_actions: writeActions.visual_layer_actions,
     });
     assertStatus(res, 200, "submit_job_idempotent_replay");
     if (!res.body || res.body.idempotent_replay !== true) {
@@ -200,11 +230,18 @@ async function main() {
   });
 
   const submitSecond = await runCase(report, "submit_job_queued", async () => {
+    const writeGate = await issueWriteGate(baseUrl);
+    const writeActions = buildSubmitActions(`queued_${runId}`);
     const res = await postJson(baseUrl, "/mcp/submit_unity_task", {
       thread_id: threadId,
       idempotency_key: `idem_b_${runId}`,
       approval_mode: "require_user",
       user_intent: "MCP queued job",
+      based_on_read_token: writeGate.token,
+      write_anchor: writeGate.write_anchor,
+      context: submitContext,
+      file_actions: writeActions.file_actions,
+      visual_layer_actions: writeActions.visual_layer_actions,
     });
     assertStatus(res, 202, "submit_job_queued");
     if (!res.body || res.body.status !== "queued") {
@@ -229,11 +266,18 @@ async function main() {
       : "";
 
   await runCase(report, "submit_job_rejected_conflict", async () => {
+    const writeGate = await issueWriteGate(baseUrl);
+    const writeActions = buildSubmitActions(`conflict_${runId}`);
     const res = await postJson(baseUrl, "/mcp/submit_unity_task", {
       thread_id: threadId,
       idempotency_key: `idem_c_${runId}`,
       approval_mode: "auto",
       user_intent: "MCP conflict job",
+      based_on_read_token: writeGate.token,
+      write_anchor: writeGate.write_anchor,
+      context: submitContext,
+      file_actions: writeActions.file_actions,
+      visual_layer_actions: writeActions.visual_layer_actions,
     });
     if (res.statusCode !== 409) {
       throw new Error(
@@ -298,19 +342,21 @@ async function main() {
     "approval_mode_requires_confirmation_mapping",
     async () => {
       const service = createApprovalMappingHarness();
-      service.mcpJobsById.set("job_auto", {
+      service.mcpService.mcpJobsById.set("job_auto", {
         request_id: "req_auto",
         approval_mode: "auto",
       });
-      service.mcpJobsById.set("job_require", {
+      service.mcpService.mcpJobsById.set("job_require", {
         request_id: "req_require",
         approval_mode: "require_user",
       });
 
       const action = {
         type: "remove_component",
-        target: "selection",
-        target_object_path: "Scene/Canvas/Image",
+        target_anchor: {
+          object_id: "go_scene_canvas_image",
+          path: "Scene/Canvas/Image",
+        },
         component_assembly_qualified_name: "SmokeComponent, Assembly-CSharp",
       };
       const autoEnvelope = service.buildUnityActionRequestEnvelopeWithIds(
@@ -560,6 +606,62 @@ async function getJobStatus(baseUrl, jobId) {
   return res.body || {};
 }
 
+async function getMcpMetrics(baseUrl) {
+  const res = await requestJson({
+    method: "GET",
+    url: `${baseUrl}/mcp/metrics`,
+    timeoutMs: 5000,
+  });
+  assertStatus(res, 200, "get_mcp_metrics");
+  if (!res.body || typeof res.body !== "object") {
+    throw new Error("get_mcp_metrics expected JSON body");
+  }
+  return res.body;
+}
+
+async function drainRunningJobs(baseUrl, options) {
+  const opts = options && typeof options === "object" ? options : {};
+  const maxRounds =
+    Number.isFinite(Number(opts.maxRounds)) && Number(opts.maxRounds) > 0
+      ? Math.floor(Number(opts.maxRounds))
+      : 16;
+  const sleepMs =
+    Number.isFinite(Number(opts.sleepMs)) && Number(opts.sleepMs) >= 0
+      ? Math.floor(Number(opts.sleepMs))
+      : 50;
+  const cancelled = [];
+  for (let round = 0; round < maxRounds; round += 1) {
+    const metrics = await getMcpMetrics(baseUrl);
+    const runningJobId =
+      metrics && typeof metrics.running_job_id === "string"
+        ? metrics.running_job_id.trim()
+        : "";
+    if (!runningJobId) {
+      return {
+        drained: true,
+        cancelled_job_count: cancelled.length,
+        cancelled_job_ids: cancelled,
+      };
+    }
+    if (cancelled.includes(runningJobId)) {
+      throw new Error(
+        `preflight drain detected repeated running_job_id=${runningJobId}`
+      );
+    }
+    const cancelRes = await postJson(baseUrl, "/mcp/cancel_unity_task", {
+      job_id: runningJobId,
+    });
+    assertStatus(cancelRes, 200, "preflight_cancel_running_job");
+    cancelled.push(runningJobId);
+    if (sleepMs > 0) {
+      await sleep(sleepMs);
+    }
+  }
+  throw new Error(
+    `preflight drain exceeded maxRounds=${maxRounds}, cancelled=${cancelled.length}`
+  );
+}
+
 async function waitForJobStatus(options) {
   const baseUrl = options.baseUrl;
   const jobId = options.jobId;
@@ -605,12 +707,13 @@ async function startSidecarIfNeeded(baseUrl, runId, options) {
       ? String(Math.floor(opts.mcpMaxQueue))
       : "1";
   const sidecarRoot = path.resolve(__dirname, "..");
+  if (opts.preserveSnapshot !== true) {
+    resetRunnerSnapshots(sidecarRoot);
+  }
   const child = spawn(process.execPath, ["index.js", "--port", String(port)], {
     cwd: sidecarRoot,
     env: {
       ...process.env,
-      USE_CODEX_APP_SERVER: "false",
-      USE_FAKE_CODEX_TIMEOUT_PLANNER: "true",
       ENABLE_MCP_ADAPTER: "true",
       MCP_MAX_QUEUE: mcpMaxQueue,
       CODEX_SOFT_TIMEOUT_MS: "60000",
@@ -669,7 +772,14 @@ async function restartManagedSidecar(baseUrl, runId, spawned, options) {
     };
   }
   await shutdownSpawnedSidecar(baseUrl, spawned.child);
-  const restarted = await startSidecarIfNeeded(baseUrl, `${runId}_restart`, options);
+  const restartOptions =
+    options && typeof options === "object" ? { ...options } : {};
+  restartOptions.preserveSnapshot = true;
+  const restarted = await startSidecarIfNeeded(
+    baseUrl,
+    `${runId}_restart`,
+    restartOptions
+  );
   await ensureSidecarAvailability(baseUrl);
   return {
     restarted: true,
@@ -689,6 +799,21 @@ async function shutdownSpawnedSidecar(baseUrl, child) {
       child.kill("SIGTERM");
     } catch {
       // ignore
+    }
+  }
+}
+
+function resetRunnerSnapshots(sidecarRoot) {
+  const stateDir = path.resolve(sidecarRoot, ".state");
+  const files = ["mcp-job-state.json", "sidecar-state.json"];
+  for (const fileName of files) {
+    const snapshotPath = path.resolve(stateDir, fileName);
+    try {
+      if (fs.existsSync(snapshotPath)) {
+        fs.unlinkSync(snapshotPath);
+      }
+    } catch {
+      // ignore cleanup failures; sidecar can still attempt startup
     }
   }
 }
@@ -776,22 +901,195 @@ function assertMcpErrorFeedback(body, expectedCode, label, options) {
 
 function buildTestContext(maxDepth) {
   return {
+    scene_revision: "rev_mcp_job_runner",
     selection: {
       mode: "selection",
+      object_id: "go_scene_canvas_image",
       target_object_path: "Scene/Canvas/Image",
+      active: true,
       prefab_path: "",
     },
     selection_tree: {
       max_depth: Number.isFinite(maxDepth) ? Number(maxDepth) : 2,
       root: {
         name: "Image",
+        object_id: "go_scene_canvas_image",
         path: "Scene/Canvas/Image",
         depth: 0,
-        components: ["Transform", "Image"],
+        active: true,
+        prefab_path: "",
+        components: [
+          {
+            short_name: "Transform",
+            assembly_qualified_name: "UnityEngine.Transform, UnityEngine.CoreModule",
+          },
+          {
+            short_name: "Image",
+            assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+          },
+        ],
         children: [],
+        children_truncated_count: 0,
       },
       truncated_node_count: 0,
       truncated_reason: "",
+    },
+  };
+}
+
+function buildSubmitActions(tag) {
+  const suffix = String(tag || "default").replace(/[^a-zA-Z0-9_]/g, "_");
+  const className = `McpJobRunner_${suffix}`;
+  const filePath = `Assets/Scripts/AIGenerated/${className}.cs`;
+  return {
+    file_actions: [
+      {
+        type: "create_file",
+        path: filePath,
+        content: [
+          "using UnityEngine;",
+          "",
+          `public class ${className} : MonoBehaviour`,
+          "{",
+          "}",
+          "",
+        ].join("\n"),
+        overwrite_if_exists: true,
+      },
+    ],
+    visual_layer_actions: [],
+  };
+}
+
+async function issueWriteGate(baseUrl) {
+  const readPromise = postJson(baseUrl, "/mcp/get_scene_roots", {
+    include_inactive: true,
+  });
+  const pulled = await pullPendingQueryForType(
+    baseUrl,
+    "get_scene_roots",
+    40,
+    50
+  );
+  const syntheticResult = buildSyntheticSceneRootsQueryResult(pulled.query);
+  const reportOutcome = await postJson(baseUrl, "/unity/query/report", {
+    query_id: pulled.query.query_id,
+    result: syntheticResult,
+  });
+  assertStatus(reportOutcome, 200, "issue_write_gate:report_query");
+
+  const outcome = await readPromise;
+  assertStatus(outcome, 200, "issue_write_gate:get_scene_roots");
+  const body = outcome && outcome.body && typeof outcome.body === "object"
+    ? outcome.body
+    : null;
+  if (!body || body.ok !== true) {
+    throw new Error("issue_write_gate expected { ok: true } response");
+  }
+  const token =
+    body.read_token && typeof body.read_token.token === "string"
+      ? body.read_token.token.trim()
+      : "";
+  if (!token) {
+    throw new Error("issue_write_gate missing read_token.token");
+  }
+  const roots =
+    body.data &&
+    typeof body.data === "object" &&
+    Array.isArray(body.data.roots)
+      ? body.data.roots
+      : [];
+  const root = roots.find(
+    (item) =>
+      item &&
+      typeof item === "object" &&
+      typeof item.object_id === "string" &&
+      item.object_id.trim() &&
+      typeof item.path === "string" &&
+      item.path.trim()
+  );
+  if (!root) {
+    throw new Error(
+      "issue_write_gate failed: get_scene_roots returned no writable root anchor"
+    );
+  }
+  return {
+    token,
+    write_anchor: {
+      object_id: root.object_id.trim(),
+      path: root.path.trim(),
+    },
+  };
+}
+
+async function pullPendingQueryForType(baseUrl, queryType, maxRounds, sleepMs) {
+  const rounds =
+    Number.isFinite(Number(maxRounds)) && Number(maxRounds) > 0
+      ? Math.floor(Number(maxRounds))
+      : 30;
+  const delay =
+    Number.isFinite(Number(sleepMs)) && Number(sleepMs) >= 0
+      ? Math.floor(Number(sleepMs))
+      : 30;
+  const expectedType = typeof queryType === "string" ? queryType.trim() : "";
+
+  for (let i = 0; i < rounds; i += 1) {
+    const outcome = await postJson(baseUrl, "/unity/query/pull", {
+      accepted_query_types: expectedType ? [expectedType] : undefined,
+    });
+    assertStatus(outcome, 200, "issue_write_gate:pull_query");
+    const body = outcome && outcome.body && typeof outcome.body === "object"
+      ? outcome.body
+      : null;
+    if (body && body.ok === true && body.pending === true && body.query) {
+      const query =
+        body.query && typeof body.query === "object" ? body.query : null;
+      const pulledType =
+        query && typeof query.query_type === "string"
+          ? query.query_type.trim()
+          : "";
+      if (!expectedType || pulledType === expectedType) {
+        return {
+          query,
+        };
+      }
+    }
+    if (delay > 0) {
+      await sleep(delay);
+    }
+  }
+
+  throw new Error(
+    `issue_write_gate failed: no pending ${expectedType || "query"} in ${rounds} rounds`
+  );
+}
+
+function buildSyntheticSceneRootsQueryResult(query) {
+  const source = query && typeof query === "object" ? query : {};
+  const payload =
+    source.payload && typeof source.payload === "object" ? source.payload : {};
+  const scenePath =
+    typeof payload.scene_path === "string" && payload.scene_path.trim()
+      ? payload.scene_path.trim()
+      : "Scene";
+  const includeInactive = payload.include_inactive !== false;
+  const revision = `rev_smoke_${Date.now()}`;
+  const root = {
+    name: "Root",
+    object_id: "go_smoke_root",
+    path: "Scene/Root",
+    active: true,
+    scene_path: scenePath,
+  };
+  return {
+    ok: true,
+    captured_at: new Date().toISOString(),
+    data: {
+      scene_path: scenePath,
+      include_inactive: includeInactive,
+      scene_revision: revision,
+      returned_count: 1,
+      roots: [root],
     },
   };
 }

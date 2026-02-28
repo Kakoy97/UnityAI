@@ -350,4 +350,59 @@ L1 Brain (Cursor/Codex)
 2. 最优路径不是“二选一”（继续现架构 vs 全量 Cursor），而是“保留 Sidecar 内核 + 上层增加 MCP 大脑接入”。
 3. 本文路线能同时保住稳定性与上限能力，且具备可回滚、可观测、可持续扩展的工程属性。
 
+## 11. v1.1 对齐补充（Embodied Agent）
+
+说明:
+1. 本节用于对齐 `Assets/Docs/Codex-Unity-Embodied-Agent-Refactor-Plan.md`（v1.1）。
+2. 不推翻现有 Phase 0-7，只对 Phase 5 做细化并新增发布门禁。
+
+### 11.1 新增硬约束（必须纳入）
+
+1. 感知层输出预算化:
+   - `get_hierarchy_subtree` 强制 `depth`（默认 1，最大 3）
+   - 强制 `node_budget` 与 `char_budget`
+   - 响应必须包含 `truncated` 与 `truncated_reason`
+2. 读取 token 失效机制:
+   - 主判据: `scene_revision`
+   - 辅判据: `hard_max_age_ms` 兜底
+   - 事件触发失效: `HierarchyChanged` / `UndoRedo` / `CompileStarted`
+3. 验证层采用“两级验证”:
+   - Level A: 目标对象/目标组件精准 Diff
+   - Level B: 轻量全局哨兵（路径存在、组件计数、关键状态）
+4. 对象定位升级:
+   - 从纯 `path` 升级为 `object_id + path` 双锚点
+5. 编译与域重载窗口治理:
+   - read->execute 间出现世界状态变化时，进入可恢复错误路径（如 `WAITING_FOR_UNITY_RELOAD`）
+
+### 11.2 Phase 5 细化（v1.1）
+
+在现有 `Phase 5: MCP Adapter + Job Ticket` 下拆分子阶段:
+
+1. Phase 5A（Eyes）:
+   - 上线公开读工具: selection / hierarchy / components / prefab / compile_state / console_errors
+   - 同步上线 `resources/list` 与 `resources/read`
+2. Phase 5B（Safety）:
+   - 强制 `based_on_read_token`
+   - 无读不写（`E_READ_REQUIRED`）
+   - stale snapshot 拒绝执行（`E_STALE_SNAPSHOT`）
+3. Phase 5C（Hands）:
+   - 拆分 `apply_script_actions` / `apply_visual_actions`
+   - 支持 `dry_run` + `preconditions`
+4. Phase 5D（Brain）:
+   - 固化 `read -> plan -> confirm -> execute -> verify`
+   - 将内部组件查询桥接能力外显为公开读能力
+5. Phase 5E（Feedback）:
+   - 执行后强制二次读取
+   - 输出结构化 `expected/actual/diff`
+
+### 11.3 里程碑与门禁增量
+
+1. 里程碑调整:
+   - M3 从“Phase 5 最小可用”升级为“Phase 5A-5C 可用”
+   - M4 加入“Phase 5D-5E 闭环达标”
+2. Go/No-Go 增量:
+   - 未返回 `read_token` 的读链路不得灰度
+   - 未执行 token 新鲜度校验的写链路不得灰度
+   - 未产出结构化验证 Diff 的写链路不得灰度
+
 

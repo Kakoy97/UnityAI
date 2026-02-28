@@ -1,10 +1,13 @@
 "use strict";
 
-function sendJson(res, statusCode, body) {
+function sendJson(res, statusCode, body, headers) {
   const payload = JSON.stringify(body);
+  const extraHeaders =
+    headers && typeof headers === "object" ? headers : {};
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(payload),
+    ...extraHeaders,
   });
   res.end(payload);
 }
@@ -40,4 +43,3 @@ module.exports = {
   sendJson,
   readJsonBody,
 };
-

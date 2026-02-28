@@ -153,6 +153,25 @@
 4. 回滚要求:
    - 观测/测试增强可独立回滚，不影响主链路。
 
+## Step 9（Embodied Agent 对齐）
+
+1. 必须达成:
+   - MCP 公开读工具可独立调用，且返回 `read_token`。
+   - `get_hierarchy_subtree` 强制预算（`depth`/`node_budget`/`char_budget`）并输出 `truncated` 信号。
+   - 写工具强制 `based_on_read_token`，无读不写。
+   - 写后返回结构化验证（`expected/actual/diff`）。
+2. 偏航信号:
+   - 仍通过默认占位 context 驱动写入。
+   - 只靠短 TTL 控制 token，新鲜度无 `scene_revision` 主判据。
+   - 验证层做全对象深度 diff，造成编辑器明显卡顿。
+3. 发布证据:
+   - 读工具调用成功率与返回体预算命中率（含 truncation 分布）。
+   - `E_READ_REQUIRED` / `E_STALE_SNAPSHOT` 命中率可观测且符合预期。
+   - 写后验证报告覆盖率 = 100%。
+4. 回滚要求:
+   - 读能力、token 强校验、写工具拆分、验证闭环均可按 feature flag 独立回退。
+   - 回退后仍保持旧三工具（submit/status/cancel）可用。
+
 ## 4. 迭代记录模板（每次改动都填）
 
 ```md
@@ -989,5 +1008,36 @@
   - 若需停用 Step 8 资产，回滚 `sidecar/scripts/step8-quality-gate.js` 与 `sidecar/scripts/replay-failed-report.js` 即可，不影响主执行链路。
 - Go/No-Go Decision:
   - Go（Step 8 门禁通过，失败回放能力已落地）
+
+### Iteration: 2026-02-24 / Codex
+- Target Step: Step 9（Embodied Agent 对齐，文档与门禁同步）
+- Scope Files:
+  - `Assets/Docs/Codex-Unity-Embodied-Agent-Refactor-Plan.md`
+  - `Assets/Docs/Codex-Unity-Refactor-Roadmap.md`
+  - `Assets/Docs/Codex-Unity-Refactor-Execution-Plan.md`
+  - `Assets/Docs/Codex-Unity-Refactor-Guardrail-Checklist.md`
+- Expected Outcome:
+  - 将 v1.1 目标结构（Eyes/Brain/Hands/Feedback/Safety）映射到 Roadmap 与 Execution Plan。
+  - 将关键新增风险转化为可执行门禁，避免“方案正确但落地失控”。
+  - 统一 `read_token` 新鲜度与验证层性能策略口径。
+- Evidence:
+  - Regression pass rate:
+    - 本次为文档与流程门禁对齐迭代，不涉及运行时代码执行路径；无需新增运行回归报告。
+  - P50/P95 metrics:
+    - 不适用（文档迭代）。
+  - Error-code delta:
+    - 不涉及运行时代码，错误码集合未发生实现层变更。
+    - 门禁口径新增并锁定:
+      - `E_READ_REQUIRED`
+      - `E_STALE_SNAPSHOT`
+      - `E_PRECONDITION_FAILED`
+- Rollback Switch:
+  - 文档可按文件粒度回滚:
+    - `Codex-Unity-Refactor-Roadmap.md`
+    - `Codex-Unity-Refactor-Execution-Plan.md`
+    - `Codex-Unity-Refactor-Guardrail-Checklist.md`
+  - 不影响当前主执行链路。
+- Go/No-Go Decision:
+  - Go（Step 9 文档与门禁口径完成对齐，可进入实现迭代）
 
 

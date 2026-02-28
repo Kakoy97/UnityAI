@@ -340,6 +340,69 @@
 
 1. 测试与观测增强不影响主链路，可独立回滚。
 
+## Step 9: Embodied Agent 对齐落地（对应 Roadmap Phase 5A-5E）
+
+目标:
+
+1. 把“可控执行”升级为“先读后写 + 可验证闭环”的具身代理流程。
+
+主要任务:
+
+1. Eyes:
+   - 新增 MCP 公开读工具:
+     - `get_current_selection`
+     - `get_hierarchy_subtree`
+     - `get_gameobject_components`
+     - `get_prefab_info`
+     - `get_compile_state`
+     - `get_console_errors`
+   - 实现 `resources/list` 与 `resources/read`
+   - `get_hierarchy_subtree` 强制预算参数:
+     - `depth`（默认 1，最大 3）
+     - `node_budget`
+     - `char_budget`
+2. Safety:
+   - 读接口返回 `read_token`（含 `scene_revision`、`object_id`、`hard_max_age_ms`）
+   - 写接口强制 `based_on_read_token`
+   - 支持 `E_READ_REQUIRED` / `E_STALE_SNAPSHOT` / `E_PRECONDITION_FAILED`
+3. Hands:
+   - 拆分写工具:
+     - `apply_script_actions`
+     - `apply_visual_actions`
+   - 支持 `dry_run` 与 `preconditions`
+   - 对象定位升级为 `object_id + path` 双锚点
+4. Brain:
+   - 固化流程 `read -> plan -> confirm -> execute -> verify`
+   - 将内部桥接查询能力外显为公开读能力
+5. Feedback:
+   - 执行后强制二次读取
+   - 输出结构化 `expected/actual/diff`
+   - 采用“两级验证”: 目标级精准 Diff + 轻量全局哨兵
+
+受影响文件:
+
+1. `sidecar/src/mcp/mcpServer.js`
+2. `sidecar/src/api/router.js`
+3. `sidecar/src/application/turnService.js`
+4. `sidecar/src/domain/validators.js`
+5. `Assets/Editor/Codex/Application/ConversationController.cs`
+6. `Assets/Editor/Codex/Infrastructure/*`（Unity 读能力与版本事件）
+
+验收标准:
+
+1. Cursor 可独立调用读工具，不依赖 `submit_unity_task`。
+2. 无 token 写请求必然失败（`E_READ_REQUIRED`）。
+3. `scene_revision` 不一致写请求必然失败（`E_STALE_SNAPSHOT`）。
+4. `dry_run` 不产生实际写入。
+5. 每个写任务都返回结构化验证 diff。
+
+回滚点:
+
+1. `ENABLE_MCP_EYES`
+2. `ENABLE_STRICT_READ_TOKEN`
+3. `ENABLE_SPLIT_WRITE_TOOLS`
+4. `ENABLE_VERIFY_DIFF_REPORT`
+
 ## 4. 里程碑与排期建议
 
 1. 里程碑 A（1 周）:
@@ -354,6 +417,9 @@
 4. 里程碑 D（第 5 周+）:
    - 完成 Step 7-8
    - 目标: token 治理与工程闭环
+5. 里程碑 E（追加，1-2 周）:
+   - 完成 Step 9
+   - 目标: Eyes/Safety/Hands/Feedback 闭环可灰度上线
 
 ## 5. 阶段门禁（Go/No-Go）
 
@@ -366,6 +432,10 @@
    - `Assets/Docs/Codex-Unity-MVP-Plan.md`
    - `Assets/Docs/Codex-Unity-Panel-Status-Report.md`
    - `Assets/Docs/Codex-Unity-Refactor-Guardrail-Checklist.md`（含当次迭代记录）
+5. Step 9 增量门禁:
+   - 读工具必须返回 `read_token`
+   - 写工具必须校验 token 新鲜度
+   - 写后必须返回结构化验证 diff
 
 ## 6. 实施顺序（必须遵守）
 
@@ -373,6 +443,7 @@
 2. 不允许在 Step 1 未稳定前扩展大规模新动作类型。
 3. 不允许在无互斥/幂等保障下开启 MCP submit。
 4. 不允许在无观测与回归报告下推进灰度。
+5. 不允许在未开启 token 新鲜度校验时放量写工具。
 
 ## 7. 执行结论
 

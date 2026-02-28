@@ -153,111 +153,24 @@ function resolveSourceReport(reportPath) {
 function isReplaySupportedReport(fileName) {
   const lower = String(fileName || "").toLowerCase();
   return (
-    lower.startsWith("smoke-turn-report-") ||
     lower.startsWith("mcp-job-report-") ||
     lower.startsWith("mcp-stream-report-") ||
-    lower.startsWith("planner-probe-regression-") ||
-    lower.startsWith("planner-memory-regression-")
+    lower.startsWith("mcp-visual-anchor-regression-")
   );
 }
 
 function buildReplayCommand(sourcePath, sourceReport, args) {
   const fileName = path.basename(sourcePath).toLowerCase();
-  if (fileName.startsWith("smoke-turn-report-")) {
-    return buildSmokeReplayCommand(sourceReport, args);
-  }
   if (fileName.startsWith("mcp-job-report-")) {
     return buildMcpJobReplayCommand(sourceReport, args);
   }
   if (fileName.startsWith("mcp-stream-report-")) {
     return buildMcpStreamReplayCommand(sourceReport, args);
   }
-  if (fileName.startsWith("planner-probe-regression-")) {
-    return {
-      command: process.execPath,
-      args: ["scripts/planner-probe-regression.js"],
-      cwd: SIDECAR_ROOT,
-    };
-  }
-  if (fileName.startsWith("planner-memory-regression-")) {
-    return {
-      command: process.execPath,
-      args: ["scripts/planner-memory-regression.js"],
-      cwd: SIDECAR_ROOT,
-    };
+  if (fileName.startsWith("mcp-visual-anchor-regression-")) {
+    return buildMcpVisualAnchorReplayCommand(sourceReport, args);
   }
   throw new Error(`Unsupported source report type: ${fileName}`);
-}
-
-function buildSmokeReplayCommand(sourceReport, args) {
-  const cfg = sourceReport && typeof sourceReport.config === "object"
-    ? sourceReport.config
-    : {};
-  const replayArgs = ["scripts/smoke-turn-runner.js"];
-  appendBaseUrl(replayArgs, args.baseUrlOverride || sourceReport.base_url);
-  appendNumberArg(replayArgs, "--iterations", cfg.iterations);
-  appendBooleanFlag(
-    replayArgs,
-    cfg.include_turn_send !== false,
-    "--include-turn-send",
-    "--skip-turn-send"
-  );
-  appendBooleanFlag(
-    replayArgs,
-    cfg.include_timeout_case === true,
-    "--include-timeout-case",
-    "--skip-timeout-case"
-  );
-  appendBooleanFlag(
-    replayArgs,
-    cfg.include_codex_timeout_case === true,
-    "--include-codex-timeout-case",
-    "--skip-codex-timeout-case"
-  );
-  appendBooleanFlag(
-    replayArgs,
-    cfg.include_query_timeout_case === true,
-    "--include-query-timeout-case",
-    "--skip-query-timeout-case"
-  );
-  appendBooleanFlag(
-    replayArgs,
-    cfg.include_query_probe_case === true,
-    "--include-query-probe-case",
-    "--skip-query-probe-case"
-  );
-  appendSpawnFlag(replayArgs, cfg.spawn_sidecar, args.spawnSidecarOverride);
-  appendNumberArg(replayArgs, "--poll-timeout-ms", cfg.poll_timeout_ms);
-  appendNumberArg(replayArgs, "--poll-interval-ms", cfg.poll_interval_ms);
-  appendNumberArg(replayArgs, "--compile-timeout-ms", cfg.compile_timeout_ms);
-  appendNumberArg(replayArgs, "--codex-soft-timeout-ms", cfg.codex_soft_timeout_ms);
-  appendNumberArg(replayArgs, "--codex-hard-timeout-ms", cfg.codex_hard_timeout_ms);
-  appendNumberArg(
-    replayArgs,
-    "--unity-query-timeout-ms",
-    cfg.unity_component_query_timeout_ms
-  );
-  if (cfg.use_fake_codex_timeout_planner === true) {
-    replayArgs.push("--fake-codex-timeout-planner");
-  }
-  if (cfg.use_fake_unity_query_planner === true) {
-    replayArgs.push("--fake-unity-query-planner");
-  }
-  if (isNonEmptyString(cfg.fake_unity_query_mode)) {
-    replayArgs.push("--fake-unity-query-mode", String(cfg.fake_unity_query_mode));
-  }
-  if (isNonEmptyString(cfg.fake_unity_query_keep_component)) {
-    replayArgs.push(
-      "--fake-unity-query-keep-component",
-      String(cfg.fake_unity_query_keep_component)
-    );
-  }
-
-  return {
-    command: process.execPath,
-    args: replayArgs,
-    cwd: SIDECAR_ROOT,
-  };
 }
 
 function buildMcpJobReplayCommand(sourceReport, args) {
@@ -297,6 +210,15 @@ function buildMcpStreamReplayCommand(sourceReport, args) {
     "--mcp-stream-recovery-jobs-max",
     cfg.mcp_stream_recovery_jobs_max
   );
+  return {
+    command: process.execPath,
+    args: replayArgs,
+    cwd: SIDECAR_ROOT,
+  };
+}
+
+function buildMcpVisualAnchorReplayCommand(sourceReport, args) {
+  const replayArgs = ["scripts/mcp-visual-anchor-regression.js"];
   return {
     command: process.execPath,
     args: replayArgs,

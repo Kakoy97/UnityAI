@@ -94,42 +94,6 @@ class TurnStore {
     for (const [requestId, entry] of this.turns.entries()) {
       if (entry.state === "running") {
         if (
-          entry.stage === "codex_pending" &&
-          entry.phase !== "final"
-        ) {
-          if (isExpired(entry.codex_hard_deadline_at, now)) {
-            this.notifyTimeoutAbort(requestId, entry, {
-              errorCode: "E_CODEX_TIMEOUT",
-              reason: "codex_hard_timeout",
-              message: `Codex request timed out after ${this.codexHardTimeoutMs}ms`,
-              timestamp: now,
-            });
-            this.failTurn(
-              requestId,
-              "E_CODEX_TIMEOUT",
-              `Codex request timed out after ${this.codexHardTimeoutMs}ms`
-            );
-            changed = true;
-            continue;
-          }
-          if (isExpired(entry.codex_deadline_at, now)) {
-            this.notifyTimeoutAbort(requestId, entry, {
-              errorCode: "E_CODEX_TIMEOUT",
-              reason: "codex_soft_timeout",
-              message: `Codex request timed out after ${this.codexSoftTimeoutMs}ms without progress`,
-              timestamp: now,
-            });
-            this.failTurn(
-              requestId,
-              "E_CODEX_TIMEOUT",
-              `Codex request timed out after ${this.codexSoftTimeoutMs}ms without progress`
-            );
-            changed = true;
-            continue;
-          }
-        }
-
-        if (
           entry.stage === "compile_pending" &&
           isExpired(entry.compile_deadline_at, now)
         ) {
@@ -680,6 +644,8 @@ class TurnStore {
       timestamp: new Date().toISOString(),
       phase: data.phase || "",
       message: data.message || "",
+      // @deprecated delta field is no longer used for streaming text output.
+      // Retained for backward compatibility with historical event data.
       delta: data.delta || "",
       role: data.role || "",
       error_code: data.error_code || "",
@@ -1075,6 +1041,8 @@ function cloneTurnEvents(events) {
       timestamp: item.timestamp || "",
       phase: item.phase || "",
       message: item.message || "",
+      // @deprecated delta field is no longer used for streaming text output.
+      // Retained for backward compatibility with historical event data.
       delta: item.delta || "",
       role: item.role || "",
       error_code: item.error_code || "",
