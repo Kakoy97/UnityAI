@@ -5,7 +5,10 @@ const {
   buildActionFailureSummary,
 } = require("../turnPayloadBuilders");
 const { isUnityRebootWaitErrorCode } = require("../turnPolicies");
-const { cloneJson, normalizeErrorCode } = require("../../utils/turnUtils");
+const {
+  cloneJson,
+  normalizeUnityActionFailureCode,
+} = require("../../utils/turnUtils");
 const {
   normalizeRuntime,
   getPendingVisualAction,
@@ -25,6 +28,11 @@ class UnityDispatcher {
     this.fileActionExecutor =
       opts.fileActionExecutor && typeof opts.fileActionExecutor.execute === "function"
         ? opts.fileActionExecutor
+        : null;
+    this.legacyAnchorMode = opts.legacyAnchorMode === "deny" ? "deny" : "warn";
+    this.onLegacyAnchorFallback =
+      typeof opts.onLegacyAnchorFallback === "function"
+        ? opts.onLegacyAnchorFallback
         : null;
   }
 
@@ -146,9 +154,9 @@ class UnityDispatcher {
     }
 
     if (payload.success !== true) {
-      const errorCode = normalizeErrorCode(
-        payload.error_code,
-        "E_ACTION_EXECUTION_FAILED"
+      const errorCode = normalizeUnityActionFailureCode(
+        payload,
+        "E_ACTION_RESULT_MISSING_ERROR_CODE"
       );
       const summary = buildActionFailureSummary(payload);
       if (isUnityRebootWaitErrorCode(errorCode)) {
@@ -205,7 +213,11 @@ class UnityDispatcher {
 
     const nextAction = getPendingVisualAction(runtime);
     if (nextAction) {
-      runtime.last_action_request = buildUnityActionRequest(job, nextAction, this.nowIso);
+      const requestResult = this.tryBuildUnityActionRequest(job, nextAction, runtime);
+      if (!requestResult.ok) {
+        return requestResult.transition;
+      }
+      runtime.last_action_request = requestResult.request;
       return {
         kind: "waiting_action",
         runtime,
@@ -233,7 +245,15 @@ class UnityDispatcher {
     }
     runtime.phase = "action_pending";
     runtime.reboot_wait_started_at = 0;
-    runtime.last_action_request = buildUnityActionRequest(job, pendingAction, this.nowIso);
+    const requestResult = this.tryBuildUnityActionRequest(
+      job,
+      pendingAction,
+      runtime
+    );
+    if (!requestResult.ok) {
+      return requestResult.transition;
+    }
+    runtime.last_action_request = requestResult.request;
     return {
       kind: "waiting_action",
       runtime,
@@ -246,7 +266,15 @@ class UnityDispatcher {
     const pendingAction = getPendingVisualAction(runtime);
     if (pendingAction) {
       runtime.phase = "action_pending";
-      runtime.last_action_request = buildUnityActionRequest(job, pendingAction, this.nowIso);
+      const requestResult = this.tryBuildUnityActionRequest(
+        job,
+        pendingAction,
+        runtime
+      );
+      if (!requestResult.ok) {
+        return requestResult.transition;
+      }
+      runtime.last_action_request = requestResult.request;
       return {
         kind: "waiting_action",
         runtime,
@@ -291,6 +319,45 @@ class UnityDispatcher {
       error_code: "E_PHASE_INVALID",
       message,
     };
+  }
+
+  tryBuildUnityActionRequest(job, action, runtime) {
+    try {
+      const request = buildUnityActionRequest(job, action, this.nowIso, {
+        legacyAnchorMode: this.legacyAnchorMode,
+        onLegacyAnchorFallback: this.onLegacyAnchorFallback,
+      });
+      return {
+        ok: true,
+        request,
+      };
+    } catch (error) {
+      if (!(error instanceof Error) || error.code !== "E_ACTION_SCHEMA_INVALID") {
+        throw error;
+      }
+      const actionType =
+        action && typeof action.type === "string" ? action.type.trim() : "";
+      return {
+        ok: false,
+        transition: failedTransition(
+          runtime,
+          "E_ACTION_SCHEMA_INVALID",
+          error.message,
+          {
+            reason: "legacy_anchor_mode_denied",
+            compile_success: runtime.compile_success !== false,
+            action_success: false,
+            action_error: {
+              error_code: "E_ACTION_SCHEMA_INVALID",
+              error_message: error.message,
+              action_type: actionType,
+              target_object_path: "",
+            },
+          },
+          this.nowIso
+        ),
+      };
+    }
   }
 
   executeFileActions(fileActions) {

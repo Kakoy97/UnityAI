@@ -1,5 +1,12 @@
 "use strict";
 
+/**
+ * R10-ARCH-01 Responsibility boundary:
+ * - This module only builds/normalizes transport payload objects.
+ * - This module must not run schema validation decisions.
+ * - This module must not map user-facing error feedback templates.
+ */
+
 // Utility functions
 function cloneJson(value) {
   try {
@@ -7,6 +14,10 @@ function cloneJson(value) {
   } catch {
     return {};
   }
+}
+
+function isObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function pathLeafName(pathValue) {
@@ -38,6 +49,125 @@ function normalizeErrorCode(value, fallback) {
   return code || fallback;
 }
 
+function tryParseJsonObject(rawJson) {
+  if (typeof rawJson !== "string" || !rawJson.trim()) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(rawJson);
+    return isObject(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function stringifyActionData(value) {
+  try {
+    const text = JSON.stringify(value);
+    return typeof text === "string" && text.length > 0 ? text : "{}";
+  } catch {
+    return "{}";
+  }
+}
+
+function buildLegacyVisualActionData(action) {
+  const source = isObject(action) ? action : {};
+  const result = {};
+  const skipKeys = new Set([
+    "type",
+    "target",
+    "target_anchor",
+    "target_anchor_ref",
+    "parent_anchor",
+    "parent_anchor_ref",
+    "action_data",
+    "action_data_json",
+    "target_object_path",
+    "target_path",
+    "target_object_id",
+    "object_id",
+    "parent_path",
+    "parent_object_path",
+    "parent_object_id",
+  ]);
+  for (const key of Object.keys(source)) {
+    if (skipKeys.has(key)) {
+      continue;
+    }
+    const value = source[key];
+    if (value === undefined) {
+      continue;
+    }
+    result[key] = value && typeof value === "object" ? cloneJson(value) : value;
+  }
+  return result;
+}
+
+function resolveVisualActionData(action) {
+  const source = isObject(action) ? action : {};
+  if (isObject(source.action_data)) {
+    return cloneJson(source.action_data);
+  }
+  const parsed = tryParseJsonObject(source.action_data_json);
+  if (parsed) {
+    return parsed;
+  }
+  return buildLegacyVisualActionData(source);
+}
+
+function normalizeCompositeStepForUnity(step) {
+  const source = isObject(step) ? step : {};
+  const normalized = {};
+  if (typeof source.step_id === "string") {
+    normalized.step_id = source.step_id;
+  }
+  if (typeof source.type === "string") {
+    normalized.type = source.type;
+  }
+  if (isObject(source.target_anchor)) {
+    normalized.target_anchor = cloneJson(source.target_anchor);
+  }
+  if (typeof source.target_anchor_ref === "string" && source.target_anchor_ref.trim()) {
+    normalized.target_anchor_ref = source.target_anchor_ref.trim();
+  }
+  if (isObject(source.parent_anchor)) {
+    normalized.parent_anchor = cloneJson(source.parent_anchor);
+  }
+  if (typeof source.parent_anchor_ref === "string" && source.parent_anchor_ref.trim()) {
+    normalized.parent_anchor_ref = source.parent_anchor_ref.trim();
+  }
+  if (Array.isArray(source.bind_outputs)) {
+    normalized.bind_outputs = cloneJson(source.bind_outputs);
+  }
+  const stepActionData = isObject(source.action_data)
+    ? cloneJson(source.action_data)
+    : tryParseJsonObject(source.action_data_json) || {};
+  normalized.action_data_json = stringifyActionData(stepActionData);
+  return normalized;
+}
+
+function normalizeCompositeActionDataForUnity(actionData) {
+  const source = isObject(actionData) ? actionData : {};
+  const normalized = cloneJson(source);
+  const sourceSteps = Array.isArray(source.steps) ? source.steps : [];
+  normalized.steps = sourceSteps.map((step) => normalizeCompositeStepForUnity(step));
+  return normalized;
+}
+
+function buildVisualActionDataBridge(action) {
+  const source = isObject(action) ? action : {};
+  const actionType = typeof source.type === "string" ? source.type.trim() : "";
+  const actionData = resolveVisualActionData(source);
+  const normalizedActionData =
+    actionType === "composite_visual_action"
+      ? normalizeCompositeActionDataForUnity(actionData)
+      : actionData;
+  return {
+    action_data: normalizedActionData,
+    action_data_json: stringifyActionData(normalizedActionData),
+  };
+}
+
 // Payload builder functions
 function buildCompileRequestEnvelope(body, reason) {
   return {
@@ -64,13 +194,14 @@ function buildCompileFailureSummary(errors) {
 }
 
 function buildActionFailureSummary(payload) {
+  const source = payload && typeof payload === "object" ? payload : {};
   const errorCode = normalizeErrorCode(
-    payload && payload.error_code,
-    "E_ACTION_EXECUTION_FAILED"
+    source.error_code,
+    "E_ACTION_RESULT_MISSING_ERROR_CODE"
   );
   const errorMessage =
-    payload && typeof payload.error_message === "string" && payload.error_message
-      ? payload.error_message
+    typeof source.error_message === "string" && source.error_message.trim()
+      ? source.error_message.trim()
       : "Visual action failed";
   return `Action failed: ${errorCode} ${errorMessage}`;
 }
@@ -178,6 +309,9 @@ module.exports = {
   buildCompileRequestEnvelope,
   buildCompileFailureSummary,
   buildActionFailureSummary,
+  buildVisualActionDataBridge,
+  normalizeCompositeActionDataForUnity,
+  normalizeCompositeStepForUnity,
   buildSelectionSnapshot,
   normalizeSnapshotComponents,
 };

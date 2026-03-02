@@ -6,6 +6,7 @@ const { QueryStore } = require("./queryStore");
 const DEFAULT_TIMEOUT_MS = 60 * 1000;
 const DEFAULT_MAX_TIMEOUT_MS = 5 * 60 * 1000;
 const MIN_TIMEOUT_MS = 1000;
+const DEFAULT_QUERY_CONTRACT_VERSION = "unity.query.v2";
 
 class QueryCoordinator {
   constructor(options) {
@@ -23,6 +24,9 @@ class QueryCoordinator {
       opts.maxTimeoutMs,
       DEFAULT_MAX_TIMEOUT_MS
     );
+    this.defaultQueryContractVersion = this.normalizeQueryContractVersion(
+      opts.defaultQueryContractVersion
+    );
     this.queryStore =
       opts.queryStore instanceof QueryStore ? opts.queryStore : new QueryStore();
     this.waitersByQueryId = new Map();
@@ -30,6 +34,20 @@ class QueryCoordinator {
 
   enqueueAndWait(options) {
     return this.enqueue(options).promise;
+  }
+
+  enqueueAndWaitForUnityQuery(options) {
+    const input = options && typeof options === "object" ? options : {};
+    return this.enqueueAndWait({
+      query_type: input.queryType,
+      payload: input.payload,
+      query_contract_version: input.queryContractVersion,
+      query_payload_json: input.queryPayloadJson,
+      timeout_ms: input.timeoutMs,
+      request_id: input.requestId,
+      thread_id: input.threadId,
+      turn_id: input.turnId,
+    });
   }
 
   enqueue(options) {
@@ -46,6 +64,23 @@ class QueryCoordinator {
       this.maxTimeoutMs
     );
     const nowMs = Date.now();
+    let payloadObject =
+      input.payload && typeof input.payload === "object"
+        ? cloneJson(input.payload)
+        : {};
+    const queryPayloadJson = this.resolveQueryPayloadJson(
+      input.query_payload_json,
+      payloadObject
+    );
+    if (
+      (!input.payload || typeof input.payload !== "object") &&
+      queryPayloadJson
+    ) {
+      payloadObject = this.tryParsePayloadObject(queryPayloadJson);
+    }
+    const queryContractVersion = this.normalizeQueryContractVersion(
+      input.query_contract_version
+    );
 
     const record = this.queryStore.create({
       query_id: queryId,
@@ -54,10 +89,9 @@ class QueryCoordinator {
       thread_id: this.normalizeString(input.thread_id),
       turn_id: this.normalizeString(input.turn_id),
       timeout_ms: timeoutMs,
-      payload:
-        input.payload && typeof input.payload === "object"
-          ? cloneJson(input.payload)
-          : {},
+      query_contract_version: queryContractVersion,
+      query_payload_json: queryPayloadJson,
+      payload: payloadObject,
       created_at_ms: nowMs,
     });
     if (!record) {
@@ -293,6 +327,13 @@ class QueryCoordinator {
       thread_id: this.normalizeString(item.thread_id),
       turn_id: this.normalizeString(item.turn_id),
       timeout_ms: this.toPositiveInt(item.timeout_ms, this.defaultTimeoutMs),
+      query_contract_version: this.normalizeQueryContractVersion(
+        item.query_contract_version
+      ),
+      query_payload_json: this.resolveQueryPayloadJson(
+        item.query_payload_json,
+        item.payload
+      ),
       created_at:
         Number.isFinite(Number(item.created_at_ms)) && Number(item.created_at_ms) > 0
           ? new Date(Math.floor(Number(item.created_at_ms))).toISOString()
@@ -375,9 +416,41 @@ class QueryCoordinator {
     }
     return bounded;
   }
+
+  normalizeQueryContractVersion(value) {
+    const normalized = this.normalizeString(value);
+    return normalized || this.defaultQueryContractVersion || DEFAULT_QUERY_CONTRACT_VERSION;
+  }
+
+  resolveQueryPayloadJson(queryPayloadJson, payloadObject) {
+    const normalizedInput = this.normalizeString(queryPayloadJson);
+    if (normalizedInput) {
+      return normalizedInput;
+    }
+    if (!payloadObject || typeof payloadObject !== "object") {
+      return "{}";
+    }
+    try {
+      return JSON.stringify(payloadObject);
+    } catch (_) {
+      return "{}";
+    }
+  }
+
+  tryParsePayloadObject(queryPayloadJson) {
+    const raw = this.normalizeString(queryPayloadJson);
+    if (!raw) {
+      return {};
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? cloneJson(parsed) : {};
+    } catch (_) {
+      return {};
+    }
+  }
 }
 
 module.exports = {
   QueryCoordinator,
 };
-

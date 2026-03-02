@@ -9,7 +9,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
     public sealed class UnityErrorFeedbackReceiptTests
     {
         [Test]
-        public void NormalizeUnityActionResultRequest_MapsSchemaCodeToActionSchemaCode()
+        public void NormalizeUnityActionResultRequest_PreservesSchemaCodeWithoutFolding()
         {
             var request = BuildFailedActionRequest(
                 "E_SCHEMA_INVALID",
@@ -21,7 +21,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
 
             Assert.NotNull(normalized);
             Assert.NotNull(normalized.payload);
-            Assert.AreEqual("E_ACTION_SCHEMA_INVALID", normalized.payload.error_code);
+            Assert.AreEqual("E_SCHEMA_INVALID", normalized.payload.error_code);
             Assert.AreEqual(
                 "Visual action payload schema validation failed.",
                 normalized.payload.error_message);
@@ -102,6 +102,40 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.LessOrEqual(normalized.payload.error_message.Length, 320);
         }
 
+        [Test]
+        public void NormalizeUnityActionResultRequest_PreservesExtendedErrorCode()
+        {
+            var request = BuildFailedActionRequest(
+                "E_ACTION_DESERIALIZE_FAILED",
+                "action_data_json cannot parse");
+
+            var normalized = InvokePrivate<UnityActionResultRequest>(
+                "NormalizeUnityActionResultRequest",
+                request);
+
+            Assert.NotNull(normalized);
+            Assert.NotNull(normalized.payload);
+            Assert.AreEqual("E_ACTION_DESERIALIZE_FAILED", normalized.payload.error_code);
+            Assert.AreEqual("action_data_json cannot parse", normalized.payload.error_message);
+        }
+
+        [Test]
+        public void NormalizeUnityActionResultRequest_UsesMissingErrorCodeFallback()
+        {
+            var request = BuildFailedActionRequest(
+                string.Empty,
+                string.Empty);
+
+            var normalized = InvokePrivate<UnityActionResultRequest>(
+                "NormalizeUnityActionResultRequest",
+                request);
+
+            Assert.NotNull(normalized);
+            Assert.NotNull(normalized.payload);
+            Assert.AreEqual("E_ACTION_RESULT_MISSING_ERROR_CODE", normalized.payload.error_code);
+            Assert.AreEqual("Unity action result missing error_code.", normalized.payload.error_message);
+        }
+
         private static UnityActionResultRequest BuildFailedActionRequest(
             string errorCode,
             string errorMessage)
@@ -142,4 +176,3 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         }
     }
 }
-

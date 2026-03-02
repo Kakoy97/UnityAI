@@ -11,6 +11,7 @@ namespace UnityAI.Editor.Codex.Ports
         Task<GatewayResponse<UnitySelectionSnapshotResponse>> ReportSelectionSnapshotAsync(string baseUrl, UnitySelectionSnapshotRequest request);
         Task<GatewayResponse<UnityConsoleSnapshotResponse>> ReportConsoleSnapshotAsync(string baseUrl, UnityConsoleSnapshotRequest request);
         Task<GatewayResponse<UnityRuntimePingResponse>> ReportRuntimePingAsync(string baseUrl, UnityRuntimePingRequest request);
+        Task<GatewayResponse<UnityCapabilitiesReportResponse>> ReportUnityCapabilitiesAsync(string baseUrl, UnityCapabilitiesReportRequest request);
         // Compile/action callbacks must preserve stable error_code/error_message semantics.
         Task<GatewayResponse<UnityCompileReportResponse>> ReportCompileResultAsync(string baseUrl, UnityCompileResultRequest request);
         Task<GatewayResponse<UnityActionReportResponse>> ReportUnityActionResultAsync(string baseUrl, UnityActionResultRequest request);

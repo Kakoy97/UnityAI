@@ -1,65 +1,36 @@
 # UnityAI (Codex + Unity Sidecar)
 
-This repository contains a Unity Editor integration with a local Node.js sidecar for Codex-driven code and scene workflows.
-
-## Current Status
-
-- Refactor roadmap is defined and actively executed.
-- Step 0 (baseline and regression gate) is completed.
-- Step 1 (execution-kernel timeout/cancel stabilization) is completed.
-- Next target is Step 2 (planner/prompt streamlining).
-
-Main planning docs:
-
-- `Assets/Docs/Codex-Unity-Refactor-Roadmap.md`
-- `Assets/Docs/Codex-Unity-Refactor-Execution-Plan.md`
-- `Assets/Docs/Codex-Unity-Refactor-Guardrail-Checklist.md`
-- `Assets/Docs/Codex-Unity-Panel-Status-Report.md`
-
-## Repository Layout
-
-- `Assets/` Unity editor extension and docs
-- `Packages/` Unity package manifest
-- `ProjectSettings/` Unity project settings
-- `sidecar/` Node.js sidecar service and smoke tools
-
-## Requirements
-
-- Unity `2021.3.45f2c1`
-- Node.js `18+` (recommended)
+## Authority Entry
+- Main index: `Assets/Docs/Codex-Unity-MCP-Main-Index.md`
+- Final acceptance: `Assets/Docs/Phase8-Action-Governance-Acceptance.md`
+- Extensibility blueprint: `docs/Codex-Unity-MCP-Extensibility-Decoupling-Execution-Blueprint.md`
+- Governance blueprint: `docs/Codex-Unity-MCP-Action-Governance-Upgrade-Blueprint.md`
+- Add-action single path: `docs/Codex-Unity-MCP-Add-Action-Single-Path-Guide.md`
 
 ## Quick Start
-
-1. Open this project in Unity Hub using Unity `2021.3.45f2c1`.
+1. Open project in Unity (recommended `2021.3.45f2c1`).
 2. Install sidecar dependencies:
-
 ```bash
 cd sidecar
 npm install
 ```
-
-3. Start sidecar:
-
+3. Run sidecar:
 ```bash
+cd sidecar
 npm start
 ```
 
-4. Use the Unity panel to start a session and send turns.
-
-## Sidecar Smoke Checks
-
-From `sidecar/`:
-
+## Required Gates (R10)
 ```bash
+cd sidecar
+npm run test:r10:qa
+npm run gate:r10-responsibility
+npm run gate:r10-contract-snapshot
+npm run gate:r10-docs
+npm run gate:r9-closure
 npm run smoke
-npm run smoke:fast
-npm run smoke:codex-timeout
 ```
 
-Smoke reports are generated under `sidecar/.state/` (ignored by git).
-
 ## Notes
-
-- File writes are restricted to `Assets/Scripts/AIGenerated/`.
-- Unity serialized assets (`.unity`, `.prefab`, `.asset`) are blocked from text writes by design.
-- Runtime/temporary generated folders are excluded by `.gitignore`.
+- Historical planning docs were moved to `Assets/Docs/archive/` and are reference-only.
+- Release decisions should follow `Assets/Docs/Phase8-Action-Governance-Acceptance.md`.

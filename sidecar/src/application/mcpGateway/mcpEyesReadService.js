@@ -8,11 +8,17 @@ const {
   clampInteger,
 } = require("../../utils/turnUtils");
 const {
-  validateMcpListAssetsInFolder,
-  validateMcpGetSceneRoots,
-  validateMcpFindObjectsByComponent,
-  validateMcpQueryPrefabInfo,
-} = require("../../domain/validators");
+  validateListAssetsInFolder,
+} = require("../../mcp/commands/list_assets_in_folder/validator");
+const {
+  validateGetSceneRoots,
+} = require("../../mcp/commands/get_scene_roots/validator");
+const {
+  validateFindObjectsByComponent,
+} = require("../../mcp/commands/find_objects_by_component/validator");
+const {
+  validateQueryPrefabInfo,
+} = require("../../mcp/commands/query_prefab_info/validator");
 
 class McpEyesReadService {
   constructor(deps) {
@@ -26,17 +32,26 @@ class McpEyesReadService {
     this.mcpGateway = opts.mcpGateway;
     this.withMcpErrorFeedback = opts.withMcpErrorFeedback;
     this.validationError = opts.validationError;
+    this.enqueueAndWaitForUnityQuery =
+      typeof opts.enqueueAndWaitForUnityQuery === "function"
+        ? opts.enqueueAndWaitForUnityQuery
+        : null;
     this.submitUnityQueryAndWait =
       typeof opts.submitUnityQueryAndWait === "function"
         ? opts.submitUnityQueryAndWait
         : null;
+    this.queryContractVersion =
+      typeof opts.queryContractVersion === "string" &&
+      opts.queryContractVersion.trim()
+        ? opts.queryContractVersion.trim()
+        : "unity.query.v2";
   }
 
   async listAssetsInFolder(body) {
     return this.executeUnityReadQuery(
       "list_assets_in_folder",
       body,
-      validateMcpListAssetsInFolder
+      validateListAssetsInFolder
     );
   }
 
@@ -44,7 +59,7 @@ class McpEyesReadService {
     return this.executeUnityReadQuery(
       "get_scene_roots",
       body,
-      validateMcpGetSceneRoots
+      validateGetSceneRoots
     );
   }
 
@@ -52,7 +67,7 @@ class McpEyesReadService {
     return this.executeUnityReadQuery(
       "find_objects_by_component",
       body,
-      validateMcpFindObjectsByComponent
+      validateFindObjectsByComponent
     );
   }
 
@@ -60,7 +75,7 @@ class McpEyesReadService {
     return this.executeUnityReadQuery(
       "query_prefab_info",
       body,
-      validateMcpQueryPrefabInfo
+      validateQueryPrefabInfo
     );
   }
 
@@ -433,7 +448,7 @@ class McpEyesReadService {
       }
     }
 
-    if (!this.submitUnityQueryAndWait) {
+    if (!this.enqueueAndWaitForUnityQuery && !this.submitUnityQueryAndWait) {
       return {
         statusCode: 500,
         body: this.withMcpErrorFeedback({
@@ -446,7 +461,17 @@ class McpEyesReadService {
 
     let unityResponse = null;
     try {
-      unityResponse = await this.submitUnityQueryAndWait(queryType, payload);
+      if (this.enqueueAndWaitForUnityQuery) {
+        unityResponse = await this.enqueueAndWaitForUnityQuery({
+          queryType,
+          payload,
+          queryContractVersion: this.queryContractVersion,
+        });
+      } else {
+        unityResponse = await this.submitUnityQueryAndWait(queryType, payload, {
+          query_contract_version: this.queryContractVersion,
+        });
+      }
     } catch (error) {
       return this.mapReadQueryFailure(error);
     }

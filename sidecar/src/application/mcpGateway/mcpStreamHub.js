@@ -3,8 +3,8 @@
 const {
   normalizeErrorCode,
   normalizeMcpStreamEventType,
-  mapMcpErrorFeedback,
 } = require("../../utils/turnUtils");
+const { getMcpErrorFeedbackTemplate } = require("../turnPolicies");
 const { OBSERVABILITY_FREEZE_CONTRACT } = require("../../ports/contracts");
 
 const DEFAULT_STREAM_MAX_EVENTS = 500;
@@ -30,7 +30,7 @@ function fallbackWithMcpErrorFeedback(body) {
       : typeof source.message === "string" && source.message.trim()
         ? source.message.trim()
         : "Unknown error";
-  const feedback = mapMcpErrorFeedback(code, message);
+  const feedback = getMcpErrorFeedbackTemplate(code, message);
   return {
     ...source,
     status:

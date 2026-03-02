@@ -152,7 +152,7 @@ class UnitySnapshotService {
     );
     const errorCode = normalizeErrorCode(
       payload.error_code,
-      "E_ACTION_EXECUTION_FAILED"
+      "E_ACTION_RESULT_MISSING_ERROR_CODE"
     );
     const errorMessage =
       typeof payload.error_message === "string" && payload.error_message.trim()

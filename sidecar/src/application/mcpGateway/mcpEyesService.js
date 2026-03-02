@@ -14,12 +14,14 @@ class McpEyesService {
       mcpGateway: opts.mcpGateway,
       withMcpErrorFeedback,
       validationError,
+      enqueueAndWaitForUnityQuery: opts.enqueueAndWaitForUnityQuery,
       submitUnityQueryAndWait: opts.submitUnityQueryAndWait,
     });
     this.writeService = new McpEyesWriteService({
       unitySnapshotService: opts.unitySnapshotService,
       preconditionService: opts.preconditionService,
       mcpGateway: opts.mcpGateway,
+      capabilityStore: opts.capabilityStore,
       withMcpErrorFeedback,
       validationError,
     });
@@ -31,6 +33,10 @@ class McpEyesService {
 
   applyVisualActions(body) {
     return this.writeService.applyVisualActions(body);
+  }
+
+  setUiProperties(body) {
+    return this.writeService.setUiProperties(body);
   }
 
   getCurrentSelection() {

@@ -43,6 +43,17 @@ namespace UnityAI.Editor.Codex.Infrastructure
             return SendAsync<UnityRuntimePingResponse>(HttpMethod.Post, baseUrl, "/unity/runtime/ping", request);
         }
 
+        public Task<GatewayResponse<UnityCapabilitiesReportResponse>> ReportUnityCapabilitiesAsync(
+            string baseUrl,
+            UnityCapabilitiesReportRequest request)
+        {
+            return SendAsync<UnityCapabilitiesReportResponse>(
+                HttpMethod.Post,
+                baseUrl,
+                "/unity/capabilities/report",
+                request);
+        }
+
         public Task<GatewayResponse<UnityCompileReportResponse>> ReportCompileResultAsync(string baseUrl, UnityCompileResultRequest request)
         {
             var normalized = NormalizeUnityCompileResultRequest(request);
@@ -320,22 +331,7 @@ namespace UnityAI.Editor.Codex.Infrastructure
             var normalized = NormalizeErrorCode(errorCode, string.Empty);
             if (string.IsNullOrEmpty(normalized))
             {
-                return "E_ACTION_EXECUTION_FAILED";
-            }
-
-            if (string.Equals(normalized, "E_SCHEMA_INVALID", StringComparison.Ordinal))
-            {
-                return "E_ACTION_SCHEMA_INVALID";
-            }
-
-            if (string.Equals(normalized, "E_ACTION_SCHEMA_INVALID", StringComparison.Ordinal))
-            {
-                return normalized;
-            }
-
-            if (string.Equals(normalized, "E_TARGET_ANCHOR_CONFLICT", StringComparison.Ordinal))
-            {
-                return normalized;
+                return "E_ACTION_RESULT_MISSING_ERROR_CODE";
             }
 
             return normalized;
@@ -350,7 +346,8 @@ namespace UnityAI.Editor.Codex.Infrastructure
                 return normalizedInput;
             }
 
-            if (string.Equals(errorCode, "E_ACTION_SCHEMA_INVALID", StringComparison.Ordinal))
+            if (string.Equals(errorCode, "E_ACTION_SCHEMA_INVALID", StringComparison.Ordinal) ||
+                string.Equals(errorCode, "E_SCHEMA_INVALID", StringComparison.Ordinal))
             {
                 return "Visual action payload schema validation failed.";
             }
@@ -358,6 +355,11 @@ namespace UnityAI.Editor.Codex.Infrastructure
             if (string.Equals(errorCode, "E_TARGET_ANCHOR_CONFLICT", StringComparison.Ordinal))
             {
                 return "Target anchor conflict: object_id and path resolve to different objects.";
+            }
+
+            if (string.Equals(errorCode, "E_ACTION_RESULT_MISSING_ERROR_CODE", StringComparison.Ordinal))
+            {
+                return "Unity action result missing error_code.";
             }
 
             return "Visual action execution failed.";

@@ -1,0 +1,466 @@
+{
+  "timestamp": "2026-03-02T00:49:21.846Z",
+  "base_url": "http://127.0.0.1:46321",
+  "requests": {
+    "get_ui_tree": {
+      "ui_system": "ugui",
+      "scope": {
+        "root_path": "Scene/Canvas"
+      },
+      "include_inactive": true,
+      "include_components": true,
+      "include_layout": true,
+      "include_interaction": true,
+      "include_text_metrics": true,
+      "max_depth": 6,
+      "node_budget": 1000,
+      "char_budget": 120000,
+      "resolution": {
+        "width": 1920,
+        "height": 1080
+      },
+      "timeout_ms": 10000
+    },
+    "hit_test_ui_at_viewport_point": {
+      "view": "game",
+      "coord_space": "viewport_px",
+      "coord_origin": "bottom_left",
+      "x": 960,
+      "y": 540,
+      "resolution": {
+        "width": 1920,
+        "height": 1080
+      },
+      "scope": {
+        "root_path": "Scene/Canvas"
+      },
+      "max_results": 8,
+      "include_non_interactable": true,
+      "timeout_ms": 5000
+    },
+    "validate_ui_layout": {
+      "scope": {
+        "root_path": "Scene/Canvas"
+      },
+      "resolutions": [
+        {
+          "name": "landscape_primary",
+          "width": 1920,
+          "height": 1080
+        },
+        {
+          "name": "portrait_primary",
+          "width": 1080,
+          "height": 1920
+        }
+      ],
+      "checks": [
+        "OUT_OF_BOUNDS",
+        "OVERLAP",
+        "NOT_CLICKABLE",
+        "TEXT_OVERFLOW"
+      ],
+      "max_issues": 200,
+      "time_budget_ms": 1200,
+      "layout_refresh_mode": "scoped_roots_only",
+      "timeout_ms": 15000
+    },
+    "set_ui_properties": {
+      "based_on_read_token": "rt_mm8goe07_iux5fmi7r2000000",
+      "write_anchor": {
+        "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+        "path": "Scene/Canvas"
+      },
+      "operations": [
+        {
+          "target_anchor": {
+            "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+            "path": "Scene/Canvas"
+          },
+          "rect_transform": {
+            "anchored_position": {
+              "x": 0,
+              "y": 0
+            }
+          }
+        }
+      ],
+      "atomic": true,
+      "dry_run": true
+    }
+  },
+  "responses": {
+    "get_ui_tree": {
+      "ok": true,
+      "data": {
+        "ui_system": "ugui",
+        "root_path": "Scene/Canvas",
+        "include_inactive": true,
+        "include_components": true,
+        "include_layout": true,
+        "include_interaction": true,
+        "include_text_metrics": true,
+        "max_depth": 6,
+        "node_budget": 1000,
+        "char_budget": 120000,
+        "returned_node_count": 2,
+        "truncated": false,
+        "truncated_reason": "",
+        "runtime_resolution": {
+          "width": 1056,
+          "height": 555
+        },
+        "runtime_source": "canvas_pixel_rect",
+        "canvases": [
+          {
+            "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+            "path": "Scene/Canvas",
+            "name": "Canvas",
+            "active": true,
+            "render_mode": "ScreenSpaceOverlay",
+            "sorting_layer_id": 0,
+            "sorting_order": 0,
+            "is_root_canvas": true,
+            "reference_resolution": {
+              "width": 1056,
+              "height": 555
+            }
+          }
+        ],
+        "roots": [
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+              "path": "Scene/Canvas"
+            },
+            "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+            "path": "Scene/Canvas",
+            "name": "Canvas",
+            "depth": 0,
+            "active_self": true,
+            "active_in_hierarchy": true,
+            "sibling_index": 2,
+            "rect_transform": {
+              "anchor_min_x": 0,
+              "anchor_min_y": 0,
+              "anchor_max_x": 0,
+              "anchor_max_y": 0,
+              "pivot_x": 0.5,
+              "pivot_y": 0.5,
+              "anchored_position_x": 528,
+              "anchored_position_y": 277.5,
+              "size_delta_x": 1056,
+              "size_delta_y": 555,
+              "offset_min_x": 0,
+              "offset_min_y": 0,
+              "offset_max_x": 1056,
+              "offset_max_y": 555
+            },
+            "rect_screen_px": {
+              "x": 0,
+              "y": 0,
+              "width": 1056,
+              "height": 555
+            },
+            "interaction": {
+              "raycast_target": false,
+              "interactable": false,
+              "blocks_raycast": false,
+              "has_graphic_raycaster": true
+            },
+            "text_metrics": {
+              "overflowing": false,
+              "preferred_width": 0,
+              "preferred_height": 0
+            },
+            "components": [
+              {
+                "type": "Canvas",
+                "assembly_qualified_name": "UnityEngine.Canvas, UnityEngine.UIModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              },
+              {
+                "type": "CanvasScaler",
+                "assembly_qualified_name": "UnityEngine.UI.CanvasScaler, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              },
+              {
+                "type": "GraphicRaycaster",
+                "assembly_qualified_name": "UnityEngine.UI.GraphicRaycaster, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              }
+            ],
+            "components_summary": [
+              {
+                "type": "Canvas",
+                "assembly_qualified_name": "UnityEngine.Canvas, UnityEngine.UIModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              },
+              {
+                "type": "CanvasScaler",
+                "assembly_qualified_name": "UnityEngine.UI.CanvasScaler, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              },
+              {
+                "type": "GraphicRaycaster",
+                "assembly_qualified_name": "UnityEngine.UI.GraphicRaycaster, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              }
+            ],
+            "children": [
+              {
+                "anchor": {
+                  "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1127317666-0",
+                  "path": "Scene/Canvas/Image"
+                },
+                "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1127317666-0",
+                "path": "Scene/Canvas/Image",
+                "name": "Image",
+                "depth": 1,
+                "active_self": true,
+                "active_in_hierarchy": true,
+                "sibling_index": 0,
+                "rect_transform": {
+                  "anchor_min_x": 0.5,
+                  "anchor_min_y": 0.5,
+                  "anchor_max_x": 0.5,
+                  "anchor_max_y": 0.5,
+                  "pivot_x": 0.5,
+                  "pivot_y": 0.5,
+                  "anchored_position_x": -456.09674072265625,
+                  "anchored_position_y": -166.527099609375,
+                  "size_delta_x": 100,
+                  "size_delta_y": 100,
+                  "offset_min_x": -506.09674072265625,
+                  "offset_min_y": -216.527099609375,
+                  "offset_max_x": -406.09674072265625,
+                  "offset_max_y": -116.527099609375
+                },
+                "rect_screen_px": {
+                  "x": 22,
+                  "y": 61,
+                  "width": 100,
+                  "height": 100
+                },
+                "interaction": {
+                  "raycast_target": true,
+                  "interactable": true,
+                  "blocks_raycast": true,
+                  "has_graphic_raycaster": true
+                },
+                "text_metrics": {
+                  "overflowing": false,
+                  "preferred_width": 0,
+                  "preferred_height": 0
+                },
+                "components": [
+                  {
+                    "type": "Image",
+                    "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                    "enabled": true
+                  }
+                ],
+                "components_summary": [
+                  {
+                    "type": "Image",
+                    "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                    "enabled": true
+                  }
+                ],
+                "children": [],
+                "children_truncated_count": 0
+              }
+            ],
+            "children_truncated_count": 0
+          }
+        ],
+        "scope": {
+          "root_path": "Scene/Canvas"
+        }
+      },
+      "read_token": {
+        "token": "rt_mm8goe07_iux5fmi7r2000000",
+        "issued_at": "2026-03-02T00:49:22.663Z",
+        "hard_max_age_ms": 180000,
+        "revision_vector": {
+          "scene_revision": "rev_1772376871307",
+          "asset_revision": "asset_rev_1772412562661",
+          "compile_epoch": 0
+        },
+        "scope": {
+          "kind": "scene",
+          "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+          "path": "Scene/Canvas"
+        }
+      },
+      "captured_at": "2026-03-02T00:49:22.6618078Z"
+    },
+    "hit_test_ui_at_viewport_point": {
+      "ok": true,
+      "data": {
+        "view": "game",
+        "coord_space": "viewport_px",
+        "coord_origin": "bottom_left",
+        "requested_point": {
+          "x": 960,
+          "y": 540
+        },
+        "mapped_point": {
+          "x": 528,
+          "y": 278
+        },
+        "resolution": {
+          "width": 1920,
+          "height": 1080
+        },
+        "runtime_resolution": {
+          "width": 1056,
+          "height": 555
+        },
+        "runtime_source": "canvas_pixel_rect",
+        "approximate": true,
+        "approx_reason": "NO_RAYCAST_SOURCE",
+        "confidence": "low",
+        "hit_count": 1,
+        "hits": [
+          {
+            "rank": 1,
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+              "path": "Scene/Canvas"
+            },
+            "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+            "path": "Scene/Canvas",
+            "name": "Canvas",
+            "component": "RectTransform",
+            "interactable": true,
+            "raycast_target": false,
+            "rect_screen_px": {
+              "x": 0,
+              "y": 0,
+              "width": 1056,
+              "height": 555
+            },
+            "z_order_hint": 2
+          }
+        ]
+      },
+      "read_token": {
+        "token": "rt_mm8goei5_xoftbp7g50000000",
+        "issued_at": "2026-03-02T00:49:23.309Z",
+        "hard_max_age_ms": 180000,
+        "revision_vector": {
+          "scene_revision": "rev_1772376871307",
+          "asset_revision": "asset_rev_1772412563305",
+          "compile_epoch": 0
+        },
+        "scope": {
+          "kind": "scene",
+          "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+          "path": "Scene/Canvas"
+        }
+      },
+      "captured_at": "2026-03-02T00:49:23.3051579Z"
+    },
+    "validate_ui_layout": {
+      "ok": true,
+      "data": {
+        "scope": {
+          "root_path": "Scene/Canvas"
+        },
+        "resolutions": [
+          {
+            "name": "1056x555",
+            "width": 1056,
+            "height": 555
+          },
+          {
+            "name": "landscape_primary",
+            "width": 1920,
+            "height": 1080
+          },
+          {
+            "name": "portrait_primary",
+            "width": 1080,
+            "height": 1920
+          }
+        ],
+        "time_budget_ms": 1200,
+        "runtime_resolution": {
+          "width": 1056,
+          "height": 555
+        },
+        "runtime_source": "canvas_pixel_rect",
+        "partial": false,
+        "truncated_reason": null,
+        "issue_count": 0,
+        "runtime_resolution_name": "1056x555",
+        "issues": []
+      },
+      "read_token": {
+        "token": "rt_mm8gof08_pg519edi3rp00000",
+        "issued_at": "2026-03-02T00:49:23.960Z",
+        "hard_max_age_ms": 180000,
+        "revision_vector": {
+          "scene_revision": "rev_1772376871307",
+          "asset_revision": "asset_rev_1772412563959",
+          "compile_epoch": 0
+        },
+        "scope": {
+          "kind": "scene",
+          "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+          "path": "Scene/Canvas"
+        }
+      },
+      "captured_at": "2026-03-02T00:49:23.9591493Z"
+    },
+    "set_ui_properties": {
+      "status": "rejected",
+      "error_code": "E_UNITY_NOT_CONNECTED",
+      "message": "Unity Editor connection is not ready for write operations. Current state: connecting.",
+      "unity_connection_state": "connecting",
+      "error_message": "Unity Editor connection is not ready for write operations. Current state: connecting.",
+      "suggestion": "Wait until Unity connection state is ready (runtime ping + capability report), then retry write tools.",
+      "recoverable": true
+    }
+  },
+  "status_codes": {
+    "get_ui_tree": 200,
+    "hit_test_ui_at_viewport_point": 200,
+    "validate_ui_layout": 200,
+    "set_ui_properties": 503
+  },
+  "checks": {
+    "get_ui_tree_ok": true,
+    "hit_test_ok": true,
+    "validate_ok": true,
+    "set_ok_or_skipped": false,
+    "tree_runtime_resolution_present": true,
+    "hit_runtime_resolution_present": true,
+    "validate_runtime_resolution_present": true,
+    "hit_coord_origin_bottom_left": true,
+    "hit_mapped_point_in_runtime_range": true,
+    "hit_approximate_flag_present": true,
+    "validate_partial_flag_present": true,
+    "validate_truncated_reason_present_when_partial": true,
+    "set_dry_run_when_not_commit": false,
+    "set_has_planning_payload": false
+  },
+  "summary": {
+    "ui_tree_nodes": 2,
+    "ui_tree_truncated": false,
+    "hit_count": 1,
+    "hit_runtime_source": "canvas_pixel_rect",
+    "validate_issue_count": 0,
+    "validate_partial": false,
+    "validate_runtime_source": "canvas_pixel_rect",
+    "set_status": "rejected",
+    "set_planned_actions_count": 0,
+    "error_codes": {
+      "get_ui_tree": "",
+      "hit_test_ui_at_viewport_point": "",
+      "validate_ui_layout": "",
+      "set_ui_properties": "E_UNITY_NOT_CONNECTED"
+    }
+  }
+}

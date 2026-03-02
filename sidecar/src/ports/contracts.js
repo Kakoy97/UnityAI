@@ -18,18 +18,47 @@ const WRITE_ANCHOR_GUARD_CONTRACT = Object.freeze({
     path: "string(minLength=1)",
   }),
   action_anchor_union: Object.freeze({
-    mutation_types: Object.freeze([
-      "add_component",
-      "remove_component",
-      "replace_component",
-    ]),
-    mutation_required_anchor: "target_anchor",
-    create_types: Object.freeze(["create_gameobject"]),
-    create_required_anchor: "parent_anchor",
+    action_type_enum_enforced: false,
+    dynamic_action_types_allowed: true,
+    minimum_anchor_requirement: "at_least_one_of_target_anchor_or_parent_anchor",
+    known_legacy_overrides: Object.freeze({
+      mutation_types: Object.freeze([
+        "add_component",
+        "remove_component",
+        "replace_component",
+      ]),
+      mutation_required_anchor: "target_anchor",
+      create_types: Object.freeze(["create_gameobject"]),
+      create_required_anchor: "parent_anchor",
+    }),
   }),
   legacy_single_anchor_fields_supported: false,
   implicit_target_resolution_supported: false,
   hard_fail_error_code: "E_ACTION_SCHEMA_INVALID",
+});
+
+const ACTION_DATA_WIRE_BRIDGE_CONTRACT = Object.freeze({
+  external_schema_rule: "action_data_object_only",
+  external_forbidden_fields: Object.freeze([
+    "action_data_json",
+    "steps[*].action_data_json",
+  ]),
+  external_hard_fail_error_code: "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED",
+  internal_wire_field: "action_data_json",
+  internal_wire_owner: "turnPayloadBuilders.buildVisualActionDataBridge",
+  composite_step_wire_bridge:
+    "turnPayloadBuilders.normalizeCompositeStepForUnity",
+});
+
+const LEGACY_ANCHOR_MIGRATION_CONTRACT = Object.freeze({
+  mode_env: "LEGACY_ANCHOR_MODE",
+  allowed_modes: Object.freeze(["warn", "deny"]),
+  default_mode: "warn",
+  reject_error_code: "E_ACTION_SCHEMA_INVALID",
+  deny_switch_gate: Object.freeze({
+    required_zero_hit_days: 7,
+    manual_signoff_env: "LEGACY_ANCHOR_DENY_SIGNOFF",
+  }),
 });
 
 const JOB_LEASE_CONTRACT = Object.freeze({
@@ -83,12 +112,21 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
     "/mcp/submit_unity_task",
     "/mcp/apply_script_actions",
     "/mcp/apply_visual_actions",
+    "/mcp/set_ui_properties",
   ]),
   mcp_read_http_routes: Object.freeze([
     "/mcp/list_assets_in_folder",
     "/mcp/get_scene_roots",
     "/mcp/find_objects_by_component",
     "/mcp/query_prefab_info",
+    "/mcp/get_action_catalog",
+    "/mcp/get_action_schema",
+    "/mcp/get_tool_schema",
+    "/mcp/capture_scene_screenshot",
+    "/mcp/get_ui_tree",
+    "/mcp/hit_test_ui_at_viewport_point",
+    "/mcp/validate_ui_layout",
+    "/mcp/hit_test_ui_at_screen_point",
   ]),
   mcp_status_http_routes: Object.freeze([
     "/mcp/get_unity_task_status",
@@ -96,11 +134,13 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
     "/mcp/heartbeat",
     "/mcp/metrics",
     "/mcp/stream",
+    "/mcp/capabilities",
   ]),
   unity_callback_http_routes: Object.freeze([
     "/unity/compile/result",
     "/unity/action/result",
     "/unity/runtime/ping",
+    "/unity/capabilities/report",
     "/unity/query/pull",
     "/unity/query/report",
   ]),
@@ -124,10 +164,19 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
     "cancel_unity_task",
     "apply_script_actions",
     "apply_visual_actions",
+    "set_ui_properties",
     "list_assets_in_folder",
     "get_scene_roots",
     "find_objects_by_component",
     "query_prefab_info",
+    "get_action_catalog",
+    "get_action_schema",
+    "get_tool_schema",
+    "capture_scene_screenshot",
+    "get_ui_tree",
+    "hit_test_ui_at_viewport_point",
+    "validate_ui_layout",
+    "hit_test_ui_at_screen_point",
   ]),
   deprecated_mcp_tool_names: Object.freeze([
     "get_current_selection",
@@ -137,6 +186,25 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
     "get_compile_state",
     "get_console_errors",
   ]),
+});
+
+const MCP_TOOL_VISIBILITY_FREEZE_CONTRACT = Object.freeze({
+  visibility_formula: "visible = exposed & allowlist - disabled",
+  registry_snapshot_source: "McpCommandRegistry.listMcpToolNames()",
+  security_allowlist: Object.freeze([
+    ...(ROUTER_PROTOCOL_FREEZE_CONTRACT.mcp_tool_names || []),
+  ]),
+  allowlist_source: "MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.security_allowlist",
+  deprecated_blocklist_source:
+    "ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names",
+  disabled_tools: Object.freeze(["hit_test_ui_at_screen_point"]),
+  disabled_tool_notes: Object.freeze({
+    hit_test_ui_at_screen_point:
+      "hidden_from_tools_list_and_blocked_in_tools_call; HTTP route returns E_COMMAND_DISABLED",
+  }),
+  capture_mode_notes: Object.freeze({
+    capture_scene_screenshot: "render_output_only",
+  }),
 });
 
 const RUNTIME_MODE_FREEZE_CONTRACT = Object.freeze({
@@ -195,6 +263,17 @@ const OBSERVABILITY_FREEZE_CONTRACT = Object.freeze({
     "error_message_truncated_total",
     "error_fixed_suggestion_enforced_total",
     "error_feedback_by_code",
+    "legacy_anchor_mode_requested",
+    "legacy_anchor_mode_effective",
+    "legacy_anchor_deny_signoff",
+    "legacy_anchor_deny_gate_required_days",
+    "legacy_anchor_zero_hit_window_days",
+    "legacy_anchor_deny_gate_ready",
+    "legacy_anchor_warn_hits_total",
+    "legacy_anchor_warn_hits_by_action",
+    "legacy_anchor_last_hit_at",
+    "legacy_anchor_requested_deny_blocked_total",
+    "action_error_code_missing_total",
   ]),
   frozen_stream_event_fields: Object.freeze([
     "stream_event_contract_version",
@@ -239,8 +318,11 @@ const OBSERVABILITY_FREEZE_CONTRACT = Object.freeze({
 module.exports = {
   OCC_WRITE_GUARD_CONTRACT,
   WRITE_ANCHOR_GUARD_CONTRACT,
+  ACTION_DATA_WIRE_BRIDGE_CONTRACT,
+  LEGACY_ANCHOR_MIGRATION_CONTRACT,
   JOB_LEASE_CONTRACT,
   ROUTER_PROTOCOL_FREEZE_CONTRACT,
+  MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
   RUNTIME_MODE_FREEZE_CONTRACT,
   OBSERVABILITY_FREEZE_CONTRACT,
 };

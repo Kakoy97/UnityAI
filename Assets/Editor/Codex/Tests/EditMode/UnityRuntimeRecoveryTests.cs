@@ -133,6 +133,28 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.AreEqual("Waiting For Unity Reboot", busyReason);
         }
 
+        [Test]
+        public void ReportCapabilitiesAsync_SendsRegisteredActionsAndVersion()
+        {
+            var stateStore = new InMemoryConversationStateStore(null);
+            var gateway = new FakeSidecarGateway();
+            var controller = CreateController(gateway, stateStore);
+
+            var ok = controller.ReportCapabilitiesAsync("test", true).GetAwaiter().GetResult();
+
+            Assert.IsTrue(ok);
+            Assert.NotNull(gateway.LastCapabilitiesRequest);
+            Assert.AreEqual("unity.capabilities.report", gateway.LastCapabilitiesRequest.@event);
+            Assert.NotNull(gateway.LastCapabilitiesRequest.payload);
+            Assert.IsNotEmpty(gateway.LastCapabilitiesRequest.payload.capability_version);
+            Assert.NotNull(gateway.LastCapabilitiesRequest.payload.actions);
+            Assert.GreaterOrEqual(gateway.LastCapabilitiesRequest.payload.actions.Length, 4);
+            Assert.IsFalse(string.IsNullOrEmpty(gateway.LastCapabilitiesRequest.payload.actions[0].domain));
+            Assert.IsFalse(string.IsNullOrEmpty(gateway.LastCapabilitiesRequest.payload.actions[0].tier));
+            Assert.IsFalse(string.IsNullOrEmpty(gateway.LastCapabilitiesRequest.payload.actions[0].lifecycle));
+            Assert.IsFalse(string.IsNullOrEmpty(gateway.LastCapabilitiesRequest.payload.actions[0].undo_safety));
+        }
+
         private static ConversationController CreateController(
             ISidecarGateway gateway,
             IConversationStateStore stateStore)
@@ -188,6 +210,8 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private sealed class FakeSidecarGateway : ISidecarGateway
         {
             public System.Func<GatewayResponse<UnityRuntimePingResponse>> RuntimePingResponseFactory;
+            public System.Func<GatewayResponse<UnityCapabilitiesReportResponse>> CapabilityResponseFactory;
+            public UnityCapabilitiesReportRequest LastCapabilitiesRequest;
 
             public Task<GatewayResponse<HealthResponse>> GetHealthAsync(string baseUrl)
             {
@@ -236,6 +260,23 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 var response = RuntimePingResponseFactory != null
                     ? RuntimePingResponseFactory()
                     : GatewayOk(new UnityRuntimePingResponse { ok = true, state = "idle", status = "cancelled" });
+                return Task.FromResult(response);
+            }
+
+            public Task<GatewayResponse<UnityCapabilitiesReportResponse>> ReportUnityCapabilitiesAsync(
+                string baseUrl,
+                UnityCapabilitiesReportRequest request)
+            {
+                LastCapabilitiesRequest = request;
+                var response = CapabilityResponseFactory != null
+                    ? CapabilityResponseFactory()
+                    : GatewayOk(
+                        new UnityCapabilitiesReportResponse
+                        {
+                            ok = true,
+                            @event = "unity.capabilities.accepted",
+                            unity_connection_state = "ready",
+                        });
                 return Task.FromResult(response);
             }
 

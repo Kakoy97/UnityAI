@@ -1,7 +1,13 @@
-# Codex Unity Sidecar (Phase 6 Frozen Baseline)
+# Codex Unity Sidecar (R10 Action Governance Baseline)
 
-This sidecar is the L2 gateway in the Codex-Unity embodied-agent architecture.
-Phase 6 freeze means only the new MCP/Unity protocol paths are valid.
+This sidecar is the L2 gateway in the Codex-Unity architecture.
+R10 baseline keeps extensibility decoupling and adds governance/composite/token-budget guards.
+
+## Authority Entry
+
+- `Assets/Docs/Codex-Unity-MCP-Main-Index.md`
+- `Assets/Docs/Phase8-Action-Governance-Acceptance.md`
+- `docs/Codex-Unity-MCP-Add-Action-Single-Path-Guide.md`
 
 ## Run
 
@@ -35,10 +41,13 @@ node index.js --port 46321
   - `POST /mcp/get_scene_roots`
   - `POST /mcp/find_objects_by_component`
   - `POST /mcp/query_prefab_info`
+  - `POST /mcp/get_action_catalog`
+  - `POST /mcp/get_action_schema`
 - Unity callbacks:
   - `POST /unity/compile/result`
   - `POST /unity/action/result`
   - `POST /unity/runtime/ping`
+  - `POST /unity/capabilities/report`
   - `POST /unity/query/pull`
   - `POST /unity/query/report`
 
@@ -53,10 +62,18 @@ Examples: `/session/start`, `/turn/send`, `/turn/status`, `/turn/cancel`, and ot
   - Every write request must include `based_on_read_token`.
 - Dual-anchor hard cut:
   - Top-level `write_anchor` is mandatory and must contain both `object_id` and `path`.
-  - Visual action union rules are strict:
-    - mutation (`add_component`/`remove_component`/`replace_component`) requires `target_anchor`
-    - create (`create_gameobject`) requires `parent_anchor`
+  - Visual action anchor policy is strict per action capability metadata.
 - No soft-switch fallback is allowed.
+
+## Composite/Schema Guardrails (R10)
+
+- External payload must use JSON object `action_data`; external `action_data_json` is rejected.
+- Composite payload enforces:
+  - max steps / budget limits
+  - alias naming and no forward reference
+  - no inline alias interpolation in `action_data` (`$ref:alias` unsupported in v1)
+- Validation failure can return `schema_hint/schema_ref` for direct retry.
+- `catalog_version` mismatch returns `E_ACTION_CAPABILITY_MISMATCH` with recoverable guidance.
 
 ## Observability Contract Freeze (P6-L2-04)
 
@@ -162,6 +179,12 @@ Examples: `/session/start`, `/turn/send`, `/turn/status`, `/turn/cancel`, and ot
 - `npm run smoke:mcp-visual-anchor`
 - `npm run smoke` (all three)
 - `npm run gate:step8`
+- `npm run gate:r9-closure`
+- `npm run gate:r9-docs`
+- `npm run gate:r10-responsibility`
+- `npm run gate:r10-contract-snapshot`
+- `npm run gate:r10-docs`
+- `npm run test:r10:qa`
 - `npm run replay:failed -- --report <path-to-report>`
 
 ## MCP Helper Scripts
@@ -169,3 +192,13 @@ Examples: `/session/start`, `/turn/send`, `/turn/status`, `/turn/cancel`, and ot
 - `npm run mcp:setup-cursor`
 - `npm run mcp:verify`
 - `npm run mcp:server`
+
+## Add Action (Single Path)
+
+For normal new visual actions, use only this path:
+1. Add typed handler in `Assets/Editor/Codex/Infrastructure/Actions/ValuePackVisualActionHandlers.cs`.
+2. Register in `Assets/Editor/Codex/Infrastructure/Actions/McpActionRegistryBootstrap.cs` with governance metadata + schema.
+3. Add executor primitive only if needed in `Assets/Editor/Codex/Infrastructure/UnityVisualActionExecutor.cs`.
+4. Add Unity EditMode tests.
+
+Do not reintroduce static action enum/schema coupling in sidecar validators or MCP tool declarations.

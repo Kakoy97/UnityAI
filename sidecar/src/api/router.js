@@ -1,7 +1,14 @@
 "use strict";
+/**
+ * R11-ARCH-01 Responsibility boundary:
+ * - Router only maps HTTP method/path to TurnService entry points.
+ * - Router must not own business validation rules or MCP tool schema assembly.
+ * - Command expansion must obey command contract gates and avoid cross-layer logic leaks.
+ */
 
 const { URL } = require("url");
 const { readJsonBody, sendJson } = require("../infrastructure/httpIO");
+const { getMcpCommandRegistry } = require("../mcp/commandRegistry");
 const {
   ROUTER_PROTOCOL_FREEZE_CONTRACT,
   OBSERVABILITY_FREEZE_CONTRACT,
@@ -38,13 +45,7 @@ const STREAM_READY_CONTRACT_VERSION =
  */
 function createRouter(deps) {
   const { turnService, port, requestShutdown } = deps;
-  const mcpWriteRouteHandlers = Object.freeze({
-    "/mcp/submit_unity_task": (body) => turnService.submitUnityTask(body),
-    "/mcp/apply_script_actions": (body) =>
-      turnService.applyScriptActionsForMcp(body),
-    "/mcp/apply_visual_actions": (body) =>
-      turnService.applyVisualActionsForMcp(body),
-  });
+  const commandRegistry = getMcpCommandRegistry();
 
   return async function route(req, res) {
     const origin = `http://${req.headers.host || `127.0.0.1:${port}`}`;
@@ -85,6 +86,19 @@ function createRouter(deps) {
       return;
     }
 
+    const commandOutcome = await commandRegistry.dispatchHttpCommand({
+      method,
+      path: url.pathname,
+      url,
+      req,
+      readJsonBody,
+      turnService,
+    });
+    if (commandOutcome) {
+      sendJson(res, commandOutcome.statusCode, commandOutcome.body);
+      return;
+    }
+
     if (method === "POST" && url.pathname === "/unity/compile/result") {
       const body = await readJsonBody(req);
       const outcome = turnService.reportCompileResult(body);
@@ -102,6 +116,13 @@ function createRouter(deps) {
     if (method === "POST" && url.pathname === "/unity/runtime/ping") {
       const body = await readJsonBody(req);
       const outcome = turnService.reportUnityRuntimePing(body);
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
+    if (method === "POST" && url.pathname === "/unity/capabilities/report") {
+      const body = await readJsonBody(req);
+      const outcome = turnService.reportUnityCapabilities(body);
       sendJson(res, outcome.statusCode, outcome.body);
       return;
     }
@@ -136,32 +157,6 @@ function createRouter(deps) {
       return;
     }
 
-    if (
-      method === "POST" &&
-      Object.prototype.hasOwnProperty.call(mcpWriteRouteHandlers, url.pathname)
-    ) {
-      // All MCP write routes are centralized here to guarantee one validation/OCC chain.
-      const body = await readJsonBody(req);
-      const outcome = mcpWriteRouteHandlers[url.pathname](body);
-      sendJson(res, outcome.statusCode, outcome.body);
-      return;
-    }
-
-    if (method === "GET" && url.pathname === "/mcp/get_unity_task_status") {
-      const outcome = turnService.getUnityTaskStatus(
-        url.searchParams.get("job_id")
-      );
-      sendJson(res, outcome.statusCode, outcome.body);
-      return;
-    }
-
-    if (method === "POST" && url.pathname === "/mcp/cancel_unity_task") {
-      const body = await readJsonBody(req);
-      const outcome = turnService.cancelUnityTask(body);
-      sendJson(res, outcome.statusCode, outcome.body);
-      return;
-    }
-
     if (method === "POST" && url.pathname === "/mcp/heartbeat") {
       const body = await readJsonBody(req);
       const outcome = turnService.heartbeatMcp(body);
@@ -169,30 +164,8 @@ function createRouter(deps) {
       return;
     }
 
-    if (method === "POST" && url.pathname === "/mcp/list_assets_in_folder") {
-      const body = await readJsonBody(req);
-      const outcome = await turnService.listAssetsInFolderForMcp(body);
-      sendJson(res, outcome.statusCode, outcome.body);
-      return;
-    }
-
-    if (method === "POST" && url.pathname === "/mcp/get_scene_roots") {
-      const body = await readJsonBody(req);
-      const outcome = await turnService.getSceneRootsForMcp(body);
-      sendJson(res, outcome.statusCode, outcome.body);
-      return;
-    }
-
-    if (method === "POST" && url.pathname === "/mcp/find_objects_by_component") {
-      const body = await readJsonBody(req);
-      const outcome = await turnService.findObjectsByComponentForMcp(body);
-      sendJson(res, outcome.statusCode, outcome.body);
-      return;
-    }
-
-    if (method === "POST" && url.pathname === "/mcp/query_prefab_info") {
-      const body = await readJsonBody(req);
-      const outcome = await turnService.queryPrefabInfoForMcp(body);
+    if (method === "GET" && url.pathname === "/mcp/capabilities") {
+      const outcome = turnService.getCapabilitiesForMcp();
       sendJson(res, outcome.statusCode, outcome.body);
       return;
     }

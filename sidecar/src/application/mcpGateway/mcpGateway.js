@@ -22,8 +22,6 @@ const {
   DEFAULT_LEASE_HEARTBEAT_TIMEOUT_MS,
   DEFAULT_LEASE_MAX_RUNTIME_MS,
   normalizeLease,
-  touchLease,
-  toIsoTimestamp,
 } = require("../jobRuntime/jobLease");
 const {
   JobLeaseJanitor,
@@ -34,12 +32,13 @@ const { UnityDispatcher } = require("../unityDispatcher/unityDispatcher");
 const {
   OCC_STALE_SNAPSHOT_SUGGESTION,
 } = require("../unitySnapshotService");
-const { OBSERVABILITY_FREEZE_CONTRACT } = require("../../ports/contracts");
+const {
+  LEGACY_ANCHOR_MIGRATION_CONTRACT,
+} = require("../../ports/contracts");
 const { McpStreamHub } = require("./mcpStreamHub");
 const {
   withMcpErrorFeedback,
   validationError,
-  getMcpErrorFeedbackMetricsSnapshot,
 } = require("./mcpErrorFeedback");
 const {
   startRunningJob,
@@ -52,12 +51,29 @@ const {
   handleUnityActionResult,
   handleUnityRuntimePing,
 } = require("./unityCallbacks");
+const {
+  normalizeUnityCompileResultBody,
+  normalizeUnityActionResultBody,
+  normalizeUnityQueryReportBody,
+  resolveUnityQueryResultSuccess,
+} = require("./unityReportNormalizer");
+const {
+  listRecoveryJobs,
+  touchLeaseByJobId,
+  touchLeaseByThreadId,
+  sweepLeaseJanitor,
+} = require("./leaseFacade");
+const {
+  getMcpMetrics,
+  buildJobStatusPayload,
+} = require("./metricsView");
 
 const MCP_JOB_TTL_MS = 24 * 60 * 60 * 1000;
 const MCP_MAX_QUEUE = 1;
 const MCP_STREAM_MAX_EVENTS = 500;
 const MCP_STREAM_MAX_SUBSCRIBERS = 32;
 const MCP_STREAM_RECOVERY_JOBS_MAX = 20;
+const LEGACY_ANCHOR_DAYS_IN_MS = 24 * 60 * 60 * 1000;
 
 class McpGateway {
   constructor(deps) {
@@ -67,6 +83,10 @@ class McpGateway {
         ? opts.nowIso
         : () => new Date().toISOString();
     this.enableMcpAdapter = opts.enableMcpAdapter === true;
+    this.resolveUnityConnectionState =
+      typeof opts.resolveUnityConnectionState === "function"
+        ? opts.resolveUnityConnectionState
+        : null;
     this.unitySnapshotService = opts.unitySnapshotService || null;
     this.mcpJobTtlMs =
       Number.isFinite(Number(opts.mcpJobTtlMs)) && Number(opts.mcpJobTtlMs) > 0
@@ -96,6 +116,38 @@ class McpGateway {
       Number(opts.mcpLeaseJanitorIntervalMs) >= 250
         ? Math.floor(Number(opts.mcpLeaseJanitorIntervalMs))
         : DEFAULT_LEASE_JANITOR_INTERVAL_MS;
+    this.legacyAnchorModeRequested = this.normalizeLegacyAnchorMode(
+      opts.legacyAnchorMode
+    );
+    this.legacyAnchorDenySignoff = opts.legacyAnchorDenySignoff === true;
+    this.legacyAnchorDenyRequiredDays =
+      Number.isFinite(Number(opts.legacyAnchorDenyRequiredDays)) &&
+      Number(opts.legacyAnchorDenyRequiredDays) >= 0
+        ? Math.floor(Number(opts.legacyAnchorDenyRequiredDays))
+        : Number.isFinite(
+            Number(
+              LEGACY_ANCHOR_MIGRATION_CONTRACT &&
+                LEGACY_ANCHOR_MIGRATION_CONTRACT.deny_switch_gate &&
+                LEGACY_ANCHOR_MIGRATION_CONTRACT.deny_switch_gate
+                  .required_zero_hit_days
+            )
+          )
+          ? Math.floor(
+              Number(
+                LEGACY_ANCHOR_MIGRATION_CONTRACT.deny_switch_gate
+                  .required_zero_hit_days
+              )
+            )
+          : 7;
+    this.legacyAnchorModeMetrics = {
+      warn_hits_total: 0,
+      warn_hits_by_action: {},
+      last_hit_at: "",
+      last_hit_at_ms: 0,
+      requested_deny_blocked_total: 0,
+    };
+    this.actionErrorCodeMissingTotal = 0;
+    this.legacyAnchorGateObservedSinceMs = Date.now();
 
     this.lockManager = new LockManager();
     this.jobQueue = new JobQueue(this.mcpMaxQueue);
@@ -115,13 +167,26 @@ class McpGateway {
         opts.mcpStreamRecoveryJobsMax || MCP_STREAM_RECOVERY_JOBS_MAX,
       withMcpErrorFeedback: (body) => this.withMcpErrorFeedback(body),
     });
+    const legacyAnchorGateSnapshot = this.getLegacyAnchorGateSnapshot();
+    this.legacyAnchorModeEffective =
+      this.legacyAnchorModeRequested === "deny" &&
+      !legacyAnchorGateSnapshot.ready
+        ? "warn"
+        : this.legacyAnchorModeRequested;
+    if (
+      this.legacyAnchorModeRequested === "deny" &&
+      this.legacyAnchorModeEffective !== "deny"
+    ) {
+      this.legacyAnchorModeMetrics.requested_deny_blocked_total += 1;
+    }
     this.unityDispatcher = new UnityDispatcher({
       nowIso: this.nowIso,
       fileActionExecutor: opts.fileActionExecutor || null,
+      legacyAnchorMode: this.legacyAnchorModeEffective,
+      onLegacyAnchorFallback: (entry) => this.recordLegacyAnchorFallback(entry),
     });
 
     this.statusQueryCalls = 0;
-    this.mcpJobsById = this.jobStore.jobsById;
     this.lifecycleMetrics = {
       auto_cancel_total: 0,
       auto_cancel_heartbeat_timeout_total: 0,
@@ -165,6 +230,11 @@ class McpGateway {
       });
     }
 
+    const readiness = this.isUnityReadyForWrite();
+    if (!readiness.ok) {
+      return this.buildUnityNotReadyWriteOutcome(readiness.state);
+    }
+
     const payload = body;
     const tokenValidation = this.validateWriteReadToken(payload.based_on_read_token);
     if (!tokenValidation.ok) {
@@ -173,7 +243,10 @@ class McpGateway {
 
     const validation = validateMcpSubmitUnityTask(payload);
     if (!validation.ok) {
-      return this.validationError(validation);
+      return this.validationError(validation, {
+        requestBody: payload,
+        toolName: "submit_unity_task",
+      });
     }
 
     const idempotencyKey = String(payload.idempotency_key || "").trim();
@@ -469,177 +542,19 @@ class McpGateway {
   }
 
   normalizeUnityCompileResultBody(body) {
-    const source = body && typeof body === "object" ? cloneJson(body) : {};
-    const payload =
-      source.payload && typeof source.payload === "object" ? source.payload : null;
-    if (!payload) {
-      return source;
-    }
-
-    payload.success = payload.success === true;
-    if (payload.duration_ms !== undefined) {
-      const duration = Number(payload.duration_ms);
-      payload.duration_ms =
-        Number.isFinite(duration) && duration >= 0 ? Math.floor(duration) : 0;
-    }
-    if (!Array.isArray(payload.errors)) {
-      payload.errors = [];
-    }
-
-    if (payload.success !== true) {
-      const firstError =
-        payload.errors.length > 0 &&
-        payload.errors[0] &&
-        typeof payload.errors[0] === "object"
-          ? payload.errors[0]
-          : null;
-      const feedback = this.withMcpErrorFeedback({
-        status: "failed",
-        error_code:
-          typeof payload.error_code === "string" && payload.error_code.trim()
-            ? payload.error_code.trim()
-            : firstError &&
-                typeof firstError.code === "string" &&
-                firstError.code.trim()
-              ? firstError.code.trim()
-              : "E_COMPILE_FAILED",
-        message:
-          typeof payload.error_message === "string" && payload.error_message.trim()
-            ? payload.error_message.trim()
-            : firstError &&
-                typeof firstError.message === "string" &&
-                firstError.message.trim()
-              ? firstError.message.trim()
-              : "Unity compile failed",
-      });
-      payload.error_code = feedback.error_code;
-      payload.error_message = feedback.error_message;
-      payload.suggestion = feedback.suggestion;
-      payload.recoverable = feedback.recoverable;
-      return source;
-    }
-
-    payload.error_code =
-      typeof payload.error_code === "string" ? payload.error_code.trim() : "";
-    payload.error_message =
-      typeof payload.error_message === "string" ? payload.error_message : "";
-    payload.suggestion =
-      typeof payload.suggestion === "string" ? payload.suggestion : "";
-    payload.recoverable = payload.recoverable === true;
-    return source;
+    return normalizeUnityCompileResultBody(this, body);
   }
 
   normalizeUnityActionResultBody(body) {
-    const source = body && typeof body === "object" ? cloneJson(body) : {};
-    const payload =
-      source.payload && typeof source.payload === "object" ? source.payload : null;
-    if (!payload) {
-      return source;
-    }
-
-    if (
-      (!payload.action_type || typeof payload.action_type !== "string") &&
-      payload.action &&
-      typeof payload.action === "object" &&
-      typeof payload.action.type === "string"
-    ) {
-      payload.action_type = payload.action.type.trim();
-    } else {
-      payload.action_type =
-        typeof payload.action_type === "string" ? payload.action_type.trim() : "";
-    }
-    payload.success = payload.success === true;
-
-    if (payload.success !== true) {
-      const feedback = this.withMcpErrorFeedback({
-        status: "failed",
-        error_code:
-          typeof payload.error_code === "string" && payload.error_code.trim()
-            ? payload.error_code.trim()
-            : "E_ACTION_EXECUTION_FAILED",
-        message:
-          typeof payload.error_message === "string" && payload.error_message.trim()
-            ? payload.error_message.trim()
-            : typeof payload.message === "string" && payload.message.trim()
-              ? payload.message.trim()
-              : "Unity visual action failed",
-      });
-      payload.error_code = feedback.error_code;
-      payload.error_message = feedback.error_message;
-      payload.suggestion = feedback.suggestion;
-      payload.recoverable = feedback.recoverable;
-      return source;
-    }
-
-    payload.error_code =
-      typeof payload.error_code === "string" ? payload.error_code.trim() : "";
-    payload.error_message =
-      typeof payload.error_message === "string" ? payload.error_message : "";
-    payload.suggestion =
-      typeof payload.suggestion === "string" ? payload.suggestion : "";
-    payload.recoverable = payload.recoverable === true;
-    return source;
+    return normalizeUnityActionResultBody(this, body);
   }
 
   normalizeUnityQueryReportBody(body) {
-    const source = body && typeof body === "object" ? cloneJson(body) : {};
-    if (typeof source.query_id === "string") {
-      source.query_id = source.query_id.trim();
-    }
-
-    let result = null;
-    if (source.result && typeof source.result === "object") {
-      result = source.result;
-    } else if (source.response && typeof source.response === "object") {
-      result = source.response;
-    } else {
-      return source;
-    }
-
-    if (this.resolveUnityQueryResultSuccess(result)) {
-      if (result.ok === undefined) {
-        result.ok = true;
-      }
-      if (result.success === undefined) {
-        result.success = true;
-      }
-      return source;
-    }
-
-    const feedback = this.withMcpErrorFeedback({
-      status: "failed",
-      error_code:
-        typeof result.error_code === "string" && result.error_code.trim()
-          ? result.error_code.trim()
-          : "E_QUERY_FAILED",
-      message:
-        typeof result.error_message === "string" && result.error_message.trim()
-          ? result.error_message.trim()
-          : typeof result.message === "string" && result.message.trim()
-            ? result.message.trim()
-            : "Unity query failed",
-    });
-    result.ok = false;
-    result.success = false;
-    result.error_code = feedback.error_code;
-    result.error_message = feedback.error_message;
-    result.suggestion = feedback.suggestion;
-    result.recoverable = feedback.recoverable;
-    return source;
+    return normalizeUnityQueryReportBody(this, body);
   }
 
   resolveUnityQueryResultSuccess(result) {
-    const source = result && typeof result === "object" ? result : {};
-    if (typeof source.ok === "boolean") {
-      return source.ok;
-    }
-    if (typeof source.success === "boolean") {
-      return source.success;
-    }
-    if (typeof source.error_code === "string" && source.error_code.trim()) {
-      return false;
-    }
-    return true;
+    return resolveUnityQueryResultSuccess(result);
   }
 
   registerMcpStreamSubscriber(options) {
@@ -712,44 +627,7 @@ class McpGateway {
   }
 
   getMcpMetrics() {
-    const errorFeedbackMetrics = getMcpErrorFeedbackMetricsSnapshot();
-    const observabilityPhase =
-      OBSERVABILITY_FREEZE_CONTRACT &&
-      typeof OBSERVABILITY_FREEZE_CONTRACT.phase === "string"
-        ? OBSERVABILITY_FREEZE_CONTRACT.phase
-        : "phase6_freeze";
-    return this.streamHub.getMetricsSnapshot({
-      observability_phase: observabilityPhase,
-      status_query_calls: this.statusQueryCalls,
-      running_job_id: this.lockManager.getRunningJobId(),
-      queued_job_count: this.jobQueue.size(),
-      total_job_count: this.jobStore.listJobs().length,
-      auto_cleanup_enforced: true,
-      lease_heartbeat_timeout_ms: this.leaseHeartbeatTimeoutMs,
-      lease_max_runtime_ms: this.leaseMaxRuntimeMs,
-      reboot_wait_timeout_ms: this.rebootWaitTimeoutMs,
-      lease_janitor_interval_ms: this.leaseJanitorIntervalMs,
-      auto_cancel_total: this.lifecycleMetrics.auto_cancel_total,
-      auto_cancel_heartbeat_timeout_total:
-        this.lifecycleMetrics.auto_cancel_heartbeat_timeout_total,
-      auto_cancel_max_runtime_total:
-        this.lifecycleMetrics.auto_cancel_max_runtime_total,
-      auto_cancel_reboot_wait_timeout_total:
-        this.lifecycleMetrics.auto_cancel_reboot_wait_timeout_total,
-      lock_release_total: this.lifecycleMetrics.lock_release_total,
-      queue_promote_total: this.lifecycleMetrics.queue_promote_total,
-      error_feedback_normalized_total:
-        errorFeedbackMetrics.error_feedback_normalized_total,
-      error_stack_sanitized_total:
-        errorFeedbackMetrics.error_stack_sanitized_total,
-      error_path_sanitized_total:
-        errorFeedbackMetrics.error_path_sanitized_total,
-      error_message_truncated_total:
-        errorFeedbackMetrics.error_message_truncated_total,
-      error_fixed_suggestion_enforced_total:
-        errorFeedbackMetrics.error_fixed_suggestion_enforced_total,
-      error_feedback_by_code: errorFeedbackMetrics.error_feedback_by_code,
-    });
+    return getMcpMetrics(this);
   }
 
   getRunningJob() {
@@ -772,118 +650,70 @@ class McpGateway {
     }
     const job = this.jobStore.getJobByRequestId(normalizedRequestId);
     if (!job) {
-      // Compatibility fallback for harnesses that write directly to mcpJobsById.
-      for (const item of this.mcpJobsById.values()) {
-        if (!item || typeof item !== "object") {
-          continue;
-        }
-        if (
-          typeof item.request_id === "string" &&
-          item.request_id === normalizedRequestId
-        ) {
-          return normalizeApprovalMode(item.approval_mode, "auto");
-        }
-      }
       return "require_user";
     }
     return normalizeApprovalMode(job.approval_mode, "auto");
   }
 
   listRecoveryJobs(threadId, limit) {
-    const normalizedThreadId =
-      typeof threadId === "string" ? threadId.trim() : "";
-    if (!normalizedThreadId) {
-      return [];
-    }
-    const maxItems =
-      Number.isFinite(Number(limit)) && Number(limit) >= 0
-        ? Math.floor(Number(limit))
-        : MCP_STREAM_RECOVERY_JOBS_MAX;
-    if (maxItems <= 0) {
-      return [];
-    }
-    return this.jobStore
-      .listJobs()
-      .filter((job) => job && job.thread_id === normalizedThreadId)
-      .sort((a, b) => Number(b.updated_at || 0) - Number(a.updated_at || 0))
-      .slice(0, maxItems)
-      .map((job) => this.buildJobStatusPayload(job));
+    return listRecoveryJobs(this, threadId, limit, MCP_STREAM_RECOVERY_JOBS_MAX);
   }
 
   touchLeaseByJobId(jobId, options) {
-    const normalizedJobId = typeof jobId === "string" ? jobId.trim() : "";
-    if (!normalizedJobId) {
-      return 0;
-    }
-    const job = this.jobStore.getJob(normalizedJobId);
-    if (!job || isTerminalMcpStatus(job.status)) {
-      return 0;
-    }
-    const opts = options && typeof options === "object" ? options : {};
-    const nowMs =
-      Number.isFinite(Number(opts.nowMs)) && Number(opts.nowMs) > 0
-        ? Math.floor(Number(opts.nowMs))
-        : Date.now();
-    const ownerClientId =
-      typeof job.thread_id === "string" && job.thread_id.trim()
-        ? job.thread_id.trim()
-        : "";
-    const lease = touchLease(job.lease, {
-      nowMs,
-      ownerClientId,
-      defaultHeartbeatTimeoutMs: this.leaseHeartbeatTimeoutMs,
-      defaultMaxRuntimeMs: this.leaseMaxRuntimeMs,
-    });
-    if (typeof opts.source === "string" && opts.source.trim()) {
-      lease.last_heartbeat_source = opts.source.trim();
-    }
-    const updated = this.jobStore.updateJob(normalizedJobId, { lease });
-    if (updated && opts.persist === true) {
-      this.jobRecovery.persist();
-    }
-    return updated ? 1 : 0;
+    return touchLeaseByJobId(this, jobId, options);
   }
 
   touchLeaseByThreadId(threadId, options) {
-    const normalizedThreadId =
-      typeof threadId === "string" ? threadId.trim() : "";
-    if (!normalizedThreadId) {
-      return 0;
-    }
-    const opts = options && typeof options === "object" ? options : {};
-    const nowMs =
-      Number.isFinite(Number(opts.nowMs)) && Number(opts.nowMs) > 0
-        ? Math.floor(Number(opts.nowMs))
-        : Date.now();
-    let touched = 0;
-    for (const job of this.jobStore.listJobs()) {
-      if (!job || isTerminalMcpStatus(job.status)) {
-        continue;
-      }
-      if (
-        typeof job.thread_id !== "string" ||
-        job.thread_id.trim() !== normalizedThreadId
-      ) {
-        continue;
-      }
-      const lease = touchLease(job.lease, {
-        nowMs,
-        ownerClientId: normalizedThreadId,
-        defaultHeartbeatTimeoutMs: this.leaseHeartbeatTimeoutMs,
-        defaultMaxRuntimeMs: this.leaseMaxRuntimeMs,
-      });
-      if (typeof opts.source === "string" && opts.source.trim()) {
-        lease.last_heartbeat_source = opts.source.trim();
-      }
-      const updated = this.jobStore.updateJob(job.job_id, { lease });
-      if (updated) {
-        touched += 1;
-      }
-    }
-    if (touched > 0 && opts.persist === true) {
-      this.jobRecovery.persist();
-    }
-    return touched;
+    return touchLeaseByThreadId(this, threadId, options);
+  }
+
+  normalizeLegacyAnchorMode(value) {
+    return value === "deny" ? "deny" : "warn";
+  }
+
+  getLegacyAnchorGateSnapshot() {
+    const nowMs = Date.now();
+    const requiredDays =
+      Number.isFinite(Number(this.legacyAnchorDenyRequiredDays)) &&
+      Number(this.legacyAnchorDenyRequiredDays) >= 0
+        ? Math.floor(Number(this.legacyAnchorDenyRequiredDays))
+        : 7;
+    const requiredWindowMs = requiredDays * LEGACY_ANCHOR_DAYS_IN_MS;
+    const windowStartMs =
+      Number.isFinite(Number(this.legacyAnchorModeMetrics.last_hit_at_ms)) &&
+      Number(this.legacyAnchorModeMetrics.last_hit_at_ms) > 0
+        ? Math.floor(Number(this.legacyAnchorModeMetrics.last_hit_at_ms))
+        : Number.isFinite(Number(this.legacyAnchorGateObservedSinceMs)) &&
+            Number(this.legacyAnchorGateObservedSinceMs) > 0
+          ? Math.floor(Number(this.legacyAnchorGateObservedSinceMs))
+          : nowMs;
+    const zeroHitWindowMs = Math.max(0, nowMs - windowStartMs);
+    const zeroHitWindowDays = Math.floor(zeroHitWindowMs / LEGACY_ANCHOR_DAYS_IN_MS);
+    return {
+      requiredDays,
+      requiredWindowMs,
+      zeroHitWindowDays,
+      ready:
+        this.legacyAnchorDenySignoff === true && zeroHitWindowMs >= requiredWindowMs,
+    };
+  }
+
+  recordLegacyAnchorFallback(entry) {
+    const item = entry && typeof entry === "object" ? entry : {};
+    const actionType =
+      typeof item.action_type === "string" && item.action_type.trim()
+        ? item.action_type.trim()
+        : "unknown";
+    this.legacyAnchorModeMetrics.warn_hits_total += 1;
+    this.legacyAnchorModeMetrics.warn_hits_by_action[actionType] =
+      (this.legacyAnchorModeMetrics.warn_hits_by_action[actionType] || 0) + 1;
+    const now = this.nowIso();
+    this.legacyAnchorModeMetrics.last_hit_at = now;
+    this.legacyAnchorModeMetrics.last_hit_at_ms = Date.now();
+  }
+
+  recordActionErrorCodeMissing() {
+    this.actionErrorCodeMissingTotal += 1;
   }
 
   recordAutoCancel(reason) {
@@ -911,85 +741,63 @@ class McpGateway {
   }
 
   sweepLeaseJanitor(nowMs) {
-    return this.jobLeaseJanitor.sweep(nowMs);
+    return sweepLeaseJanitor(this, nowMs);
   }
 
   buildJobStatusPayload(job) {
-    const item = job && typeof job === "object" ? job : {};
-    const runtime =
-      item.runtime && typeof item.runtime === "object" ? item.runtime : null;
-    const visualActions =
-      runtime && Array.isArray(runtime.visual_actions) ? runtime.visual_actions : [];
-    const nextVisualIndex =
-      runtime &&
-      Number.isFinite(Number(runtime.next_visual_index)) &&
-      Number(runtime.next_visual_index) >= 0
-        ? Math.floor(Number(runtime.next_visual_index))
-        : 0;
-    const pendingVisualAction =
-      visualActions[nextVisualIndex] &&
-      typeof visualActions[nextVisualIndex] === "object"
-        ? cloneJson(visualActions[nextVisualIndex])
-        : null;
-    const pendingVisualActionCount = pendingVisualAction
-      ? Math.max(visualActions.length - nextVisualIndex, 0)
-      : 0;
-    const unityActionRequest =
-      runtime &&
-      runtime.last_action_request &&
-      typeof runtime.last_action_request === "object"
-        ? cloneJson(runtime.last_action_request)
-        : null;
-    const lease = normalizeLease(item.lease, {
-      ownerClientId: item.thread_id || "",
-      nowMs:
-        Number.isFinite(Number(item.updated_at)) && Number(item.updated_at) > 0
-          ? Number(item.updated_at)
-          : Date.now(),
-      defaultHeartbeatTimeoutMs: this.leaseHeartbeatTimeoutMs,
-      defaultMaxRuntimeMs: this.leaseMaxRuntimeMs,
-    });
+    return buildJobStatusPayload(this, job);
+  }
 
+  validationError(validation, options) {
+    return validationError(validation, options);
+  }
+
+  getUnityConnectionState() {
+    if (!this.resolveUnityConnectionState) {
+      return "";
+    }
+    const stateRaw = this.resolveUnityConnectionState();
+    const state =
+      typeof stateRaw === "string" ? stateRaw.trim().toLowerCase() : "";
+    if (
+      state === "offline" ||
+      state === "connecting" ||
+      state === "ready" ||
+      state === "stale"
+    ) {
+      return state;
+    }
+    return "";
+  }
+
+  isUnityReadyForWrite() {
+    const state = this.getUnityConnectionState();
+    if (!state) {
+      return {
+        ok: true,
+        state: "",
+      };
+    }
     return {
-      job_id: item.job_id || "",
-      thread_id: item.thread_id || "",
-      status: item.status || "pending",
-      stage: item.stage || "",
-      progress_message: item.progress_message || "",
-      error_code: item.error_code || "",
-      error_message: item.error_message || "",
-      auto_cancel_reason: item.auto_cancel_reason || "",
-      suggestion: item.suggestion || "",
-      recoverable: item.recoverable === true,
-      lease_state: lease.state || "",
-      lease_owner_client_id: lease.owner_client_id || "",
-      lease_last_heartbeat_at: toIsoTimestamp(lease.last_heartbeat_at),
-      lease_heartbeat_timeout_ms: lease.heartbeat_timeout_ms,
-      lease_max_runtime_ms: lease.max_runtime_ms,
-      lease_orphaned: lease.orphaned === true,
-      request_id: item.request_id || "",
-      running_job_id: this.lockManager.getRunningJobId(),
-      execution_report:
-        item.execution_report && typeof item.execution_report === "object"
-          ? cloneJson(item.execution_report)
-          : null,
-      pending_visual_action_count: pendingVisualActionCount,
-      pending_visual_action: pendingVisualAction,
-      unity_action_request: unityActionRequest,
-      approval_mode: item.approval_mode || "auto",
-      created_at:
-        Number.isFinite(Number(item.created_at)) && Number(item.created_at) > 0
-          ? new Date(Number(item.created_at)).toISOString()
-          : this.nowIso(),
-      updated_at:
-        Number.isFinite(Number(item.updated_at)) && Number(item.updated_at) > 0
-          ? new Date(Number(item.updated_at)).toISOString()
-          : this.nowIso(),
+      ok: state === "ready",
+      state,
     };
   }
 
-  validationError(validation) {
-    return validationError(validation);
+  buildUnityNotReadyWriteOutcome(state) {
+    const normalizedState =
+      typeof state === "string" && state.trim() ? state.trim().toLowerCase() : "";
+    const suffix = normalizedState ? ` Current state: ${normalizedState}.` : "";
+    return {
+      statusCode: 503,
+      body: this.withMcpErrorFeedback({
+        status: "rejected",
+        error_code: "E_UNITY_NOT_CONNECTED",
+        message:
+          "Unity Editor connection is not ready for write operations." + suffix,
+        unity_connection_state: normalizedState || "unknown",
+      }),
+    };
   }
 
   validateWriteReadToken(tokenValue) {

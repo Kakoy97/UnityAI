@@ -83,12 +83,19 @@ class PreconditionService {
         const expectedComponentRaw =
           typeof item.component === "string" && item.component.trim()
             ? item.component.trim()
-            : typeof item.component_name === "string" && item.component_name.trim()
-              ? item.component_name.trim()
-              : typeof item.component_assembly_qualified_name === "string" &&
-                  item.component_assembly_qualified_name.trim()
-                ? item.component_assembly_qualified_name.trim()
-                : "";
+            : "";
+        if (!expectedComponentRaw) {
+          checks.push({
+            index: i,
+            type,
+            target_object_id: targetObjectId || "",
+            target_path: targetPath,
+            pass: false,
+            reason: "component_missing",
+            error_code: "E_SCHEMA_INVALID",
+          });
+          continue;
+        }
         const components = this.unitySnapshotService.readSelectionComponentsForPath(
           targetPath,
           snapshot

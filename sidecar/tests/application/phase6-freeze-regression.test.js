@@ -9,6 +9,7 @@ const { McpStreamHub } = require("../../src/application/mcpGateway/mcpStreamHub"
 const { UnityMcpServer } = require("../../src/mcp/mcpServer");
 const {
   ROUTER_PROTOCOL_FREEZE_CONTRACT,
+  MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
   OBSERVABILITY_FREEZE_CONTRACT,
 } = require("../../src/ports/contracts");
 
@@ -149,9 +150,9 @@ test("phase6 deprecated HTTP routes are hard rejected with E_GONE", async () => 
   }
 });
 
-test("phase6 MCP tools list excludes deprecated names and preserves active set", () => {
+test("phase6 MCP tools list excludes deprecated names and follows visibility policy", async () => {
   const server = Object.create(UnityMcpServer.prototype);
-  const definitions = server.getToolDefinitions();
+  const definitions = await server.getToolDefinitions();
   const names = definitions.map((item) => item.name);
 
   const deprecatedNames =
@@ -159,17 +160,36 @@ test("phase6 MCP tools list excludes deprecated names and preserves active set",
     Array.isArray(ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names)
       ? ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names
       : [];
-  const activeNames =
+  const activeNames = new Set(
     ROUTER_PROTOCOL_FREEZE_CONTRACT &&
-    Array.isArray(ROUTER_PROTOCOL_FREEZE_CONTRACT.mcp_tool_names)
+      Array.isArray(ROUTER_PROTOCOL_FREEZE_CONTRACT.mcp_tool_names)
       ? ROUTER_PROTOCOL_FREEZE_CONTRACT.mcp_tool_names
-      : [];
+      : []
+  );
+  const allowlist = new Set(
+    MCP_TOOL_VISIBILITY_FREEZE_CONTRACT &&
+      Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.security_allowlist)
+      ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.security_allowlist
+      : []
+  );
+  const disabled = new Set(
+    MCP_TOOL_VISIBILITY_FREEZE_CONTRACT &&
+      Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.disabled_tools)
+      ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.disabled_tools
+      : []
+  );
 
   for (const deprecated of deprecatedNames) {
     assert.equal(names.includes(deprecated), false, `deprecated tool leaked: ${deprecated}`);
   }
   for (const active of activeNames) {
-    assert.equal(names.includes(active), true, `active tool missing: ${active}`);
+    const expectedVisible =
+      (allowlist.size === 0 || allowlist.has(active)) && !disabled.has(active);
+    assert.equal(
+      names.includes(active),
+      expectedVisible,
+      `tool visibility mismatch for: ${active}`
+    );
   }
 });
 

@@ -1,9 +1,16 @@
 "use strict";
+/**
+ * R11-ARCH-01 Responsibility boundary:
+ * - TurnService coordinates shared application services and orchestration primitives.
+ * - TurnService must not expose MCP stdio tool catalogs or raw HTTP route branching.
+ * - Command-specific schemas/policies belong to validators + command modules, not adapters.
+ */
 
 const {
   validateFileActionsApply,
   validateUnitySelectionSnapshot,
   validateUnityConsoleSnapshot,
+  validateUnityCapabilitiesReport,
 } = require("../domain/validators");
 const {
   normalizeSelectionComponentIndex,
@@ -15,7 +22,8 @@ const { PreconditionService } = require("./preconditionService");
 const { McpGateway } = require("./mcpGateway/mcpGateway");
 const { McpEyesService } = require("./mcpGateway/mcpEyesService");
 const { QueryStore } = require("./queryRuntime/queryStore");
-const { QueryCoordinator } = require("./queryRuntime/queryCoordinator");
+const { QueryCoordinator } = require("./queryCoordinator");
+const { CapabilityStore } = require("./capabilityStore");
 
 const SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
 
@@ -36,6 +44,11 @@ class TurnService {
         ? Number(deps.sessionCacheTtlMs)
         : SESSION_CACHE_TTL_MS;
     this.enableMcpEyes = deps.enableMcpEyes === true;
+    this.unityQueryContractVersion =
+      typeof deps.unityQueryContractVersion === "string" &&
+      deps.unityQueryContractVersion.trim()
+        ? deps.unityQueryContractVersion.trim()
+        : "unity.query.v2";
 
     this.responseCacheService = new ResponseCacheService({
       sessionCacheTtlMs: this.sessionCacheTtlMs,
@@ -44,10 +57,16 @@ class TurnService {
       nowIso: this.nowIso,
       readTokenHardMaxAgeMs: deps.readTokenHardMaxAgeMs,
     });
+    this.capabilityStore = new CapabilityStore({
+      nowIso: this.nowIso,
+      capabilityStaleAfterMs: deps.mcpCapabilityStaleAfterMs,
+    });
     this.mcpGateway = new McpGateway({
       nowIso: this.nowIso,
       enableMcpAdapter: deps.enableMcpAdapter,
       unitySnapshotService: this.unitySnapshotService,
+      resolveUnityConnectionState: () =>
+        this.capabilityStore.getSnapshot().unity_connection_state,
       mcpMaxQueue: deps.mcpMaxQueue,
       mcpJobTtlMs: deps.mcpJobTtlMs,
       mcpStreamMaxEvents: deps.mcpStreamMaxEvents,
@@ -57,6 +76,8 @@ class TurnService {
       mcpLeaseMaxRuntimeMs: deps.mcpLeaseMaxRuntimeMs,
       mcpRebootWaitTimeoutMs: deps.mcpRebootWaitTimeoutMs,
       mcpLeaseJanitorIntervalMs: deps.mcpLeaseJanitorIntervalMs,
+      legacyAnchorMode: deps.legacyAnchorMode,
+      legacyAnchorDenySignoff: deps.legacyAnchorDenySignoff,
       mcpSnapshotStore: deps.mcpSnapshotStore,
       fileActionExecutor: this.fileActionExecutor,
     });
@@ -71,7 +92,10 @@ class TurnService {
       unitySnapshotService: this.unitySnapshotService,
       preconditionService: this.preconditionService,
       mcpGateway: this.mcpGateway,
+      capabilityStore: this.capabilityStore,
+      enqueueAndWaitForUnityQuery: this.enqueueAndWaitForUnityQuery.bind(this),
       submitUnityQueryAndWait: this.submitUnityQueryAndWait.bind(this),
+      queryContractVersion: this.unityQueryContractVersion,
     });
     this.queryStore = new QueryStore({
       terminalRetentionMs: deps.unityQueryTerminalRetentionMs,
@@ -82,6 +106,7 @@ class TurnService {
       queryStore: this.queryStore,
       defaultTimeoutMs: deps.unityQueryTimeoutMs,
       maxTimeoutMs: deps.unityQueryMaxTimeoutMs,
+      defaultQueryContractVersion: this.unityQueryContractVersion,
     });
 
     // Compatibility alias for existing tests/harness.
@@ -101,6 +126,8 @@ class TurnService {
       timestamp: this.nowIso(),
       active_request_id: this.mcpGateway.lockManager.getRunningJobId(),
       active_state: this.mcpGateway.lockManager.hasRunningJob() ? "running" : "",
+      unity_connection_state:
+        this.capabilityStore.getSnapshot().unity_connection_state,
     };
   }
 
@@ -121,6 +148,7 @@ class TurnService {
         running_job_id: this.mcpGateway.lockManager.getRunningJobId(),
         queued_job_ids: this.mcpGateway.jobQueue.list(),
         jobs: this.mcpGateway.jobStore.listJobs(),
+        capabilities: this.capabilityStore.getSnapshot(),
       },
     };
   }
@@ -251,6 +279,7 @@ class TurnService {
   }
 
   reportCompileResult(body) {
+    this.capabilityStore.markUnitySignal();
     const normalizedBody =
       this.mcpGateway &&
       typeof this.mcpGateway.normalizeUnityCompileResultBody === "function"
@@ -261,6 +290,7 @@ class TurnService {
   }
 
   reportUnityActionResult(body) {
+    this.capabilityStore.markUnitySignal();
     const normalizedBody =
       this.mcpGateway &&
       typeof this.mcpGateway.normalizeUnityActionResultBody === "function"
@@ -285,13 +315,29 @@ class TurnService {
 
   submitUnityQueryAndWait(queryType, payload, options) {
     const opts = options && typeof options === "object" ? options : {};
-    return this.queryCoordinator.enqueueAndWait({
-      query_type: queryType,
+    return this.enqueueAndWaitForUnityQuery({
+      queryType,
       payload: payload && typeof payload === "object" ? payload : {},
-      timeout_ms: opts.timeout_ms,
-      request_id: opts.request_id,
-      thread_id: opts.thread_id,
-      turn_id: opts.turn_id,
+      timeoutMs: opts.timeout_ms,
+      requestId: opts.request_id,
+      threadId: opts.thread_id,
+      turnId: opts.turn_id,
+      queryContractVersion: opts.query_contract_version,
+      queryPayloadJson: opts.query_payload_json,
+    });
+  }
+
+  enqueueAndWaitForUnityQuery(options) {
+    const input = options && typeof options === "object" ? options : {};
+    return this.queryCoordinator.enqueueAndWaitForUnityQuery({
+      queryType: input.queryType,
+      payload: input.payload && typeof input.payload === "object" ? input.payload : {},
+      timeoutMs: input.timeoutMs,
+      requestId: input.requestId,
+      threadId: input.threadId,
+      turnId: input.turnId,
+      queryContractVersion: input.queryContractVersion,
+      queryPayloadJson: input.queryPayloadJson,
     });
   }
 
@@ -402,7 +448,30 @@ class TurnService {
   }
 
   reportUnityRuntimePing(body) {
+    this.capabilityStore.markUnitySignal();
     return this.mcpGateway.handleUnityRuntimePing(body);
+  }
+
+  reportUnityCapabilities(body) {
+    const validation = validateUnityCapabilitiesReport(body);
+    if (!validation.ok) {
+      return this.validationError(validation);
+    }
+    const payload = body && body.payload && typeof body.payload === "object"
+      ? body.payload
+      : {};
+    const snapshot = this.capabilityStore.reportCapabilities(payload);
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        event: "unity.capabilities.accepted",
+        unity_connection_state: snapshot.unity_connection_state,
+        capability_version: snapshot.capability_version,
+        capability_updated_at: snapshot.capability_updated_at,
+        action_count: snapshot.action_count,
+      },
+    };
   }
 
   submitUnityTask(body) {
@@ -427,6 +496,10 @@ class TurnService {
 
   applyVisualActionsForMcp(body) {
     return this.mcpEyesService.applyVisualActions(body);
+  }
+
+  setUiPropertiesForMcp(body) {
+    return this.mcpEyesService.setUiProperties(body);
   }
 
   getCurrentSelectionForMcp() {
@@ -467,6 +540,16 @@ class TurnService {
 
   async queryPrefabInfoForMcp(body) {
     return this.mcpEyesService.queryPrefabInfo(body);
+  }
+
+  getCapabilitiesForMcp() {
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        ...this.capabilityStore.getSnapshot(),
+      },
+    };
   }
 
   listMcpResources() {

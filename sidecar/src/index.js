@@ -12,6 +12,7 @@ const {
   assertNoDeprecatedAutoCleanupSettings,
   assertNoRuntimeModeRollbackSettings,
 } = require("./adapters/argAdapter");
+const { LEGACY_ANCHOR_MIGRATION_CONTRACT } = require("./ports/contracts");
 
 function bootstrap(port, options) {
   const opts = options && typeof options === "object" ? options : {};
@@ -42,6 +43,10 @@ function bootstrap(port, options) {
     5 * 60 * 1000
   );
   const unityQueryMaxEntries = parseEnvPositive("UNITY_QUERY_MAX_ENTRIES", 2000);
+  const unityQueryContractVersion = parseEnvString(
+    "UNITY_QUERY_CONTRACT_VERSION",
+    "unity.query.v2"
+  );
   const readTokenHardMaxAgeMs = parseEnvPositive(
     "READ_TOKEN_HARD_MAX_AGE_MS",
     3 * 60 * 1000
@@ -56,6 +61,37 @@ function bootstrap(port, options) {
   const mcpStreamRecoveryJobsMax = parseEnvNonNegative(
     "MCP_STREAM_RECOVERY_JOBS_MAX",
     20
+  );
+  const legacyAnchorModeEnvName =
+    LEGACY_ANCHOR_MIGRATION_CONTRACT &&
+    typeof LEGACY_ANCHOR_MIGRATION_CONTRACT.mode_env === "string"
+      ? LEGACY_ANCHOR_MIGRATION_CONTRACT.mode_env
+      : "LEGACY_ANCHOR_MODE";
+  const legacyAnchorAllowedModes =
+    LEGACY_ANCHOR_MIGRATION_CONTRACT &&
+    Array.isArray(LEGACY_ANCHOR_MIGRATION_CONTRACT.allowed_modes)
+      ? LEGACY_ANCHOR_MIGRATION_CONTRACT.allowed_modes
+      : ["warn", "deny"];
+  const legacyAnchorDefaultMode =
+    LEGACY_ANCHOR_MIGRATION_CONTRACT &&
+    typeof LEGACY_ANCHOR_MIGRATION_CONTRACT.default_mode === "string"
+      ? LEGACY_ANCHOR_MIGRATION_CONTRACT.default_mode
+      : "warn";
+  const legacyAnchorDenySignoffEnvName =
+    LEGACY_ANCHOR_MIGRATION_CONTRACT &&
+    LEGACY_ANCHOR_MIGRATION_CONTRACT.deny_switch_gate &&
+    typeof LEGACY_ANCHOR_MIGRATION_CONTRACT.deny_switch_gate.manual_signoff_env ===
+      "string"
+      ? LEGACY_ANCHOR_MIGRATION_CONTRACT.deny_switch_gate.manual_signoff_env
+      : "LEGACY_ANCHOR_DENY_SIGNOFF";
+  const legacyAnchorMode = parseEnvEnum(
+    legacyAnchorModeEnvName,
+    legacyAnchorDefaultMode,
+    legacyAnchorAllowedModes
+  );
+  const legacyAnchorDenySignoff = parseEnvBoolean(
+    legacyAnchorDenySignoffEnvName,
+    false
   );
   assertNoDeprecatedAutoCleanupSettings(opts.argv, process.env);
   assertNoRuntimeModeRollbackSettings(opts.argv, process.env);
@@ -118,6 +154,7 @@ function bootstrap(port, options) {
     unityQueryMaxTimeoutMs,
     unityQueryTerminalRetentionMs,
     unityQueryMaxEntries,
+    unityQueryContractVersion,
     readTokenHardMaxAgeMs,
     mcpMaxQueue,
     mcpJobTtlMs,
@@ -128,6 +165,8 @@ function bootstrap(port, options) {
     mcpLeaseMaxRuntimeMs,
     mcpRebootWaitTimeoutMs,
     mcpLeaseJanitorIntervalMs,
+    legacyAnchorMode,
+    legacyAnchorDenySignoff,
     mcpSnapshotStore: mcpJobSnapshotStore,
     enableTimeoutAbortCleanup,
     fileActionExecutor,
@@ -177,6 +216,39 @@ function parseEnvBoolean(name, fallback) {
     return false;
   }
   return fallback;
+}
+
+function parseEnvEnum(name, fallback, allowedValues) {
+  const fallbackValue =
+    typeof fallback === "string" && fallback.trim() ? fallback.trim() : "";
+  const allowed = new Set(
+    Array.isArray(allowedValues)
+      ? allowedValues
+          .filter((value) => typeof value === "string" && value.trim())
+          .map((value) => value.trim())
+      : []
+  );
+  if (!allowed.has(fallbackValue) && allowed.size > 0) {
+    return Array.from(allowed)[0];
+  }
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || raw === "") {
+    return fallbackValue;
+  }
+  const normalized = String(raw).trim();
+  if (allowed.size === 0 || allowed.has(normalized)) {
+    return normalized;
+  }
+  return fallbackValue;
+}
+
+function parseEnvString(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null) {
+    return fallback;
+  }
+  const normalized = String(raw).trim();
+  return normalized || fallback;
 }
 
 module.exports = {

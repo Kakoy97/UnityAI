@@ -49,11 +49,12 @@ function invokeRoute(route, method, path, body) {
   });
 }
 
-test("router forwards three write HTTP endpoints into unified turnService chain", async () => {
+test("router forwards write HTTP endpoints into unified turnService chain", async () => {
   const calls = {
     submit: 0,
     script: 0,
     visual: 0,
+    setUi: 0,
   };
   const turnService = {
     getHealthPayload: () => ({ ok: true }),
@@ -69,6 +70,10 @@ test("router forwards three write HTTP endpoints into unified turnService chain"
     applyVisualActionsForMcp(body) {
       calls.visual += 1;
       return { statusCode: 409, body: { route: "visual", body } };
+    },
+    setUiPropertiesForMcp(body) {
+      calls.setUi += 1;
+      return { statusCode: 409, body: { route: "set_ui", body } };
     },
   };
   const route = createRouter({
@@ -118,17 +123,39 @@ test("router forwards three write HTTP endpoints into unified turnService chain"
       },
     ],
   });
+  const setUiResp = await invokeRoute(route, "POST", "/mcp/set_ui_properties", {
+    based_on_read_token: "tok_setui_12345678901234567890",
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    operations: [
+      {
+        target_anchor: {
+          object_id: "go_root",
+          path: "Scene/Root",
+        },
+        text: {
+          content: "Hello",
+        },
+      },
+    ],
+    dry_run: true,
+  });
 
   assert.equal(submitResp.statusCode, 409);
   assert.equal(scriptResp.statusCode, 409);
   assert.equal(visualResp.statusCode, 409);
+  assert.equal(setUiResp.statusCode, 409);
   assert.equal(submitResp.body.route, "submit");
   assert.equal(scriptResp.body.route, "script");
   assert.equal(visualResp.body.route, "visual");
+  assert.equal(setUiResp.body.route, "set_ui");
   assert.deepEqual(calls, {
     submit: 1,
     script: 1,
     visual: 1,
+    setUi: 1,
   });
 });
 
@@ -228,6 +255,25 @@ test("MCP write tools call only /mcp write endpoints", async () => {
       },
     ],
   });
+  await server.setUiProperties({
+    based_on_read_token: "tok_setui_12345678901234567890",
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    operations: [
+      {
+        target_anchor: {
+          object_id: "go_root",
+          path: "Scene/Root",
+        },
+        text: {
+          content: "Play",
+        },
+      },
+    ],
+    dry_run: true,
+  });
 
   assert.deepEqual(
     calls.map((item) => `${item.method} ${item.url}`),
@@ -235,6 +281,7 @@ test("MCP write tools call only /mcp write endpoints", async () => {
       "POST http://127.0.0.1:46321/mcp/submit_unity_task",
       "POST http://127.0.0.1:46321/mcp/apply_script_actions",
       "POST http://127.0.0.1:46321/mcp/apply_visual_actions",
+      "POST http://127.0.0.1:46321/mcp/set_ui_properties",
     ]
   );
 });

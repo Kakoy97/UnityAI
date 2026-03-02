@@ -14,11 +14,17 @@ namespace UnityAI.Editor.Codex.Infrastructure
         private const string DefaultThreadId = "t_default";
         private const double RecoveryProbeIntervalSeconds = 5d;
         private const double RecoveryProbeWindowSeconds = 120d;
+        private const double CapabilityReportIntervalSeconds = 5d;
+        private const double CapabilityReportWindowSeconds = 120d;
 
         private static bool _needsRecoveryProbe;
         private static bool _recoveryProbeInFlight;
         private static double _lastRecoveryProbeAt;
         private static double _recoveryProbeStartedAt;
+        private static bool _needsCapabilityReport;
+        private static bool _capabilityReportInFlight;
+        private static double _lastCapabilityReportAt;
+        private static double _capabilityReportStartedAt;
 
         static UnityRuntimeReloadPingBootstrap()
         {
@@ -28,16 +34,36 @@ namespace UnityAI.Editor.Codex.Infrastructure
 
         private static void OnEditorDelayCall()
         {
-            _recoveryProbeStartedAt = GetNowSeconds();
+            var now = GetNowSeconds();
+            _recoveryProbeStartedAt = now;
             _needsRecoveryProbe = HasPendingBusyState();
             if (_needsRecoveryProbe)
             {
                 _ = TryPingAfterReloadAsync();
             }
+
+            _capabilityReportStartedAt = now;
+            _needsCapabilityReport = true;
+            _ = TryReportCapabilitiesAfterReloadAsync();
         }
 
         private static void OnEditorUpdate()
         {
+            if (_needsCapabilityReport && !_capabilityReportInFlight)
+            {
+                var capabilityNow = GetNowSeconds();
+                if (_capabilityReportStartedAt > 0d &&
+                    capabilityNow - _capabilityReportStartedAt > CapabilityReportWindowSeconds)
+                {
+                    _needsCapabilityReport = false;
+                }
+                else if (_lastCapabilityReportAt <= 0d ||
+                         capabilityNow - _lastCapabilityReportAt >= CapabilityReportIntervalSeconds)
+                {
+                    _ = TryReportCapabilitiesAfterReloadAsync();
+                }
+            }
+
             if (!_needsRecoveryProbe || _recoveryProbeInFlight)
             {
                 return;
@@ -101,6 +127,38 @@ namespace UnityAI.Editor.Codex.Infrastructure
             finally
             {
                 _recoveryProbeInFlight = false;
+            }
+        }
+
+        private static async Task TryReportCapabilitiesAfterReloadAsync()
+        {
+            if (_capabilityReportInFlight || !_needsCapabilityReport)
+            {
+                return;
+            }
+
+            _capabilityReportInFlight = true;
+            _lastCapabilityReportAt = GetNowSeconds();
+            try
+            {
+                var controller = UnityRagQueryPollingBootstrap.GetController();
+                if (controller == null)
+                {
+                    return;
+                }
+
+                controller.SidecarUrl = EditorPrefs.GetString(SidecarUrlEditorPrefKey, DefaultSidecarUrl);
+                var threadId = EditorPrefs.GetString(ThreadIdEditorPrefKey, DefaultThreadId);
+                controller.ThreadId = string.IsNullOrEmpty(threadId) ? DefaultThreadId : threadId;
+                var success = await controller.ReportCapabilitiesAsync("runtime_reload", false);
+                if (success)
+                {
+                    _needsCapabilityReport = false;
+                }
+            }
+            finally
+            {
+                _capabilityReportInFlight = false;
             }
         }
 

@@ -32,10 +32,34 @@ function createService(options) {
       },
     },
   });
+  markUnityReady(service);
   return {
     turnStore,
     service,
   };
+}
+
+function markUnityReady(service) {
+  service.reportUnityCapabilities({
+    event: "unity.capabilities.report",
+    request_id: "req_capability_occ_write_guard",
+    thread_id: "t_default",
+    turn_id: "turn_capability_occ_write_guard",
+    timestamp: new Date().toISOString(),
+    payload: {
+      capability_version: "test_occ_write_guard_v1",
+      actions: [
+        {
+          type: "delete_file",
+          description: "Delete file",
+          anchor_policy: "write_anchor_required",
+          action_data_schema: {
+            type: "object",
+          },
+        },
+      ],
+    },
+  });
 }
 
 function seedSelectionSnapshot(service, sceneRevision) {

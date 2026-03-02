@@ -40,6 +40,29 @@ function createService() {
   };
 }
 
+function markUnityReady(service) {
+  service.reportUnityCapabilities({
+    event: "unity.capabilities.report",
+    request_id: "req_capability_error_feedback_consistency",
+    thread_id: "t_default",
+    turn_id: "turn_capability_error_feedback_consistency",
+    timestamp: new Date().toISOString(),
+    payload: {
+      capability_version: "test_error_feedback_consistency_v1",
+      actions: [
+        {
+          type: "add_component",
+          description: "Add component",
+          anchor_policy: "target_required",
+          action_data_schema: {
+            type: "object",
+          },
+        },
+      ],
+    },
+  });
+}
+
 function seedSelectionSnapshot(service, sceneRevision) {
   service.recordLatestSelectionContext(
     {
@@ -134,6 +157,7 @@ function invokeRoute(route, method, path, body) {
 
 test("failed action error fields stay consistent across HTTP/MCP/Stream", async () => {
   const { service } = createService();
+  markUnityReady(service);
   const streamEvents = [];
   const registration = service.registerMcpStreamSubscriber({
     thread_id: "t_default",
@@ -265,4 +289,3 @@ test("unknown errors keep fallback recoverable decision stable", () => {
   assert.equal(outcome.recoverable, false);
   assert.ok(typeof outcome.suggestion === "string" && outcome.suggestion.trim());
 });
-

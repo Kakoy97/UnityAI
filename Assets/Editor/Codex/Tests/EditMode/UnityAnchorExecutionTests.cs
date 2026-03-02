@@ -1,5 +1,7 @@
 using System;
+using System.Reflection;
 using NUnit.Framework;
+using UnityAI.Editor.Codex.Application;
 using UnityAI.Editor.Codex.Domain;
 using UnityAI.Editor.Codex.Infrastructure;
 using UnityEditor;
@@ -74,13 +76,13 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             var action = new VisualLayerActionItem
             {
                 type = "add_component",
-                component_assembly_qualified_name =
-                    "UnityEngine.Transform, UnityEngine.CoreModule",
                 target_anchor = new UnityObjectAnchor
                 {
                     object_id = BuildObjectId(goA),
                     path = BuildScenePath(goB.transform),
                 },
+                action_data_json =
+                    "{\"component_assembly_qualified_name\":\"UnityEngine.Transform, UnityEngine.CoreModule\"}",
             };
 
             var result = _executor.Execute(action, goA);
@@ -100,12 +102,12 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             var action = new VisualLayerActionItem
             {
                 type = "create_gameobject",
-                name = childName,
                 parent_anchor = new UnityObjectAnchor
                 {
                     object_id = parentObjectId,
                     path = parentPath,
                 },
+                action_data_json = "{\"name\":\"" + childName + "\"}",
             };
 
             var result = _executor.Execute(action, parent);
@@ -117,6 +119,69 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.IsTrue(
                 result.createdObjectPath.EndsWith("/" + childName, StringComparison.Ordinal));
             Assert.IsNotEmpty(result.createdObjectId);
+        }
+
+        [Test]
+        public void ConversationController_ValidateActionRequestPayload_Fails_WhenWriteAnchorConflicts()
+        {
+            var payload = new UnityActionRequestPayload
+            {
+                based_on_read_token = "tok_anchor_123456789012345678901234",
+                write_anchor = new UnityObjectAnchor
+                {
+                    object_id = "go_conflict",
+                    path = "Scene/RootA",
+                },
+                action = new VisualLayerActionItem
+                {
+                    type = "add_component",
+                    target_anchor = new UnityObjectAnchor
+                    {
+                        object_id = "go_conflict",
+                        path = "Scene/RootB",
+                    },
+                    action_data_json =
+                        "{\"component_assembly_qualified_name\":\"UnityEngine.Transform, UnityEngine.CoreModule\"}",
+                },
+            };
+
+            var args = new object[] { payload, null, null };
+            var method = typeof(ConversationController).GetMethod(
+                "TryValidateActionRequestPayload",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+            var ok = (bool)method.Invoke(null, args);
+            Assert.IsFalse(ok);
+            Assert.AreEqual("E_TARGET_ANCHOR_CONFLICT", args[1] as string);
+        }
+
+        [Test]
+        public void ConversationController_ValidateActionRequestPayload_Fails_WhenWriteAnchorMissing()
+        {
+            var payload = new UnityActionRequestPayload
+            {
+                based_on_read_token = "tok_anchor_123456789012345678901234",
+                write_anchor = null,
+                action = new VisualLayerActionItem
+                {
+                    type = "create_gameobject",
+                    parent_anchor = new UnityObjectAnchor
+                    {
+                        object_id = "go_root",
+                        path = "Scene/Root",
+                    },
+                    action_data_json = "{\"name\":\"Child\"}",
+                },
+            };
+
+            var args = new object[] { payload, null, null };
+            var method = typeof(ConversationController).GetMethod(
+                "TryValidateActionRequestPayload",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+            var ok = (bool)method.Invoke(null, args);
+            Assert.IsFalse(ok);
+            Assert.AreEqual("E_ACTION_SCHEMA_INVALID", args[1] as string);
         }
 
         private static string BuildObjectId(GameObject go)
@@ -139,4 +204,3 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         }
     }
 }
-

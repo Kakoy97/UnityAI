@@ -38,6 +38,11 @@ class QueryStore {
       request_id: this.normalizeString(item.request_id),
       thread_id: this.normalizeString(item.thread_id),
       turn_id: this.normalizeString(item.turn_id),
+      query_contract_version:
+        this.normalizeString(item.query_contract_version) || "unity.query.v2",
+      query_payload_json:
+        this.normalizeString(item.query_payload_json) ||
+        this.serializePayloadJson(item.payload),
       payload:
         item.payload && typeof item.payload === "object"
           ? cloneJson(item.payload)
@@ -324,9 +329,19 @@ class QueryStore {
     }
     return Math.floor(n);
   }
+
+  serializePayloadJson(payload) {
+    if (!payload || typeof payload !== "object") {
+      return "{}";
+    }
+    try {
+      return JSON.stringify(payload);
+    } catch (_) {
+      return "{}";
+    }
+  }
 }
 
 module.exports = {
   QueryStore,
 };
-

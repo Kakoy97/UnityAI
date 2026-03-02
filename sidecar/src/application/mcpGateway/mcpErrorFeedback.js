@@ -1,14 +1,22 @@
-﻿"use strict";
+﻿/**
+ * R10-ARCH-01 Responsibility boundary:
+ * - This module only normalizes/renders MCP error feedback payload fields.
+ * - This module must not perform schema validation or payload structure rewrite.
+ * - This module must not build request transport payloads.
+ */
+
+"use strict";
 
 const {
   normalizeErrorCode,
-  mapMcpErrorFeedback,
   sanitizeMcpErrorMessage,
   normalizeErrorSuggestionByCode,
 } = require("../../utils/turnUtils");
 const {
   isAutoCancelErrorCode,
   resolveAutoCancelErrorMessage,
+  buildValidationSchemaCompensation,
+  getMcpErrorFeedbackTemplate,
 } = require("../turnPolicies");
 const { enforceFixedErrorSuggestion } = require("../../domain/validators");
 
@@ -21,10 +29,34 @@ const errorFeedbackMetrics = {
   error_feedback_by_code: Object.create(null),
 };
 
+function normalizeSchemaRef(ref) {
+  const source = ref && typeof ref === "object" ? ref : null;
+  if (!source) {
+    return null;
+  }
+  const tool =
+    typeof source.tool === "string" && source.tool.trim() ? source.tool.trim() : "";
+  if (!tool) {
+    return null;
+  }
+  const params =
+    source.params && typeof source.params === "object" && !Array.isArray(source.params)
+      ? { ...source.params }
+      : {};
+  return {
+    tool,
+    params,
+  };
+}
+
 function bumpByCode(errorCode) {
   const code = normalizeErrorCode(errorCode, "E_INTERNAL");
   const current = Number(errorFeedbackMetrics.error_feedback_by_code[code]) || 0;
   errorFeedbackMetrics.error_feedback_by_code[code] = current + 1;
+}
+
+function mapMcpErrorFeedback(errorCode, errorMessage) {
+  return getMcpErrorFeedbackTemplate(errorCode, errorMessage);
 }
 
 function withMcpErrorFeedback(body) {
@@ -107,13 +139,33 @@ function resetMcpErrorFeedbackMetrics() {
   errorFeedbackMetrics.error_feedback_by_code = Object.create(null);
 }
 
-function validationError(validation) {
+function validationError(validation, options) {
+  const schemaCompensationRaw = buildValidationSchemaCompensation(validation, options);
+  const schemaCompensation =
+    schemaCompensationRaw && typeof schemaCompensationRaw === "object"
+      ? {
+          ...schemaCompensationRaw,
+          ...(normalizeSchemaRef(schemaCompensationRaw.schema_ref)
+            ? { schema_ref: normalizeSchemaRef(schemaCompensationRaw.schema_ref) }
+            : {}),
+          ...(normalizeSchemaRef(schemaCompensationRaw.tool_schema_ref)
+            ? {
+                tool_schema_ref: normalizeSchemaRef(
+                  schemaCompensationRaw.tool_schema_ref
+                ),
+              }
+            : {}),
+        }
+      : null;
   return {
     statusCode: validation.statusCode,
     body: withMcpErrorFeedback({
       status: "rejected",
       error_code: validation.errorCode,
       message: validation.message,
+      ...(schemaCompensation && typeof schemaCompensation === "object"
+        ? schemaCompensation
+        : {}),
     }),
   };
 }
@@ -124,3 +176,4 @@ module.exports = {
   getMcpErrorFeedbackMetricsSnapshot,
   resetMcpErrorFeedbackMetrics,
 };
+

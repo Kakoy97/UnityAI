@@ -47,3 +47,52 @@ test("validateUnityActionResult rejects non-create result when all target refs a
     "payload.target/target_object_path or payload.target_object_id/object_id is required"
   );
 });
+
+test("validateUnityActionResult accepts unknown action_type without legacy target refs", () => {
+  const body = buildBody({
+    action_type: "set_ui_image_color",
+    target: undefined,
+    target_object_path: "",
+    target_object_id: "",
+    object_id: "",
+    component_assembly_qualified_name: undefined,
+    source_component_assembly_qualified_name: undefined,
+    component_name: undefined,
+    result_data: {
+      applied: true,
+    },
+  });
+  const result = validateUnityActionResult(body);
+  assert.equal(result.ok, true);
+});
+
+test("validateUnityActionResult rejects non-object result_data when provided", () => {
+  const body = buildBody({
+    action_type: "set_ui_image_color",
+    target: undefined,
+    target_object_path: "",
+    target_object_id: "",
+    object_id: "",
+    component_assembly_qualified_name: undefined,
+    source_component_assembly_qualified_name: undefined,
+    component_name: undefined,
+    result_data: "bad_data",
+  });
+  const result = validateUnityActionResult(body);
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(result.message, "payload.result_data must be an object when provided");
+});
+
+test("validateUnityActionResult rejects legacy payload.action.type fallback", () => {
+  const body = buildBody({
+    action_type: undefined,
+    action: {
+      type: "add_component",
+    },
+  });
+  const result = validateUnityActionResult(body);
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(result.message, "payload.action_type is required");
+});

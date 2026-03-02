@@ -29,6 +29,7 @@ function createService() {
       },
     },
   });
+  markUnityReady(service);
   return {
     service,
     dispose() {
@@ -43,6 +44,29 @@ function createService() {
       }
     },
   };
+}
+
+function markUnityReady(service) {
+  service.reportUnityCapabilities({
+    event: "unity.capabilities.report",
+    request_id: "req_capability_job_lease_janitor",
+    thread_id: "t_default",
+    turn_id: "turn_capability_job_lease_janitor",
+    timestamp: new Date().toISOString(),
+    payload: {
+      capability_version: "test_job_lease_janitor_v1",
+      actions: [
+        {
+          type: "delete_file",
+          description: "Delete file",
+          anchor_policy: "write_anchor_required",
+          action_data_schema: {
+            type: "object",
+          },
+        },
+      ],
+    },
+  });
 }
 
 function seedSelectionSnapshot(service, sceneRevision) {
