@@ -43,11 +43,84 @@ namespace UnityAI.Editor.Codex.Domain
         public string target_anchor_ref;
         public string parent_anchor_ref;
         public string action_data_json;
+        public string action_data_marshaled;
         public string component_assembly_qualified_name;
         public string source_component_assembly_qualified_name;
         public string name;
         public string primitive_type;
         public string ui_type;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyActionData
+    {
+        public SerializedPropertyComponentSelector component_selector;
+        public SerializedPropertyPatchItem[] patches;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyComponentSelector
+    {
+        public string component_assembly_qualified_name;
+        public int component_index;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyPatchItem
+    {
+        public string property_path;
+        public string value_kind;
+        public int int_value;
+        public float float_value;
+        public string string_value;
+        public bool bool_value;
+        public int enum_value;
+        public string enum_name;
+        public SerializedPropertyVector2Dto vector2_value;
+        public SerializedPropertyVector3Dto vector3_value;
+        public SerializedPropertyColorDto color_value;
+        public int array_size;
+        public SerializedPropertyObjectReferenceDto object_ref;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyVector2Dto
+    {
+        public float x;
+        public float y;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyVector3Dto
+    {
+        public float x;
+        public float y;
+        public float z;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyColorDto
+    {
+        public float r;
+        public float g;
+        public float b;
+        public float a;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyObjectReferenceDto
+    {
+        public UnityObjectAnchor scene_anchor;
+        public string asset_guid;
+        public string asset_path;
+        public string sub_asset_name;
     }
 
 
@@ -73,6 +146,7 @@ namespace UnityAI.Editor.Codex.Domain
         public string parent_anchor_ref;
         public CompositeVisualActionBindOutput[] bind_outputs;
         public string action_data_json;
+        public string action_data_marshaled;
     }
 
 

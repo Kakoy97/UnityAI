@@ -31,9 +31,11 @@ test("tools/list uses minimal visual schema and includes lazy schema tools", asy
   assert.equal(names.includes("get_tool_schema"), true);
   assert.equal(names.includes("capture_scene_screenshot"), true);
   assert.equal(names.includes("get_ui_tree"), true);
+  assert.equal(names.includes("get_serialized_property_tree"), true);
   assert.equal(names.includes("hit_test_ui_at_viewport_point"), true);
   assert.equal(names.includes("validate_ui_layout"), true);
   assert.equal(names.includes("set_ui_properties"), true);
+  assert.equal(names.includes("set_serialized_property"), true);
   assert.equal(names.includes("hit_test_ui_at_screen_point"), false);
 
   const visual = definitions.find((item) => item.name === "apply_visual_actions");
@@ -116,6 +118,22 @@ test("tools/list uses minimal visual schema and includes lazy schema tools", asy
     uiTreeSchema.description.includes("registry-backed"),
     true
   );
+  const spTreeSchema = definitions.find(
+    (item) => item.name === "get_serialized_property_tree"
+  );
+  assert.ok(spTreeSchema);
+  assert.equal(
+    Array.isArray(spTreeSchema.inputSchema.required),
+    true
+  );
+  assert.equal(
+    spTreeSchema.inputSchema.required.includes("target_anchor"),
+    true
+  );
+  assert.equal(
+    spTreeSchema.inputSchema.required.includes("component_selector"),
+    true
+  );
   assert.equal(
     Object.prototype.hasOwnProperty.call(
       screenshotSchema.inputSchema.properties,
@@ -125,7 +143,7 @@ test("tools/list uses minimal visual schema and includes lazy schema tools", asy
   );
 });
 
-test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screenshot/get_ui_tree/hit_test_ui_at_viewport_point/validate_ui_layout/set_ui_properties tools map to sidecar endpoints", async () => {
+test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screenshot/get_ui_tree/get_serialized_property_tree/hit_test_ui_at_viewport_point/validate_ui_layout/set_ui_properties/set_serialized_property tools map to sidecar endpoints", async () => {
   const server = Object.create(UnityMcpServer.prototype);
   server.sidecarBaseUrl = "http://127.0.0.1:46321";
   const calls = [];
@@ -157,6 +175,18 @@ test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screens
     ui_system: "ugui",
     max_depth: 2,
   });
+  await server.getSerializedPropertyTree({
+    target_anchor: {
+      object_id: "go_button",
+      path: "Scene/Canvas/Button",
+    },
+    component_selector: {
+      component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+      component_index: 0,
+    },
+    depth: 1,
+    page_size: 32,
+  });
   await server.hitTestUiAtViewportPoint({
     coord_space: "viewport_px",
     x: 640,
@@ -184,6 +214,34 @@ test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screens
         },
         text: {
           content: "Play",
+        },
+      },
+    ],
+    dry_run: true,
+  });
+  await server.setSerializedProperty({
+    based_on_read_token: "tok_set_serialized_property_1234567890",
+    write_anchor: {
+      object_id: "go_canvas",
+      path: "Scene/Canvas",
+    },
+    target_anchor: {
+      object_id: "go_button",
+      path: "Scene/Canvas/Button",
+    },
+    component_selector: {
+      component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+      component_index: 0,
+    },
+    patches: [
+      {
+        property_path: "m_Color",
+        value_kind: "color",
+        color_value: {
+          r: 1,
+          g: 0.5,
+          b: 0.5,
+          a: 1,
         },
       },
     ],
@@ -232,6 +290,22 @@ test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screens
     },
     {
       method: "POST",
+      url: "http://127.0.0.1:46321/mcp/get_serialized_property_tree",
+      body: {
+        target_anchor: {
+          object_id: "go_button",
+          path: "Scene/Canvas/Button",
+        },
+        component_selector: {
+          component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+          component_index: 0,
+        },
+        depth: 1,
+        page_size: 32,
+      },
+    },
+    {
+      method: "POST",
       url: "http://127.0.0.1:46321/mcp/hit_test_ui_at_viewport_point",
       body: {
         coord_space: "viewport_px",
@@ -268,6 +342,38 @@ test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screens
             },
             text: {
               content: "Play",
+            },
+          },
+        ],
+        dry_run: true,
+      },
+    },
+    {
+      method: "POST",
+      url: "http://127.0.0.1:46321/mcp/set_serialized_property",
+      body: {
+        based_on_read_token: "tok_set_serialized_property_1234567890",
+        write_anchor: {
+          object_id: "go_canvas",
+          path: "Scene/Canvas",
+        },
+        target_anchor: {
+          object_id: "go_button",
+          path: "Scene/Canvas/Button",
+        },
+        component_selector: {
+          component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+          component_index: 0,
+        },
+        patches: [
+          {
+            property_path: "m_Color",
+            value_kind: "color",
+            color_value: {
+              r: 1,
+              g: 0.5,
+              b: 0.5,
+              a: 1,
             },
           },
         ],

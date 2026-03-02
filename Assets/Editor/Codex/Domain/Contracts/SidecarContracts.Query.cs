@@ -142,6 +142,15 @@ namespace UnityAI.Editor.Codex.Domain
         public int max_issues;
         public int time_budget_ms;
         public string layout_refresh_mode;
+
+        public UnityObjectAnchor target_anchor;
+        public SerializedPropertyComponentSelector component_selector;
+        public string root_property_path;
+        public int depth;
+        public string after_property_path;
+        public int page_size;
+        public bool include_value_summary;
+        public bool include_non_visible;
     }
 
 
@@ -450,6 +459,93 @@ namespace UnityAI.Editor.Codex.Domain
         public UnityComponentDescriptor[] components;
         public UnityPrefabTreeNode[] children;
         public int children_truncated_count;
+    }
+
+
+    [Serializable]
+    public sealed class UnityGetSerializedPropertyTreeRequest
+    {
+        public string @event;
+        public string request_id;
+        public string thread_id;
+        public string turn_id;
+        public string timestamp;
+        public UnityGetSerializedPropertyTreePayload payload;
+    }
+
+
+    [Serializable]
+    public sealed class UnityGetSerializedPropertyTreePayload
+    {
+        public UnityObjectAnchor target_anchor;
+        public SerializedPropertyComponentSelector component_selector;
+        public string root_property_path;
+        public int depth;
+        public string after_property_path;
+        public int page_size;
+        public int node_budget;
+        public int char_budget;
+        public bool include_value_summary;
+        public bool include_non_visible;
+        public int timeout_ms;
+    }
+
+
+    [Serializable]
+    public sealed class UnityGetSerializedPropertyTreeResponse
+    {
+        public bool ok;
+        public string request_id;
+        public string captured_at;
+        public string error_code;
+        public string error_message;
+        public UnityReadToken read_token;
+        public UnityGetSerializedPropertyTreeData data;
+    }
+
+
+    [Serializable]
+    public sealed class UnityGetSerializedPropertyTreeData
+    {
+        public UnitySerializedPropertyTreeComponentInfo component;
+        public string root_property_path;
+        public int depth;
+        public string after_property_path;
+        public int page_size;
+        public int node_budget;
+        public int char_budget;
+        public bool include_value_summary;
+        public bool include_non_visible;
+        public int returned_count;
+        public bool truncated;
+        public string truncated_reason;
+        public string next_cursor;
+        public UnitySerializedPropertyTreeNode[] nodes;
+    }
+
+
+    [Serializable]
+    public sealed class UnitySerializedPropertyTreeComponentInfo
+    {
+        public string type;
+        public string target_path;
+        public string target_object_id;
+    }
+
+
+    [Serializable]
+    public sealed class UnitySerializedPropertyTreeNode
+    {
+        public string property_path;
+        public string display_name;
+        public string property_type;
+        public bool is_array;
+        public int array_size;
+        public int depth;
+        public bool writable;
+        public string read_only_reason;
+        public string value_summary;
+        public bool has_visible_children;
     }
 
 }

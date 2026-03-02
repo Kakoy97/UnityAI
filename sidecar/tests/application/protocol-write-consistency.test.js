@@ -142,19 +142,53 @@ test("router forwards write HTTP endpoints into unified turnService chain", asyn
     ],
     dry_run: true,
   });
+  const setSerializedResp = await invokeRoute(
+    route,
+    "POST",
+    "/mcp/set_serialized_property",
+    {
+      based_on_read_token: "tok_set_serialized_property_1234567890",
+      write_anchor: {
+        object_id: "go_root",
+        path: "Scene/Root",
+      },
+      target_anchor: {
+        object_id: "go_root",
+        path: "Scene/Root",
+      },
+      component_selector: {
+        component_assembly_qualified_name: "UnityEngine.Transform, UnityEngine.CoreModule",
+        component_index: 0,
+      },
+      patches: [
+        {
+          property_path: "m_LocalPosition",
+          value_kind: "vector3",
+          vector3_value: {
+            x: 1,
+            y: 2,
+            z: 3,
+          },
+        },
+      ],
+      dry_run: true,
+    }
+  );
 
   assert.equal(submitResp.statusCode, 409);
   assert.equal(scriptResp.statusCode, 409);
   assert.equal(visualResp.statusCode, 409);
   assert.equal(setUiResp.statusCode, 409);
+  assert.equal(setSerializedResp.statusCode, 409);
   assert.equal(submitResp.body.route, "submit");
   assert.equal(scriptResp.body.route, "script");
   assert.equal(visualResp.body.route, "visual");
   assert.equal(setUiResp.body.route, "set_ui");
+  assert.equal(setSerializedResp.body.route, "visual");
   assert.deepEqual(calls, {
     submit: 1,
     script: 1,
-    visual: 1,
+    visual: 2,
     setUi: 1,
   });
 });
@@ -274,6 +308,33 @@ test("MCP write tools call only /mcp write endpoints", async () => {
     ],
     dry_run: true,
   });
+  await server.setSerializedProperty({
+    based_on_read_token: "tok_set_serialized_property_1234567890",
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    target_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    component_selector: {
+      component_assembly_qualified_name: "UnityEngine.Transform, UnityEngine.CoreModule",
+      component_index: 0,
+    },
+    patches: [
+      {
+        property_path: "m_LocalPosition",
+        value_kind: "vector3",
+        vector3_value: {
+          x: 1,
+          y: 2,
+          z: 3,
+        },
+      },
+    ],
+    dry_run: true,
+  });
 
   assert.deepEqual(
     calls.map((item) => `${item.method} ${item.url}`),
@@ -282,6 +343,7 @@ test("MCP write tools call only /mcp write endpoints", async () => {
       "POST http://127.0.0.1:46321/mcp/apply_script_actions",
       "POST http://127.0.0.1:46321/mcp/apply_visual_actions",
       "POST http://127.0.0.1:46321/mcp/set_ui_properties",
+      "POST http://127.0.0.1:46321/mcp/set_serialized_property",
     ]
   );
 });

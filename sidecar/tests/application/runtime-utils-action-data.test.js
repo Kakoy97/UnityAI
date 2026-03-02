@@ -22,6 +22,24 @@ function buildJob() {
   };
 }
 
+function decodeBase64UrlUtf8(value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) {
+    return "";
+  }
+  const base64 = text.replace(/-/g, "+").replace(/_/g, "/");
+  const mod = base64.length % 4;
+  if (mod === 1) {
+    return "";
+  }
+  const padded = mod === 0 ? base64 : `${base64}${"=".repeat(4 - mod)}`;
+  try {
+    return Buffer.from(padded, "base64").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
 test("buildUnityActionRequest preserves action_data and emits matching action_data_json", () => {
   const actionData = {
     color: {
@@ -55,6 +73,11 @@ test("buildUnityActionRequest preserves action_data and emits matching action_da
     JSON.parse(request.payload.action.action_data_json),
     actionData
   );
+  assert.equal(typeof request.payload.action.action_data_marshaled, "string");
+  assert.deepEqual(
+    JSON.parse(decodeBase64UrlUtf8(request.payload.action.action_data_marshaled)),
+    actionData
+  );
 });
 
 test("buildUnityActionRequest generates action_data_json from legacy action fields", () => {
@@ -78,6 +101,10 @@ test("buildUnityActionRequest generates action_data_json from legacy action fiel
   assert.equal(action.action_data.component_assembly_qualified_name, componentAssembly);
   assert.equal(parsed.component_assembly_qualified_name, componentAssembly);
   assert.deepEqual(action.action_data, parsed);
+  assert.deepEqual(
+    JSON.parse(decodeBase64UrlUtf8(action.action_data_marshaled)),
+    parsed
+  );
 });
 
 test("buildUnityActionRequest keeps warn-mode compatibility for legacy anchor fields", () => {
@@ -171,13 +198,22 @@ test("buildUnityActionRequest bridges composite steps to internal action_data_js
 
   const action = request.payload.action;
   const composite = JSON.parse(action.action_data_json);
+  const compositeFromMarshaled = JSON.parse(
+    decodeBase64UrlUtf8(action.action_data_marshaled)
+  );
   assert.equal(Array.isArray(composite.steps), true);
   assert.equal(composite.steps.length, 1);
+  assert.equal(typeof composite.steps[0].action_data_marshaled, "string");
   assert.equal(typeof composite.steps[0].action_data_json, "string");
   assert.deepEqual(
     JSON.parse(composite.steps[0].action_data_json),
     { name: "HealthBar" }
   );
+  assert.deepEqual(
+    JSON.parse(decodeBase64UrlUtf8(composite.steps[0].action_data_marshaled)),
+    { name: "HealthBar" }
+  );
+  assert.deepEqual(compositeFromMarshaled, composite);
   assert.equal(
     Object.prototype.hasOwnProperty.call(composite.steps[0], "action_data"),
     false

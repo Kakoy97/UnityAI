@@ -85,7 +85,7 @@ test("validate_ui_layout validator parity: no required fields and fixed checks e
   assert.equal(bad.errorCode, "E_SCHEMA_INVALID");
 });
 
-test("set_ui_properties validator parity: required fields, dry_run bool, hardcut action_data_json", () => {
+test("set_ui_properties validator parity: required fields, dry_run bool, hardcut stringified action_data fields", () => {
   const missing = validateSetUiProperties({
     based_on_read_token: VALID_TOKEN,
     write_anchor: {
@@ -135,6 +135,26 @@ test("set_ui_properties validator parity: required fields, dry_run bool, hardcut
   });
   assert.equal(hardcut.ok, false);
   assert.equal(hardcut.errorCode, "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED");
+
+  const hardcutMarshaled = validateSetUiProperties({
+    based_on_read_token: VALID_TOKEN,
+    write_anchor: {
+      object_id: "go_canvas_hud",
+      path: "Scene/Canvas/HUD",
+    },
+    operations: [
+      {
+        target_anchor: {
+          object_id: "go_btn_start",
+          path: "Scene/Canvas/HUD/StartButton",
+        },
+        text: { content: "Play" },
+      },
+    ],
+    action_data_marshaled: "eyJ4IjoxfQ",
+  });
+  assert.equal(hardcutMarshaled.ok, false);
+  assert.equal(hardcutMarshaled.errorCode, "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED");
 
   const ok = validateSetUiProperties({
     based_on_read_token: VALID_TOKEN,

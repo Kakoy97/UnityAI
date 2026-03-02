@@ -74,7 +74,7 @@ test("R14-L2-08 apply_visual_actions tools/list compact schema does not re-expos
   );
 });
 
-test("R14-L2-08 validator hard-rejects external action_data_json", () => {
+test("R14-L2-08 validator hard-rejects external stringified action_data fields", () => {
   const validation = validateMcpApplyVisualActions(
     buildApplyVisualBody({
       type: "set_ui_image_color",
@@ -89,6 +89,23 @@ test("R14-L2-08 validator hard-rejects external action_data_json", () => {
   assert.equal(validation.ok, false);
   assert.equal(validation.errorCode, "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED");
   assert.equal(validation.statusCode, 400);
+
+  const marshaledValidation = validateMcpApplyVisualActions(
+    buildApplyVisualBody({
+      type: "set_ui_image_color",
+      target_anchor: {
+        object_id: "go_img",
+        path: "Scene/Canvas/Image",
+      },
+      action_data_marshaled: "eyJyIjoxfQ",
+    })
+  );
+  assert.equal(marshaledValidation.ok, false);
+  assert.equal(
+    marshaledValidation.errorCode,
+    "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED"
+  );
+  assert.equal(marshaledValidation.statusCode, 400);
 });
 
 test("R14-L2-08 validator keeps unknown action submit-open with action_data object", () => {

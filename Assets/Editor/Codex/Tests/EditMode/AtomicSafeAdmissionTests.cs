@@ -150,4 +150,40 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             }
         }
     }
+
+    public sealed class SetGameObjectActiveAtomicActionTests : AtomicActionTestBase
+    {
+        protected override string ActionType
+        {
+            get { return "set_gameobject_active"; }
+        }
+
+        protected override GameObject CreateTarget()
+        {
+            var target = CreateTaggedGameObject();
+            target.SetActive(true);
+            return target;
+        }
+
+        protected override VisualLayerActionItem BuildValidAction(GameObject target)
+        {
+            return new VisualLayerActionItem
+            {
+                type = ActionType,
+                target_anchor = BuildAnchor(target),
+                action_data_json = "{\"active\":false}",
+            };
+        }
+
+        protected override void AssertApplied(GameObject target, UnityActionExecutionResult executionResult)
+        {
+            Assert.NotNull(executionResult);
+            Assert.IsFalse(target.activeSelf);
+        }
+
+        protected override void AssertRolledBack(GameObject target)
+        {
+            Assert.IsTrue(target.activeSelf);
+        }
+    }
 }

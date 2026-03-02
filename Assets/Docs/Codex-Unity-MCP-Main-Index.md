@@ -32,6 +32,8 @@
 - `Assets/Docs/Phase5-Error-Feedback-Acceptance.md`
 - `Assets/Docs/Phase6-Strangler-Closure-Acceptance.md`
 - `Assets/Docs/Phase7-Extensibility-Decoupling-Acceptance.md`
+12. R16 hybrid architecture acceptance:
+`docs/Phase16-Hybrid-Architecture-Acceptance.md`
 
 ## 3. Execution Order (New Contributor Path)
 1. Install and run sidecar:
@@ -44,11 +46,13 @@ npm start
 ```bash
 cd sidecar
 npm run test:r15:qa
+npm run test:r16:qa
 npm run test:r10:qa
 npm run gate:r10-responsibility
 npm run gate:r10-contract-snapshot
 npm run gate:r10-docs
 npm run gate:r11-command-boundary
+npm run gate:r16-wire
 node --test "tests/application/r11-*.test.js" "tests/application/r11-screenshot-route-and-feedback.test.js"
 node --test "tests/application/r12-*.test.js" "tests/application/*command*.test.js" "tests/application/*schema*.test.js"
 ```
@@ -83,10 +87,14 @@ Active validation scripts:
 - `sidecar/scripts/mcp-job-runner.js`
 - `sidecar/scripts/mcp-stream-runner.js`
 - `sidecar/scripts/mcp-visual-anchor-regression.js`
+- `sidecar/scripts/diagnose-capture.js`
+- `sidecar/scripts/diagnose-ui.js`
+- `sidecar/scripts/diagnose-ui-specialist.js`
 - `sidecar/scripts/r10-responsibility-guard.js`
 - `sidecar/scripts/r10-contract-snapshot-guard.js`
 - `sidecar/scripts/r10-doc-index-guard.js`
 - `sidecar/scripts/r11-command-boundary-guard.js`
+- `sidecar/scripts/r16-wire-guard.js`
 - `sidecar/scripts/r9-closure-guard.js`
 - `sidecar/scripts/replay-failed-report.js`
 - `sidecar/scripts/setup-cursor-mcp.js`

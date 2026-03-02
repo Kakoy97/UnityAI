@@ -427,6 +427,7 @@ function buildVisualActionPayload(action, options) {
   const actionDataBridge = buildVisualActionDataBridge(item);
   payload.action_data = actionDataBridge.action_data;
   payload.action_data_json = actionDataBridge.action_data_json;
+  payload.action_data_marshaled = actionDataBridge.action_data_marshaled;
 
   return payload;
 }

@@ -48,7 +48,7 @@ test("set_ui_properties validator accepts valid payload", () => {
   assert.equal(result.ok, true);
 });
 
-test("set_ui_properties validator rejects action_data_json hardcut", () => {
+test("set_ui_properties validator rejects action_data_json/action_data_marshaled hardcut", () => {
   const topLevel = validateMcpSetUiProperties(
     buildValidPayload({
       action_data_json: "{\"x\":1}",
@@ -75,6 +75,33 @@ test("set_ui_properties validator rejects action_data_json hardcut", () => {
   );
   assert.equal(nested.ok, false);
   assert.equal(nested.errorCode, "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED");
+
+  const topLevelMarshaled = validateMcpSetUiProperties(
+    buildValidPayload({
+      action_data_marshaled: "eyJ4IjoxfQ",
+    })
+  );
+  assert.equal(topLevelMarshaled.ok, false);
+  assert.equal(topLevelMarshaled.errorCode, "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED");
+
+  const nestedMarshaled = validateMcpSetUiProperties(
+    buildValidPayload({
+      operations: [
+        {
+          target_anchor: {
+            object_id: "go_btn_start",
+            path: "Scene/Canvas/HUD/StartButton",
+          },
+          action_data_marshaled: "eyJ4IjoxfQ",
+          text: {
+            content: "Start",
+          },
+        },
+      ],
+    })
+  );
+  assert.equal(nestedMarshaled.ok, false);
+  assert.equal(nestedMarshaled.errorCode, "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED");
 });
 
 test("set_ui_properties validator rejects empty operation and invalid atomic", () => {

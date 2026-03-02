@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine.SceneManagement;
@@ -56,7 +57,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
             for (var i = 0; i < SceneManager.sceneCount; i += 1)
             {
                 var scene = SceneManager.GetSceneAt(i);
-                if (!scene.IsValid() || !scene.isLoaded || !scene.isDirty)
+                if (!ShouldTrackDirtyScene(scene))
                 {
                     continue;
                 }
@@ -65,6 +66,31 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
             }
 
             return set;
+        }
+
+        private static bool ShouldTrackDirtyScene(Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded || !scene.isDirty)
+            {
+                return false;
+            }
+
+            var sceneName = string.IsNullOrWhiteSpace(scene.name)
+                ? string.Empty
+                : scene.name.Trim();
+            if (string.Equals(sceneName, "DontDestroyOnLoad", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(scene.path) &&
+                (string.IsNullOrEmpty(sceneName) ||
+                 sceneName.StartsWith("Preview Scene", StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private static string NormalizeSceneKey(Scene scene)

@@ -91,6 +91,359 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
         public bool ignore_layout;
     }
 
+    [Serializable]
+    internal sealed class SetParentActionData
+    {
+        public bool world_position_stays;
+    }
+
+    [Serializable]
+    internal sealed class SetSiblingIndexActionData
+    {
+        public int sibling_index;
+    }
+
+    [Serializable]
+    internal sealed class DuplicateObjectActionData
+    {
+        public string name;
+    }
+
+    internal sealed class SetActiveHandler
+        : McpVisualActionHandler<SetGameObjectActiveActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_active"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            SetGameObjectActiveActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var result = LegacyPrimitiveActionHandlers.RunSetGameObjectActive(action, data != null && data.active);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class RenameObjectHandler
+        : McpVisualActionHandler<RenameGameObjectActionData>
+    {
+        public override string ActionType
+        {
+            get { return "rename_object"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            RenameGameObjectActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            action.name =
+                data != null && !string.IsNullOrWhiteSpace(data.name)
+                    ? data.name.Trim()
+                    : string.Empty;
+            var result = LegacyPrimitiveActionHandlers.RunRenameGameObject(action, action.name);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class DestroyObjectHandler
+        : McpVisualActionHandler<EmptyActionData>
+    {
+        public override string ActionType
+        {
+            get { return "destroy_object"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            EmptyActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var result = LegacyPrimitiveActionHandlers.RunDestroyGameObject(action);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetParentHandler
+        : McpVisualActionHandler<SetParentActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_parent"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            SetParentActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var result = LegacyPrimitiveActionHandlers.RunSetParent(
+                action,
+                data != null && data.world_position_stays);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetSiblingIndexHandler
+        : McpVisualActionHandler<SetSiblingIndexActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_sibling_index"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            SetSiblingIndexActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var result = LegacyPrimitiveActionHandlers.RunSetSiblingIndex(
+                action,
+                data == null ? 0 : data.sibling_index);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class DuplicateObjectHandler
+        : McpVisualActionHandler<DuplicateObjectActionData>
+    {
+        public override string ActionType
+        {
+            get { return "duplicate_object"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            DuplicateObjectActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            action.name =
+                data != null && !string.IsNullOrWhiteSpace(data.name)
+                    ? data.name.Trim()
+                    : string.Empty;
+            var result = LegacyPrimitiveActionHandlers.RunDuplicateGameObject(action, action.name);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetLocalPositionHandler
+        : McpVisualActionHandler<Vector3ActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_local_position"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            Vector3ActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var vector = new Vector3(
+                data == null ? 0f : data.x,
+                data == null ? 0f : data.y,
+                data == null ? 0f : data.z);
+            var result = LegacyPrimitiveActionHandlers.RunSetTransformLocalPosition(action, vector);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetLocalRotationHandler
+        : McpVisualActionHandler<Vector3ActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_local_rotation"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            Vector3ActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var vector = new Vector3(
+                data == null ? 0f : data.x,
+                data == null ? 0f : data.y,
+                data == null ? 0f : data.z);
+            var result = LegacyPrimitiveActionHandlers.RunSetTransformLocalRotation(action, vector);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetLocalScaleHandler
+        : McpVisualActionHandler<Vector3ActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_local_scale"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            Vector3ActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var vector = new Vector3(
+                data == null ? 0f : data.x,
+                data == null ? 0f : data.y,
+                data == null ? 0f : data.z);
+            var result = LegacyPrimitiveActionHandlers.RunSetTransformLocalScale(action, vector);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetWorldPositionHandler
+        : McpVisualActionHandler<Vector3ActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_world_position"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            Vector3ActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var vector = new Vector3(
+                data == null ? 0f : data.x,
+                data == null ? 0f : data.y,
+                data == null ? 0f : data.z);
+            var result = LegacyPrimitiveActionHandlers.RunSetTransformWorldPosition(action, vector);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetWorldRotationHandler
+        : McpVisualActionHandler<Vector3ActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_world_rotation"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            Vector3ActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var vector = new Vector3(
+                data == null ? 0f : data.x,
+                data == null ? 0f : data.y,
+                data == null ? 0f : data.z);
+            var result = LegacyPrimitiveActionHandlers.RunSetTransformWorldRotation(action, vector);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class ResetTransformHandler
+        : McpVisualActionHandler<EmptyActionData>
+    {
+        public override string ActionType
+        {
+            get { return "reset_transform"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            EmptyActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var result = LegacyPrimitiveActionHandlers.RunResetTransform(action);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetRectAnchoredPositionHandler
+        : McpVisualActionHandler<Vector2ActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_rect_anchored_position"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            Vector2ActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var value = new Vector2(
+                data == null ? 0f : data.x,
+                data == null ? 0f : data.y);
+            var result = LegacyPrimitiveActionHandlers.RunSetRectTransformAnchoredPosition(action, value);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetRectSizeDeltaHandler
+        : McpVisualActionHandler<Vector2ActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_rect_size_delta"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            Vector2ActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var value = new Vector2(
+                data == null ? 0f : data.x,
+                data == null ? 0f : data.y);
+            var result = LegacyPrimitiveActionHandlers.RunSetRectTransformSizeDelta(action, value);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetRectPivotHandler
+        : McpVisualActionHandler<Vector2ActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_rect_pivot"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            Vector2ActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var value = new Vector2(
+                data == null ? 0f : data.x,
+                data == null ? 0f : data.y);
+            var result = LegacyPrimitiveActionHandlers.RunSetRectTransformPivot(action, value);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
+    internal sealed class SetRectAnchorsHandler
+        : McpVisualActionHandler<RectTransformAnchorsActionData>
+    {
+        public override string ActionType
+        {
+            get { return "set_rect_anchors"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            RectTransformAnchorsActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            var min = new Vector2(
+                data == null ? 0f : data.min_x,
+                data == null ? 0f : data.min_y);
+            var max = new Vector2(
+                data == null ? 1f : data.max_x,
+                data == null ? 1f : data.max_y);
+            var result = LegacyPrimitiveActionHandlers.RunSetRectTransformAnchors(action, min, max);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
+
     internal sealed class SetGameObjectActiveHandler
         : McpVisualActionHandler<SetGameObjectActiveActionData>
     {

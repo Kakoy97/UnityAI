@@ -286,6 +286,72 @@ test("R11-L2-09 get_ui_tree uses query coordinator and returns read token", asyn
   assert.equal(calls[0].timeoutMs, 3000);
 });
 
+test("R16-HYBRID-P1-R-02 get_serialized_property_tree uses query coordinator and returns cursor data", async () => {
+  const registry = createRegistry();
+  const calls = [];
+  const turnService = {
+    capabilityStore: {},
+    queryCoordinator: {
+      async enqueueAndWaitForUnityQuery(request) {
+        calls.push(request);
+        return {
+          ok: true,
+          captured_at: "2026-03-01T00:00:05.000Z",
+          data: {
+            returned_count: 2,
+            truncated: true,
+            truncated_reason: "NODE_BUDGET_EXCEEDED",
+            next_cursor: "m_Color",
+            nodes: [
+              { property_path: "m_Color" },
+              { property_path: "m_Material" },
+            ],
+          },
+        };
+      },
+    },
+    unitySnapshotService: {
+      issueReadTokenForQueryResult(queryType) {
+        assert.equal(queryType, "get_serialized_property_tree");
+        return {
+          token: "readtok_sp_tree_001",
+        };
+      },
+    },
+    nowIso: () => "2026-03-01T00:00:00.000Z",
+  };
+
+  const outcome = await dispatchBodyCommand(
+    registry,
+    "/mcp/get_serialized_property_tree",
+    {
+      target_anchor: {
+        object_id: "go_button",
+        path: "Scene/Canvas/Button",
+      },
+      component_selector: {
+        component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+        component_index: 0,
+      },
+      depth: 1,
+      page_size: 2,
+      timeout_ms: 3000,
+    },
+    turnService
+  );
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(outcome.body.read_token.token, "readtok_sp_tree_001");
+  assert.equal(outcome.body.data.truncated, true);
+  assert.equal(outcome.body.data.next_cursor, "m_Color");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].queryType, "get_serialized_property_tree");
+  assert.equal(calls[0].payload.depth, 1);
+  assert.equal(calls[0].payload.page_size, 2);
+  assert.equal(calls[0].timeoutMs, 3000);
+});
+
 test("V1-CLOSE-L2-02 hit_test_ui_at_viewport_point uses query coordinator and clamps mapped_point", async () => {
   const registry = createRegistry();
   const calls = [];
@@ -395,6 +461,9 @@ test("V1-CLOSE-L2-03 validate_ui_layout uses query coordinator and normalizes is
         { name: "portrait_fhd", width: 1080, height: 1920 },
       ],
       checks: ["TEXT_OVERFLOW", "NOT_CLICKABLE"],
+      include_repair_plan: true,
+      max_repair_suggestions: 2,
+      repair_style: "conservative",
       timeout_ms: 3000,
     },
     turnService
@@ -407,8 +476,16 @@ test("V1-CLOSE-L2-03 validate_ui_layout uses query coordinator and normalizes is
   assert.equal(outcome.body.data.issues[0].severity, "warning");
   assert.equal(outcome.body.data.issues[1].mode, "static_only");
   assert.equal(outcome.body.data.issues[1].severity, "warning");
+  assert.equal(Array.isArray(outcome.body.data.repair_plan), true);
+  assert.equal(outcome.body.data.repair_plan.length, 2);
+  assert.equal(outcome.body.data.repair_plan_generated_by, "sidecar");
+  assert.equal(outcome.body.data.specialist_summary.has_repair_plan, true);
+  assert.equal(outcome.body.data.specialist_summary.repair_style, "conservative");
   assert.equal(calls.length, 1);
   assert.equal(calls[0].queryType, "validate_ui_layout");
+  assert.equal(calls[0].payload.include_repair_plan, true);
+  assert.equal(calls[0].payload.max_repair_suggestions, 2);
+  assert.equal(calls[0].payload.repair_style, "conservative");
 });
 
 test("R11-CLOSE-L2-03 hit_test_ui_at_screen_point is disabled with recoverable feedback", async () => {
@@ -457,7 +534,7 @@ test("V1-CLOSE-L2-04 set_ui_properties routes through turnService and returns pl
           dry_run: true,
           planned_actions_count: 2,
           mapped_actions: [
-            "set_rect_transform_anchored_position",
+            "set_rect_anchored_position",
             "set_ui_text_content",
           ],
         },
@@ -497,7 +574,7 @@ test("V1-CLOSE-L2-04 set_ui_properties routes through turnService and returns pl
   assert.equal(outcome.body.ok, true);
   assert.equal(outcome.body.status, "planned");
   assert.deepEqual(outcome.body.mapped_actions, [
-    "set_rect_transform_anchored_position",
+    "set_rect_anchored_position",
     "set_ui_text_content",
   ]);
   assert.equal(calls.length, 1);
@@ -539,4 +616,113 @@ test("V1-CLOSE-L2-04 set_ui_properties validation fail includes set_ui_propertie
   assert.equal(outcome.body.schema_source, "get_tool_schema");
   assert.equal(outcome.body.schema_ref.tool, "get_tool_schema");
   assert.equal(outcome.body.schema_ref.params.tool_name, "set_ui_properties");
+});
+
+test("R16-HYBRID-P1-W-02 set_serialized_property routes through apply_visual_actions chain", async () => {
+  const registry = createRegistry();
+  const calls = [];
+  const turnService = {
+    capabilityStore: {},
+    queryCoordinator: {},
+    unitySnapshotService: {},
+    nowIso: () => "2026-03-01T00:00:00.000Z",
+    applyVisualActionsForMcp(payload) {
+      calls.push(payload);
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "planned",
+          dry_run: true,
+        },
+      };
+    },
+  };
+
+  const requestBody = {
+    based_on_read_token: "tok_set_serialized_property_1234567890",
+    write_anchor: {
+      object_id: "go_canvas",
+      path: "Scene/Canvas",
+    },
+    target_anchor: {
+      object_id: "go_button",
+      path: "Scene/Canvas/Button",
+    },
+    component_selector: {
+      component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+      component_index: 0,
+    },
+    patches: [
+      {
+        property_path: "m_Color",
+        value_kind: "color",
+        color_value: {
+          r: 1,
+          g: 0.5,
+          b: 0.5,
+          a: 1,
+        },
+      },
+    ],
+    dry_run: true,
+  };
+
+  const outcome = await dispatchBodyCommand(
+    registry,
+    "/mcp/set_serialized_property",
+    requestBody,
+    turnService
+  );
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].actions.length, 1);
+  assert.equal(calls[0].actions[0].type, "set_serialized_property");
+  assert.deepEqual(calls[0].actions[0].target_anchor, requestBody.target_anchor);
+  assert.deepEqual(calls[0].actions[0].action_data.component_selector, requestBody.component_selector);
+  assert.deepEqual(calls[0].actions[0].action_data.patches, requestBody.patches);
+});
+
+test("R16-HYBRID-P1-W-02 set_serialized_property validation fail includes schema compensation", async () => {
+  const registry = createRegistry();
+  const turnService = {
+    capabilityStore: {},
+    queryCoordinator: {},
+    unitySnapshotService: {},
+    nowIso: () => "2026-03-01T00:00:00.000Z",
+  };
+
+  const outcome = await dispatchBodyCommand(
+    registry,
+    "/mcp/set_serialized_property",
+    {
+      based_on_read_token: "tok_set_serialized_property_1234567890",
+      write_anchor: {
+        object_id: "go_canvas",
+        path: "Scene/Canvas",
+      },
+      target_anchor: {
+        object_id: "go_button",
+        path: "Scene/Canvas/Button",
+      },
+      component_selector: {
+        component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+      },
+      patches: [
+        {
+          property_path: "m_Color",
+          value_kind: "color",
+        },
+      ],
+    },
+    turnService
+  );
+
+  assert.equal(outcome.statusCode, 400);
+  assert.equal(outcome.body.error_code, "E_SCHEMA_INVALID");
+  assert.equal(outcome.body.schema_source, "get_tool_schema");
+  assert.equal(outcome.body.schema_ref.tool, "get_tool_schema");
+  assert.equal(outcome.body.schema_ref.params.tool_name, "set_serialized_property");
 });

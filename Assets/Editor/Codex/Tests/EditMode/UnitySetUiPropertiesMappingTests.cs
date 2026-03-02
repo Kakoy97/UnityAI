@@ -9,10 +9,10 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
     {
         private static readonly string[] SetUiMappedActionTypes =
         {
-            "set_rect_transform_anchored_position",
-            "set_rect_transform_size_delta",
-            "set_rect_transform_pivot",
-            "set_rect_transform_anchors",
+            "set_rect_anchored_position",
+            "set_rect_size_delta",
+            "set_rect_pivot",
+            "set_rect_anchors",
             "set_ui_image_color",
             "set_ui_image_raycast_target",
             "set_ui_text_content",

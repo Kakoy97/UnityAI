@@ -108,6 +108,48 @@ function buildRuntimePing() {
   };
 }
 
+function buildPhase2CatalogReport() {
+  return {
+    event: "unity.capabilities.report",
+    request_id: "req_cap_report_phase2_1",
+    thread_id: "t_default",
+    turn_id: "turn_cap_report_phase2_1",
+    timestamp: "2026-02-28T00:00:00.000Z",
+    payload: {
+      capability_version: "sha256:capability_phase2_v1",
+      actions: [
+        {
+          type: "set_rect_anchored_position",
+          description: "Set RectTransform anchored position.",
+          anchor_policy: "target_required",
+          lifecycle: "stable",
+          tier: "core",
+          domain: "rect_transform",
+          undo_safety: "atomic_safe",
+          action_data_schema: {
+            type: "object",
+            required: ["x", "y"],
+          },
+        },
+        {
+          type: "set_rect_transform_anchored_position",
+          description: "Deprecated alias of set_rect_anchored_position.",
+          anchor_policy: "target_required",
+          lifecycle: "deprecated",
+          tier: "core",
+          domain: "rect_transform",
+          undo_safety: "atomic_safe",
+          replacement_action_type: "set_rect_anchored_position",
+          action_data_schema: {
+            type: "object",
+            required: ["x", "y"],
+          },
+        },
+      ],
+    },
+  };
+}
+
 async function bringUnityReady(route) {
   const ping = await invokeRoute(
     route,
@@ -268,4 +310,61 @@ test("get_action_schema returns E_ACTION_CAPABILITY_MISMATCH on stale catalog_ve
   assert.equal(typeof mismatch.body.suggestion, "string");
   assert.equal(mismatch.body.action_type, "set_ui_image_color");
   assert.equal(mismatch.body.capability_version, "sha256:capability_v1");
+});
+
+test("get_action_catalog preserves phase2 lifecycle and replacement metadata", async () => {
+  const nowRef = {
+    value: Date.parse("2026-02-28T00:00:00.000Z"),
+  };
+  const service = createService(nowRef);
+  const route = createRouter({
+    turnService: service,
+    port: 46321,
+  });
+
+  const ping = await invokeRoute(
+    route,
+    "POST",
+    "/unity/runtime/ping",
+    buildRuntimePing()
+  );
+  assert.equal(ping.statusCode, 200);
+
+  const report = await invokeRoute(
+    route,
+    "POST",
+    "/unity/capabilities/report",
+    buildPhase2CatalogReport()
+  );
+  assert.equal(report.statusCode, 200);
+  assert.equal(report.body.capability_version, "sha256:capability_phase2_v1");
+
+  const stable = await invokeRoute(route, "POST", "/mcp/get_action_catalog", {
+    domain: "rect_transform",
+    lifecycle: "stable",
+    cursor: 0,
+    limit: 10,
+  });
+  assert.equal(stable.statusCode, 200);
+  assert.equal(stable.body.ok, true);
+  assert.equal(stable.body.items.length, 1);
+  assert.equal(stable.body.items[0].type, "set_rect_anchored_position");
+  assert.equal(stable.body.items[0].lifecycle, "stable");
+  assert.equal(stable.body.items[0].undo_safety, "atomic_safe");
+
+  const deprecated = await invokeRoute(route, "POST", "/mcp/get_action_catalog", {
+    domain: "rect_transform",
+    lifecycle: "deprecated",
+    cursor: 0,
+    limit: 10,
+  });
+  assert.equal(deprecated.statusCode, 200);
+  assert.equal(deprecated.body.ok, true);
+  assert.equal(deprecated.body.items.length, 1);
+  assert.equal(deprecated.body.items[0].type, "set_rect_transform_anchored_position");
+  assert.equal(deprecated.body.items[0].lifecycle, "deprecated");
+  assert.equal(
+    deprecated.body.items[0].replacement_action_type,
+    "set_rect_anchored_position"
+  );
 });

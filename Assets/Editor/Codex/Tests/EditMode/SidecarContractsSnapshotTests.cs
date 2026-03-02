@@ -222,6 +222,9 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "max_issues",
                 "time_budget_ms",
                 "layout_refresh_mode",
+                "include_repair_plan",
+                "max_repair_suggestions",
+                "repair_style",
                 "timeout_ms");
             AssertFieldSnapshot(
                 typeof(UnityValidateUiLayoutData),
@@ -234,7 +237,10 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "truncated_reason",
                 "issue_count",
                 "runtime_resolution_name",
-                "issues");
+                "issues",
+                "specialist_summary",
+                "repair_plan",
+                "repair_plan_generated_by");
             AssertFieldSnapshot(
                 typeof(UnityUiLayoutIssue),
                 "anchor",
@@ -247,6 +253,25 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "confidence",
                 "approximate",
                 "approx_reason");
+            AssertFieldSnapshot(
+                typeof(UnityUiLayoutSpecialistSummary),
+                "out_of_bounds_count",
+                "overlap_count",
+                "not_clickable_count",
+                "text_overflow_count",
+                "high_severity_count",
+                "low_confidence_count",
+                "has_repair_plan",
+                "repair_style");
+            AssertFieldSnapshot(
+                typeof(UnityUiLayoutRepairAction),
+                "issue_type",
+                "target_anchor",
+                "strategy",
+                "recommended_action_type",
+                "action_data_template_json",
+                "rationale",
+                "risk");
         }
 
         [Test]

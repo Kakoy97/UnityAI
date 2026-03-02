@@ -1,3 +1,5 @@
+using System;
+using System.Text;
 using NUnit.Framework;
 using UnityAI.Editor.Codex.Domain;
 using UnityEngine;
@@ -10,6 +12,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         public void UnityActionRequestPayload_Deserializes_ActionDataJson()
         {
             const string actionDataJson = "{\"r\":1,\"g\":0.5,\"b\":0.25,\"a\":1}";
+            var actionDataMarshaled = ToBase64Url(actionDataJson);
             var json =
                 "{" +
                 "\"based_on_read_token\":\"tok_ext_123456789012345678901234\"," +
@@ -18,7 +21,8 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "\"type\":\"set_ui_image_color\"," +
                 "\"target_anchor\":{\"object_id\":\"go_1\",\"path\":\"Scene/Canvas/Image\"}," +
                 "\"action_data\":{\"r\":1,\"g\":0.5,\"b\":0.25,\"a\":1}," +
-                "\"action_data_json\":\"" + Escape(actionDataJson) + "\"" +
+                "\"action_data_json\":\"" + Escape(actionDataJson) + "\"," +
+                "\"action_data_marshaled\":\"" + actionDataMarshaled + "\"" +
                 "}" +
                 "}";
 
@@ -28,6 +32,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.NotNull(payload.action);
             Assert.AreEqual("set_ui_image_color", payload.action.type);
             Assert.AreEqual(actionDataJson, payload.action.action_data_json);
+            Assert.AreEqual(actionDataMarshaled, payload.action.action_data_marshaled);
         }
 
         [Test]
@@ -96,13 +101,15 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "\"type\":\"create_gameobject\"," +
                 "\"parent_anchor\":{\"object_id\":\"go_canvas\",\"path\":\"Scene/Canvas\"}," +
                 "\"action_data_json\":\"{\\\"name\\\":\\\"HPBar\\\"}\"," +
+                "\"action_data_marshaled\":\"eyJuYW1lIjoiSFBCYXIifQ\"," +
                 "\"bind_outputs\":[{\"source\":\"created_object\",\"alias\":\"hp_root\"}]" +
                 "}," +
                 "{" +
                 "\"step_id\":\"s2_color\"," +
                 "\"type\":\"set_ui_image_color\"," +
                 "\"target_anchor_ref\":\"hp_root\"," +
-                "\"action_data_json\":\"{\\\"r\\\":1,\\\"g\\\":0.2,\\\"b\\\":0.2,\\\"a\\\":1}\"" +
+                "\"action_data_json\":\"{\\\"r\\\":1,\\\"g\\\":0.2,\\\"b\\\":0.2,\\\"a\\\":1}\"," +
+                "\"action_data_marshaled\":\"eyJyIjoxLCJnIjowLjIsImIiOjAuMiwiYSI6MX0\"" +
                 "}" +
                 "]" +
                 "}";
@@ -117,6 +124,8 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.AreEqual(1, data.steps[0].bind_outputs.Length);
             Assert.AreEqual("created_object", data.steps[0].bind_outputs[0].source);
             Assert.AreEqual("hp_root", data.steps[0].bind_outputs[0].alias);
+            Assert.AreEqual("eyJuYW1lIjoiSFBCYXIifQ", data.steps[0].action_data_marshaled);
+            Assert.AreEqual("eyJyIjoxLCJnIjowLjIsImIiOjAuMiwiYSI6MX0", data.steps[1].action_data_marshaled);
         }
 
         [Test]
@@ -319,9 +328,68 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.AreEqual(12000, query.payload.timeout_ms);
         }
 
+        [Test]
+        public void UnityPulledQueryPayload_Deserializes_GetSerializedPropertyTreeFields()
+        {
+            const string json =
+                "{" +
+                "\"query_id\":\"q_sp_tree_1\"," +
+                "\"query_type\":\"get_serialized_property_tree\"," +
+                "\"request_id\":\"req_sp_tree_1\"," +
+                "\"payload\":{" +
+                "\"target_anchor\":{\"object_id\":\"go_btn\",\"path\":\"Scene/Canvas/Button\"}," +
+                "\"component_selector\":{" +
+                "\"component_assembly_qualified_name\":\"UnityEngine.UI.Image, UnityEngine.UI\"," +
+                "\"component_index\":0" +
+                "}," +
+                "\"root_property_path\":\"\"," +
+                "\"depth\":1," +
+                "\"after_property_path\":\"m_Color\"," +
+                "\"page_size\":64," +
+                "\"node_budget\":128," +
+                "\"char_budget\":12000," +
+                "\"include_value_summary\":true," +
+                "\"include_non_visible\":false," +
+                "\"timeout_ms\":4000" +
+                "}" +
+                "}";
+
+            var query = JsonUtility.FromJson<UnityPulledQuery>(json);
+
+            Assert.NotNull(query);
+            Assert.NotNull(query.payload);
+            Assert.NotNull(query.payload.target_anchor);
+            Assert.AreEqual("go_btn", query.payload.target_anchor.object_id);
+            Assert.AreEqual("Scene/Canvas/Button", query.payload.target_anchor.path);
+            Assert.NotNull(query.payload.component_selector);
+            Assert.AreEqual(
+                "UnityEngine.UI.Image, UnityEngine.UI",
+                query.payload.component_selector.component_assembly_qualified_name);
+            Assert.AreEqual(0, query.payload.component_selector.component_index);
+            Assert.AreEqual(string.Empty, query.payload.root_property_path);
+            Assert.AreEqual(1, query.payload.depth);
+            Assert.AreEqual("m_Color", query.payload.after_property_path);
+            Assert.AreEqual(64, query.payload.page_size);
+            Assert.AreEqual(128, query.payload.node_budget);
+            Assert.AreEqual(12000, query.payload.char_budget);
+            Assert.IsTrue(query.payload.include_value_summary);
+            Assert.IsFalse(query.payload.include_non_visible);
+            Assert.AreEqual(4000, query.payload.timeout_ms);
+        }
+
         private static string Escape(string value)
         {
             return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        }
+
+        private static string ToBase64Url(string value)
+        {
+            var raw = value ?? string.Empty;
+            return Convert
+                .ToBase64String(Encoding.UTF8.GetBytes(raw))
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
         }
     }
 }

@@ -211,40 +211,40 @@ class McpEyesWriteService {
       if (rect && typeof rect === "object") {
         if (rect.anchored_position && typeof rect.anchored_position === "object") {
           mappedActions.push({
-            type: "set_rect_transform_anchored_position",
+            type: "set_rect_anchored_position",
             target_anchor: cloneJson(targetAnchor),
             action_data: {
               x: Number(rect.anchored_position.x),
               y: Number(rect.anchored_position.y),
             },
           });
-          mappedActionTypes.push("set_rect_transform_anchored_position");
+          mappedActionTypes.push("set_rect_anchored_position");
         }
         if (rect.size_delta && typeof rect.size_delta === "object") {
           mappedActions.push({
-            type: "set_rect_transform_size_delta",
+            type: "set_rect_size_delta",
             target_anchor: cloneJson(targetAnchor),
             action_data: {
               x: Number(rect.size_delta.x),
               y: Number(rect.size_delta.y),
             },
           });
-          mappedActionTypes.push("set_rect_transform_size_delta");
+          mappedActionTypes.push("set_rect_size_delta");
         }
         if (rect.pivot && typeof rect.pivot === "object") {
           mappedActions.push({
-            type: "set_rect_transform_pivot",
+            type: "set_rect_pivot",
             target_anchor: cloneJson(targetAnchor),
             action_data: {
               x: Number(rect.pivot.x),
               y: Number(rect.pivot.y),
             },
           });
-          mappedActionTypes.push("set_rect_transform_pivot");
+          mappedActionTypes.push("set_rect_pivot");
         }
         if (rect.anchors && typeof rect.anchors === "object") {
           mappedActions.push({
-            type: "set_rect_transform_anchors",
+            type: "set_rect_anchors",
             target_anchor: cloneJson(targetAnchor),
             action_data: {
               min_x: Number(rect.anchors.min_x),
@@ -253,7 +253,7 @@ class McpEyesWriteService {
               max_y: Number(rect.anchors.max_y),
             },
           });
-          mappedActionTypes.push("set_rect_transform_anchors");
+          mappedActionTypes.push("set_rect_anchors");
         }
       }
 

@@ -103,6 +103,16 @@ function normalizePayload(body) {
   if (scopeRootPath && !normalizeNonEmptyString(payload.root_path)) {
     payload.root_path = scopeRootPath;
   }
+  payload.include_repair_plan = payload.include_repair_plan === true;
+  if (payload.max_repair_suggestions !== undefined) {
+    const normalizedLimit = Number(payload.max_repair_suggestions);
+    payload.max_repair_suggestions =
+      Number.isFinite(normalizedLimit) && normalizedLimit > 0
+        ? Math.floor(normalizedLimit)
+        : undefined;
+  }
+  const normalizedStyle = normalizeRepairStyle(payload.repair_style);
+  payload.repair_style = normalizedStyle || undefined;
   return payload;
 }
 
@@ -127,6 +137,42 @@ function normalizeLayoutData(data, payload) {
   } else {
     source.issue_count = Math.max(0, Math.floor(Number(source.issue_count)));
   }
+
+  const specialistSummary = buildSpecialistSummary(source.issues);
+  source.specialist_summary = {
+    ...(source.specialist_summary && typeof source.specialist_summary === "object"
+      ? source.specialist_summary
+      : {}),
+    ...specialistSummary,
+  };
+
+  if (payload && payload.include_repair_plan === true) {
+    const maxSuggestions = normalizeRepairLimit(payload.max_repair_suggestions);
+    const style = normalizeRepairStyle(payload.repair_style) || "balanced";
+    const incomingPlan = Array.isArray(source.repair_plan)
+      ? source.repair_plan.map((item) => normalizeRepairItem(item))
+      : [];
+    let plan = incomingPlan.filter(Boolean);
+    let generatedBy = normalizeNonEmptyString(source.repair_plan_generated_by);
+    if (plan.length === 0) {
+      plan = buildRepairPlan(source.issues, {
+        maxSuggestions,
+        repairStyle: style,
+      });
+      generatedBy = "sidecar";
+    }
+
+    source.repair_plan = plan.slice(0, maxSuggestions);
+    source.repair_plan_generated_by = generatedBy || "sidecar";
+    source.specialist_summary.has_repair_plan = source.repair_plan.length > 0;
+    source.specialist_summary.repair_style = style;
+  } else {
+    delete source.repair_plan;
+    delete source.repair_plan_generated_by;
+    source.specialist_summary.has_repair_plan = false;
+    source.specialist_summary.repair_style = "";
+  }
+
   return source;
 }
 
@@ -166,6 +212,210 @@ function normalizeIssue(issue, layoutData) {
     item.confidence = approximate || item.mode === "derived_only" ? "low" : "high";
   }
   return item;
+}
+
+function normalizeRepairItem(item) {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+
+  const targetAnchor =
+    item.target_anchor && typeof item.target_anchor === "object"
+      ? {
+          object_id: normalizeNonEmptyString(item.target_anchor.object_id),
+          path: normalizeNonEmptyString(item.target_anchor.path),
+        }
+      : null;
+
+  return {
+    issue_type: normalizeNonEmptyString(item.issue_type),
+    target_anchor: targetAnchor,
+    strategy: normalizeNonEmptyString(item.strategy),
+    recommended_action_type: normalizeNonEmptyString(item.recommended_action_type),
+    action_data_template_json: normalizeNonEmptyString(item.action_data_template_json),
+    rationale: normalizeNonEmptyString(item.rationale),
+    risk: normalizeNonEmptyString(item.risk),
+  };
+}
+
+function buildSpecialistSummary(issues) {
+  const list = Array.isArray(issues) ? issues : [];
+  const summary = {
+    out_of_bounds_count: 0,
+    overlap_count: 0,
+    not_clickable_count: 0,
+    text_overflow_count: 0,
+    high_severity_count: 0,
+    low_confidence_count: 0,
+  };
+
+  for (const issue of list) {
+    const type = normalizeNonEmptyString(issue && issue.issue_type);
+    if (type === "OUT_OF_BOUNDS") {
+      summary.out_of_bounds_count += 1;
+    } else if (type === "OVERLAP") {
+      summary.overlap_count += 1;
+    } else if (type === "NOT_CLICKABLE") {
+      summary.not_clickable_count += 1;
+    } else if (type === "TEXT_OVERFLOW") {
+      summary.text_overflow_count += 1;
+    }
+
+    const severity = normalizeNonEmptyString(issue && issue.severity).toLowerCase();
+    if (severity === "error") {
+      summary.high_severity_count += 1;
+    }
+
+    const confidence = normalizeNonEmptyString(issue && issue.confidence).toLowerCase();
+    if (confidence === "low") {
+      summary.low_confidence_count += 1;
+    }
+  }
+
+  return summary;
+}
+
+function buildRepairPlan(issues, options) {
+  const opts = options && typeof options === "object" ? options : {};
+  const maxSuggestions = normalizeRepairLimit(opts.maxSuggestions);
+  const repairStyle = normalizeRepairStyle(opts.repairStyle) || "balanced";
+  const list = Array.isArray(issues) ? issues : [];
+  const plan = [];
+  for (const issue of list) {
+    if (plan.length >= maxSuggestions) {
+      break;
+    }
+    const candidate = buildRepairItem(issue, repairStyle);
+    if (candidate) {
+      plan.push(candidate);
+    }
+  }
+  return plan;
+}
+
+function buildRepairItem(issue, repairStyle) {
+  const item = issue && typeof issue === "object" ? issue : {};
+  const issueType = normalizeNonEmptyString(item.issue_type);
+  if (!issueType) {
+    return null;
+  }
+
+  const targetAnchor =
+    item.anchor && typeof item.anchor === "object"
+      ? {
+          object_id: normalizeNonEmptyString(item.anchor.object_id),
+          path: normalizeNonEmptyString(item.anchor.path),
+        }
+      : null;
+  const style = normalizeRepairStyle(repairStyle) || "balanced";
+  const base = {
+    issue_type: issueType,
+    target_anchor: targetAnchor,
+    strategy: "manual_triage",
+    recommended_action_type: "set_serialized_property",
+    action_data_template_json: "{}",
+    rationale:
+      normalizeNonEmptyString(item.suggestion) ||
+      "Apply deterministic primitive fix then re-run validate_ui_layout.",
+    risk: "medium",
+  };
+
+  if (issueType === "OUT_OF_BOUNDS") {
+    return {
+      ...base,
+      strategy: "move_inside_safe_bounds",
+      recommended_action_type: "set_rect_anchored_position",
+      action_data_template_json: "{\"x\":0,\"y\":0}",
+      rationale: "Move element into visible bounds before fine tuning offsets.",
+      risk: "low",
+    };
+  }
+
+  if (issueType === "OVERLAP") {
+    if (style === "aggressive") {
+      return {
+        ...base,
+        strategy: "separate_by_layout_size",
+        recommended_action_type: "set_rect_size_delta",
+        action_data_template_json: "{\"x\":320,\"y\":80}",
+        rationale: "Expand/reshape one container to clear overlap in current layout.",
+        risk: "medium",
+      };
+    }
+    return {
+      ...base,
+      strategy: "separate_by_position",
+      recommended_action_type: "set_rect_anchored_position",
+      action_data_template_json: "{\"x\":0,\"y\":0}",
+      rationale: "Offset one node to remove overlap while preserving hierarchy.",
+      risk: "low",
+    };
+  }
+
+  if (issueType === "NOT_CLICKABLE") {
+    if (normalizeNonEmptyString(item.approx_reason) === "NO_RAYCAST_SOURCE") {
+      return {
+        ...base,
+        strategy: "enable_raycast",
+        recommended_action_type: "set_ui_image_raycast_target",
+        action_data_template_json: "{\"raycast_target\":true}",
+        rationale: "Enable raycast target to restore pointer hitability.",
+        risk: "low",
+      };
+    }
+    return {
+      ...base,
+      strategy: "reactivate_node",
+      recommended_action_type: "set_active",
+      action_data_template_json: "{\"active\":true}",
+      rationale: "Restore active state and revalidate clickability.",
+      risk: "medium",
+    };
+  }
+
+  if (issueType === "TEXT_OVERFLOW") {
+    if (style === "conservative") {
+      return {
+        ...base,
+        strategy: "reduce_font_size",
+        recommended_action_type: "set_ui_text_font_size",
+        action_data_template_json: "{\"font_size\":24}",
+        rationale: "Reduce font size first for low-risk overflow mitigation.",
+        risk: "low",
+      };
+    }
+    return {
+      ...base,
+      strategy: "expand_text_container",
+      recommended_action_type: "set_rect_size_delta",
+      action_data_template_json: "{\"x\":320,\"y\":80}",
+      rationale: "Increase text container size to absorb overflow across resolutions.",
+      risk: "medium",
+    };
+  }
+
+  return base;
+}
+
+function normalizeRepairStyle(value) {
+  const normalized = normalizeNonEmptyString(value).toLowerCase();
+  if (
+    normalized === "conservative" ||
+    normalized === "balanced" ||
+    normalized === "aggressive"
+  ) {
+    return normalized;
+  }
+  return "";
+}
+
+function normalizeRepairLimit(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return 6;
+  }
+  const rounded = Math.floor(numeric);
+  return rounded > 20 ? 20 : rounded;
 }
 
 function mapFailure(error) {
@@ -217,4 +467,3 @@ function normalizeNonEmptyString(value) {
 module.exports = {
   executeValidateUiLayout,
 };
-

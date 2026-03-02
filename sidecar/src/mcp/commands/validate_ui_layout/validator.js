@@ -13,6 +13,7 @@ const ALLOWED_CHECKS = new Set([
   "TEXT_OVERFLOW",
 ]);
 const ALLOWED_LAYOUT_REFRESH_MODES = new Set(["scoped_roots_only", "full_tree"]);
+const ALLOWED_REPAIR_STYLES = new Set(["conservative", "balanced", "aggressive"]);
 
 function validateUiLayout(body) {
   if (!isObject(body)) {
@@ -33,6 +34,9 @@ function validateUiLayout(body) {
       "max_issues",
       "time_budget_ms",
       "layout_refresh_mode",
+      "include_repair_plan",
+      "max_repair_suggestions",
+      "repair_style",
       "timeout_ms",
     ]),
     "body"
@@ -195,6 +199,42 @@ function validateUiLayout(body) {
     }
   }
 
+  if (
+    body.include_repair_plan !== undefined &&
+    typeof body.include_repair_plan !== "boolean"
+  ) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "include_repair_plan must be a boolean when provided",
+      statusCode: 400,
+    };
+  }
+
+  if (body.max_repair_suggestions !== undefined) {
+    const repairLimitValidation = validateIntegerField(
+      body.max_repair_suggestions,
+      1,
+      "max_repair_suggestions"
+    );
+    if (!repairLimitValidation.ok) {
+      return repairLimitValidation;
+    }
+  }
+
+  if (body.repair_style !== undefined) {
+    const style =
+      typeof body.repair_style === "string" ? body.repair_style.trim() : "";
+    if (!ALLOWED_REPAIR_STYLES.has(style)) {
+      return {
+        ok: false,
+        errorCode: "E_SCHEMA_INVALID",
+        message: "repair_style must be one of: conservative|balanced|aggressive",
+        statusCode: 400,
+      };
+    }
+  }
+
   if (body.timeout_ms !== undefined) {
     const timeoutValidation = validateIntegerField(
       body.timeout_ms,
@@ -212,4 +252,3 @@ function validateUiLayout(body) {
 module.exports = {
   validateUiLayout,
 };
-

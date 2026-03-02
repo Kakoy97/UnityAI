@@ -259,8 +259,8 @@ test("set_ui_properties dry_run plans mapped actions and never queues Unity job"
   assert.equal(outcome.body.dry_run, true);
   assert.equal(outcome.body.planned_actions_count, 6);
   assert.deepEqual(outcome.body.mapped_actions, [
-    "set_rect_transform_anchored_position",
-    "set_rect_transform_size_delta",
+    "set_rect_anchored_position",
+    "set_rect_size_delta",
     "set_ui_image_color",
     "set_ui_image_raycast_target",
     "set_ui_text_content",

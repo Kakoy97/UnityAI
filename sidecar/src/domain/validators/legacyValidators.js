@@ -233,6 +233,14 @@ function validateVisualActionHardcut(action, itemPath) {
       statusCode: 400,
     };
   }
+  if (!isNullOrUndefined(action.action_data_marshaled)) {
+    return {
+      ok: false,
+      errorCode: "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED",
+      message: `${itemPath}.action_data_marshaled is not allowed in external payload`,
+      statusCode: 400,
+    };
+  }
 
   return {
     ok: true,
@@ -2471,16 +2479,28 @@ function validateMcpApplyVisualActions(body, options) {
 }
 
 function validateMcpSetUiProperties(body) {
-  if (
+  const forbiddenTopLevelActionDataField =
     body &&
     typeof body === "object" &&
     !Array.isArray(body) &&
     !isNullOrUndefined(body.action_data_json)
+      ? "action_data_json"
+      : body &&
+          typeof body === "object" &&
+          !Array.isArray(body) &&
+          !isNullOrUndefined(body.action_data_marshaled)
+        ? "action_data_marshaled"
+        : "";
+  if (
+    body &&
+    typeof body === "object" &&
+    !Array.isArray(body) &&
+    forbiddenTopLevelActionDataField
   ) {
     return {
       ok: false,
       errorCode: "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED",
-      message: "action_data_json is not allowed in external payload",
+      message: `${forbiddenTopLevelActionDataField} is not allowed in external payload`,
       statusCode: 400,
     };
   }
@@ -2672,6 +2692,7 @@ function validateSetUiPropertyOperations(operations) {
         "text",
         "layout_element",
         "action_data_json",
+        "action_data_marshaled",
       ]),
       opPath
     );
@@ -2693,6 +2714,14 @@ function validateSetUiPropertyOperations(operations) {
         ok: false,
         errorCode: "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED",
         message: `${opPath}.action_data_json is not allowed in external payload`,
+        statusCode: 400,
+      };
+    }
+    if (!isNullOrUndefined(operation.action_data_marshaled)) {
+      return {
+        ok: false,
+        errorCode: "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED",
+        message: `${opPath}.action_data_marshaled is not allowed in external payload`,
         statusCode: 400,
       };
     }
@@ -3410,6 +3439,7 @@ function validateCompositeActionData(actionData, itemPath) {
       "action_data",
       "bind_outputs",
       "action_data_json",
+      "action_data_marshaled",
     ]);
     const stepKeysValidation = validateAllowedKeys(step, stepAllowedKeys, stepPath);
     if (!stepKeysValidation.ok) {
@@ -3469,6 +3499,14 @@ function validateCompositeActionData(actionData, itemPath) {
         ok: false,
         errorCode: "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED",
         message: `${stepPath}.action_data_json is not allowed in external payload`,
+        statusCode: 400,
+      };
+    }
+    if (!isNullOrUndefined(step.action_data_marshaled)) {
+      return {
+        ok: false,
+        errorCode: "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED",
+        message: `${stepPath}.action_data_marshaled is not allowed in external payload`,
         statusCode: 400,
       };
     }

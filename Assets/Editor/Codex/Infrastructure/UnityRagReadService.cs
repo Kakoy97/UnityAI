@@ -94,6 +94,17 @@ namespace UnityAI.Editor.Codex.Infrastructure
             return Read.ReadErrorMapper.BuildGetUiTreeFailure(requestId, errorCode, errorMessage);
         }
 
+        private static UnityGetSerializedPropertyTreeResponse BuildGetSerializedPropertyTreeFailure(
+            string requestId,
+            string errorCode,
+            string errorMessage)
+        {
+            return Read.ReadErrorMapper.BuildGetSerializedPropertyTreeFailure(
+                requestId,
+                errorCode,
+                errorMessage);
+        }
+
         private static UnityCaptureSceneScreenshotResponse BuildCaptureSceneScreenshotFailure(string requestId, string errorCode, string errorMessage)
         {
             return Read.ReadErrorMapper.BuildCaptureSceneScreenshotFailure(requestId, errorCode, errorMessage);

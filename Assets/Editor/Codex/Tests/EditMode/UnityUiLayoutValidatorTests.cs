@@ -146,6 +146,56 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.IsTrue(hasDerivedOnly, "Expected at least one derived_only TEXT_OVERFLOW issue.");
         }
 
+        [Test]
+        public void ValidateUiLayout_IncludeRepairPlan_ReturnsSpecialistSummaryAndPlan()
+        {
+            var canvasGo = new GameObject(NamePrefix + "CanvasSpecialist", typeof(RectTransform), typeof(Canvas));
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+            var textGo = new GameObject(NamePrefix + "TextSpecialist", typeof(RectTransform), typeof(Text));
+            textGo.transform.SetParent(canvasGo.transform, false);
+            var textRect = textGo.GetComponent<RectTransform>();
+            textRect.sizeDelta = new Vector2(32f, 16f);
+            var text = textGo.GetComponent<Text>();
+            text.text = "TEXT_OVERFLOW_SPECIALIST_VALIDATION";
+            text.fontSize = 34;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+
+            var response = _service.ValidateUiLayout(
+                new UnityValidateUiLayoutRequest
+                {
+                    request_id = "req_v1_validate_specialist",
+                    payload = new UnityValidateUiLayoutPayload
+                    {
+                        checks = new[] { "TEXT_OVERFLOW" },
+                        max_issues = 20,
+                        time_budget_ms = 1000,
+                        layout_refresh_mode = "scoped_roots_only",
+                        include_repair_plan = true,
+                        max_repair_suggestions = 3,
+                        repair_style = "conservative"
+                    }
+                });
+
+            Assert.NotNull(response);
+            Assert.IsTrue(response.ok);
+            Assert.NotNull(response.data);
+            Assert.NotNull(response.data.specialist_summary);
+            Assert.NotNull(response.data.repair_plan);
+            Assert.Greater(response.data.repair_plan.Length, 0);
+            Assert.AreEqual("unity", response.data.repair_plan_generated_by);
+            Assert.IsTrue(response.data.specialist_summary.has_repair_plan);
+            Assert.AreEqual("conservative", response.data.specialist_summary.repair_style);
+
+            var first = response.data.repair_plan[0];
+            Assert.NotNull(first);
+            Assert.AreEqual("TEXT_OVERFLOW", first.issue_type);
+            Assert.IsFalse(string.IsNullOrEmpty(first.recommended_action_type));
+            Assert.IsFalse(string.IsNullOrEmpty(first.action_data_template_json));
+        }
+
         private static void CreateOverlappingImage(Transform parent, string name, float x)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));

@@ -165,4 +165,33 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
             return McpVisualActionExecutionResult.FromExecutionResult(result);
         }
     }
+
+    internal sealed class CreateObjectHandler : McpVisualActionHandler<CreateGameObjectActionData>
+    {
+        public override string ActionType
+        {
+            get { return "create_object"; }
+        }
+
+        protected override McpVisualActionExecutionResult ExecuteTyped(
+            McpVisualActionContext context,
+            CreateGameObjectActionData data)
+        {
+            var action = McpBuiltInActionMapper.CloneAction(context == null ? null : context.RawAction);
+            action.name =
+                data != null && !string.IsNullOrWhiteSpace(data.name)
+                    ? data.name.Trim()
+                    : string.Empty;
+            action.primitive_type =
+                data != null && !string.IsNullOrWhiteSpace(data.primitive_type)
+                    ? data.primitive_type.Trim()
+                    : string.Empty;
+            action.ui_type =
+                data != null && !string.IsNullOrWhiteSpace(data.ui_type)
+                    ? data.ui_type.Trim()
+                    : string.Empty;
+            var result = LegacyPrimitiveActionHandlers.RunCreateGameObject(action);
+            return McpVisualActionExecutionResult.FromExecutionResult(result);
+        }
+    }
 }

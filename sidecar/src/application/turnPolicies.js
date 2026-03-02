@@ -229,7 +229,7 @@ const MCP_ERROR_FEEDBACK_TEMPLATES = Object.freeze({
   E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED: Object.freeze({
     recoverable: true,
     suggestion:
-      "Do not send action_data_json from LLM/L1 input. Send action_data as a JSON object and retry.",
+      "Do not send stringified action_data fields. Send action_data as a JSON object and retry.",
   }),
   E_COMPOSITE_PAYLOAD_INVALID: Object.freeze({
     recoverable: true,

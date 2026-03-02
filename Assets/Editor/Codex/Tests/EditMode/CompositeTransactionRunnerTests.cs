@@ -54,6 +54,35 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         }
 
         [Test]
+        public void ExecuteAtomic_RollsBackRecordedPropertyMutation_OnFailure()
+        {
+            var runner = new CompositeTransactionRunner();
+            var go = new GameObject("R16_ATOMIC_RUNNER_PROPERTY");
+
+            try
+            {
+                go.SetActive(true);
+                var result = runner.ExecuteAtomic(
+                    "r16_atomic_runner_property_rollback",
+                    () =>
+                    {
+                        Undo.RecordObject(go, "toggle active");
+                        go.SetActive(false);
+                        return McpVisualActionExecutionResult.Fail("E_TEST_FAILED", "forced");
+                    });
+
+                Assert.NotNull(result);
+                Assert.IsFalse(result.Success);
+                Assert.AreEqual("E_TEST_FAILED", result.ErrorCode);
+                Assert.IsTrue(go.activeSelf);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
         public void RollbackVerifier_DetectsLeakedObject_WhenExpectedDestroyedIdStillAlive()
         {
             var verifier = new RollbackVerifier();

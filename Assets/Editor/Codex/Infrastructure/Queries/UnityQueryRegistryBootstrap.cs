@@ -32,6 +32,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries
             registry.Register(new QueryPrefabInfoQueryHandler());
             registry.Register(new CaptureSceneScreenshotQueryHandler());
             registry.Register(new GetUiTreeQueryHandler());
+            registry.Register(new GetSerializedPropertyTreeQueryHandler());
             registry.Register(new HitTestUiAtScreenPointDisabledQueryHandler());
             registry.Register(new HitTestUiAtViewportPointQueryHandler());
             registry.Register(new ValidateUiLayoutQueryHandler());

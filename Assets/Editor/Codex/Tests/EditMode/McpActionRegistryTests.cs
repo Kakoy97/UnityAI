@@ -140,6 +140,29 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                     string.Equals(item.Domain, McpActionGovernance.DomainUi, StringComparison.Ordinal)));
         }
 
+        [Test]
+        public void BootstrapRegistry_ContainsSetSerializedProperty_WithSchemaHints()
+        {
+            var registry = McpActionRegistryBootstrap.Registry;
+            IMcpVisualActionHandler resolved;
+            Assert.IsTrue(registry.TryGet("set_serialized_property", out resolved));
+            Assert.NotNull(resolved);
+            Assert.AreEqual("set_serialized_property", resolved.ActionType);
+
+            var capabilities = McpActionRegistryBootstrap.GetCapabilities();
+            var capability = capabilities.FirstOrDefault(
+                (item) =>
+                    item != null &&
+                    string.Equals(item.ActionType, "set_serialized_property", StringComparison.Ordinal));
+            Assert.NotNull(capability);
+            Assert.AreEqual(McpActionGovernance.DomainComponent, capability.Domain);
+            Assert.AreEqual(McpActionGovernance.TierAdvanced, capability.Tier);
+            Assert.AreEqual(McpActionGovernance.LifecycleExperimental, capability.Lifecycle);
+            Assert.IsTrue(capability.ActionDataSchemaJson.Contains("component_selector"));
+            Assert.IsTrue(capability.ActionDataSchemaJson.Contains("patches"));
+            Assert.IsTrue(capability.ActionDataSchemaJson.Contains("object_ref"));
+        }
+
         private sealed class TestActionHandlerA : IMcpVisualActionHandler
         {
             public string ActionType

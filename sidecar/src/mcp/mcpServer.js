@@ -561,6 +561,10 @@ class UnityMcpServer {
     return this.callToolByName("set_ui_properties", args);
   }
 
+  async setSerializedProperty(args) {
+    return this.callToolByName("set_serialized_property", args);
+  }
+
   async listAssetsInFolder(args) {
     return this.callToolByName("list_assets_in_folder", args);
   }
@@ -595,6 +599,10 @@ class UnityMcpServer {
 
   async getUiTree(args) {
     return this.callToolByName("get_ui_tree", args);
+  }
+
+  async getSerializedPropertyTree(args) {
+    return this.callToolByName("get_serialized_property_tree", args);
   }
 
   async hitTestUiAtViewportPoint(args) {

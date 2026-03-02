@@ -20,6 +20,9 @@ test("validate_ui_layout validator accepts valid payload", () => {
     max_issues: 200,
     time_budget_ms: 1200,
     layout_refresh_mode: "scoped_roots_only",
+    include_repair_plan: true,
+    max_repair_suggestions: 8,
+    repair_style: "balanced",
     timeout_ms: 15000,
   });
   assert.equal(result.ok, true);
@@ -67,5 +70,15 @@ test("validate_ui_layout validator rejects invalid budget and refresh mode", () 
     badRefreshMode.message,
     "layout_refresh_mode must be one of: scoped_roots_only|full_tree"
   );
-});
 
+  const badRepairStyle = validateUiLayout({
+    include_repair_plan: true,
+    repair_style: "unsafe",
+  });
+  assert.equal(badRepairStyle.ok, false);
+  assert.equal(badRepairStyle.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(
+    badRepairStyle.message,
+    "repair_style must be one of: conservative|balanced|aggressive"
+  );
+});

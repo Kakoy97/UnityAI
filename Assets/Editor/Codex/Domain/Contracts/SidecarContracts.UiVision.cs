@@ -425,6 +425,9 @@ namespace UnityAI.Editor.Codex.Domain
         public int max_issues;
         public int time_budget_ms;
         public string layout_refresh_mode;
+        public bool include_repair_plan;
+        public int max_repair_suggestions;
+        public string repair_style;
         public int timeout_ms;
     }
 
@@ -455,6 +458,9 @@ namespace UnityAI.Editor.Codex.Domain
         public int issue_count;
         public string runtime_resolution_name;
         public UnityUiLayoutIssue[] issues;
+        public UnityUiLayoutSpecialistSummary specialist_summary;
+        public UnityUiLayoutRepairAction[] repair_plan;
+        public string repair_plan_generated_by;
     }
 
 
@@ -471,6 +477,33 @@ namespace UnityAI.Editor.Codex.Domain
         public string confidence;
         public bool approximate;
         public string approx_reason;
+    }
+
+
+    [Serializable]
+    public sealed class UnityUiLayoutSpecialistSummary
+    {
+        public int out_of_bounds_count;
+        public int overlap_count;
+        public int not_clickable_count;
+        public int text_overflow_count;
+        public int high_severity_count;
+        public int low_confidence_count;
+        public bool has_repair_plan;
+        public string repair_style;
+    }
+
+
+    [Serializable]
+    public sealed class UnityUiLayoutRepairAction
+    {
+        public string issue_type;
+        public UnityObjectAnchor target_anchor;
+        public string strategy;
+        public string recommended_action_type;
+        public string action_data_template_json;
+        public string rationale;
+        public string risk;
     }
 
 

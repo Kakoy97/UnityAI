@@ -100,6 +100,28 @@ test("apply_visual_actions rejects nested step action_data_json in composite pay
   assert.equal(result.errorCode, "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED");
 });
 
+test("apply_visual_actions rejects action_data_marshaled in external payload", () => {
+  const topLevel = validateMcpApplyVisualActions(
+    buildApplyBody({
+      type: "set_ui_image_color",
+      target_anchor: {
+        object_id: "go_img",
+        path: "Scene/Canvas/Image",
+      },
+      action_data_marshaled: "eyJyIjoxfQ",
+    })
+  );
+  assert.equal(topLevel.ok, false);
+  assert.equal(topLevel.errorCode, "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED");
+
+  const compositeAction = buildCompositeAction();
+  compositeAction.action_data.steps[1].action_data_marshaled = "eyJyIjoxfQ";
+  delete compositeAction.action_data.steps[1].action_data;
+  const nested = validateMcpApplyVisualActions(buildApplyBody(compositeAction));
+  assert.equal(nested.ok, false);
+  assert.equal(nested.errorCode, "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED");
+});
+
 test("apply_visual_actions rejects inline alias interpolation in composite step action_data", () => {
   const action = buildCompositeAction();
   action.action_data.steps[1].action_data = {
@@ -239,6 +261,33 @@ test("submit_unity_task also rejects external action_data_json", () => {
           path: "Scene/Canvas/Image",
         },
         action_data_json: "{\"r\":1}",
+      },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED");
+});
+
+test("submit_unity_task also rejects external action_data_marshaled", () => {
+  const result = validateMcpSubmitUnityTask({
+    thread_id: "thread_composite",
+    idempotency_key: "idem_composite_marshaled",
+    approval_mode: "auto",
+    user_intent: "composite marshaled validation test",
+    based_on_read_token: VALID_TOKEN,
+    write_anchor: {
+      object_id: "go_canvas",
+      path: "Scene/Canvas",
+    },
+    visual_layer_actions: [
+      {
+        type: "set_ui_image_color",
+        target_anchor: {
+          object_id: "go_img",
+          path: "Scene/Canvas/Image",
+        },
+        action_data_marshaled: "eyJyIjoxfQ",
       },
     ],
   });

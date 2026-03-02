@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using UnityAI.Editor.Codex.Domain;
 using UnityEngine;
 
@@ -30,7 +31,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
             IMcpVisualActionExecutionUtilities utilities)
         {
             RawAction = rawAction;
-            ActionDataJson = rawAction == null ? string.Empty : SafeTrim(rawAction.action_data_json);
+            ActionDataJson = ResolveActionDataJson(rawAction);
             Selected = selected;
             AnchorResolver = anchorResolver;
             Utilities = utilities;
@@ -50,7 +51,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
 
             if (string.IsNullOrWhiteSpace(ActionDataJson))
             {
-                error = "action_data_json is required.";
+                error = "action_data payload is required.";
                 return false;
             }
 
@@ -62,7 +63,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                     return true;
                 }
 
-                error = "action_data_json deserialized to null.";
+                error = "action_data payload deserialized to null.";
                 return false;
             }
             catch (Exception ex)
@@ -77,7 +78,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
             var singleLine = NormalizeSingleLine(message);
             if (string.IsNullOrEmpty(singleLine))
             {
-                return "action_data_json deserialization failed.";
+                return "action_data payload deserialization failed.";
             }
 
             if (singleLine.Length <= MaxDeserializeErrorLength)
@@ -102,6 +103,71 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
         private static string SafeTrim(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        }
+
+        private static string ResolveActionDataJson(VisualLayerActionItem rawAction)
+        {
+            if (rawAction == null)
+            {
+                return string.Empty;
+            }
+
+            string decodedMarshaled;
+            if (TryDecodeMarshaledActionData(rawAction.action_data_marshaled, out decodedMarshaled))
+            {
+                var trimmed = SafeTrim(decodedMarshaled);
+                if (!string.IsNullOrEmpty(trimmed))
+                {
+                    return trimmed;
+                }
+            }
+
+            return SafeTrim(rawAction.action_data_json);
+        }
+
+        private static bool TryDecodeMarshaledActionData(string marshaled, out string decodedJson)
+        {
+            decodedJson = string.Empty;
+            var normalized = NormalizeBase64Url(marshaled);
+            if (string.IsNullOrEmpty(normalized))
+            {
+                return false;
+            }
+
+            try
+            {
+                var bytes = Convert.FromBase64String(normalized);
+                decodedJson = bytes == null ? string.Empty : Encoding.UTF8.GetString(bytes);
+                return !string.IsNullOrWhiteSpace(decodedJson);
+            }
+            catch
+            {
+                decodedJson = string.Empty;
+                return false;
+            }
+        }
+
+        private static string NormalizeBase64Url(string raw)
+        {
+            var text = SafeTrim(raw);
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
+
+            var base64 = text.Replace('-', '+').Replace('_', '/');
+            var mod = base64.Length % 4;
+            if (mod == 0)
+            {
+                return base64;
+            }
+
+            if (mod == 1)
+            {
+                return string.Empty;
+            }
+
+            return base64 + new string('=', 4 - mod);
         }
     }
 }

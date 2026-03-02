@@ -38,6 +38,9 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries.Handlers
                     max_issues = payload.max_issues,
                     time_budget_ms = payload.time_budget_ms,
                     layout_refresh_mode = context.NormalizeQueryField(payload.layout_refresh_mode),
+                    include_repair_plan = payload.include_repair_plan,
+                    max_repair_suggestions = payload.max_repair_suggestions,
+                    repair_style = context.NormalizeQueryField(payload.repair_style),
                     timeout_ms = payload.timeout_ms
                 }
             };

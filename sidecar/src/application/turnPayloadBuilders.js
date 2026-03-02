@@ -61,6 +61,81 @@ function tryParseJsonObject(rawJson) {
   }
 }
 
+function normalizeBase64Url(raw) {
+  const text = typeof raw === "string" ? raw.trim() : "";
+  if (!text) {
+    return "";
+  }
+  const base64 = text.replace(/-/g, "+").replace(/_/g, "/");
+  const mod = base64.length % 4;
+  if (mod === 0) {
+    return base64;
+  }
+  if (mod === 1) {
+    return "";
+  }
+  return `${base64}${"=".repeat(4 - mod)}`;
+}
+
+function encodeBase64UrlUtf8(rawText) {
+  const text = typeof rawText === "string" ? rawText : "";
+  if (!text) {
+    return "";
+  }
+  return Buffer.from(text, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function tryDecodeBase64UrlUtf8(rawText) {
+  const normalized = normalizeBase64Url(rawText);
+  if (!normalized) {
+    return "";
+  }
+  try {
+    return Buffer.from(normalized, "base64").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+function canonicalizeJsonValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => canonicalizeJsonValue(item));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  const keys = Object.keys(value).sort((a, b) => a.localeCompare(b));
+  const normalized = {};
+  for (const key of keys) {
+    normalized[key] = canonicalizeJsonValue(value[key]);
+  }
+  return normalized;
+}
+
+function stringifyCanonicalActionData(value) {
+  try {
+    const normalized = canonicalizeJsonValue(value);
+    const text = JSON.stringify(normalized);
+    return typeof text === "string" && text.length > 0 ? text : "{}";
+  } catch {
+    return "{}";
+  }
+}
+
+function marshalActionData(value) {
+  const canonicalJson = stringifyCanonicalActionData(value);
+  return encodeBase64UrlUtf8(canonicalJson);
+}
+
+function tryParseMarshaledActionData(rawMarshaled) {
+  const rawJson = tryDecodeBase64UrlUtf8(rawMarshaled);
+  return tryParseJsonObject(rawJson);
+}
+
 function stringifyActionData(value) {
   try {
     const text = JSON.stringify(value);
@@ -82,6 +157,7 @@ function buildLegacyVisualActionData(action) {
     "parent_anchor_ref",
     "action_data",
     "action_data_json",
+    "action_data_marshaled",
     "target_object_path",
     "target_path",
     "target_object_id",
@@ -107,6 +183,10 @@ function resolveVisualActionData(action) {
   const source = isObject(action) ? action : {};
   if (isObject(source.action_data)) {
     return cloneJson(source.action_data);
+  }
+  const marshaled = tryParseMarshaledActionData(source.action_data_marshaled);
+  if (marshaled) {
+    return marshaled;
   }
   const parsed = tryParseJsonObject(source.action_data_json);
   if (parsed) {
@@ -141,8 +221,11 @@ function normalizeCompositeStepForUnity(step) {
   }
   const stepActionData = isObject(source.action_data)
     ? cloneJson(source.action_data)
-    : tryParseJsonObject(source.action_data_json) || {};
+    : tryParseMarshaledActionData(source.action_data_marshaled) ||
+      tryParseJsonObject(source.action_data_json) ||
+      {};
   normalized.action_data_json = stringifyActionData(stepActionData);
+  normalized.action_data_marshaled = marshalActionData(stepActionData);
   return normalized;
 }
 
@@ -165,6 +248,7 @@ function buildVisualActionDataBridge(action) {
   return {
     action_data: normalizedActionData,
     action_data_json: stringifyActionData(normalizedActionData),
+    action_data_marshaled: marshalActionData(normalizedActionData),
   };
 }
 

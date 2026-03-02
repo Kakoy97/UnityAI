@@ -23,6 +23,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries
         public const string QueryPrefabInfo = "query_prefab_info";
         public const string CaptureSceneScreenshot = "capture_scene_screenshot";
         public const string GetUiTree = "get_ui_tree";
+        public const string GetSerializedPropertyTree = "get_serialized_property_tree";
         public const string HitTestUiAtScreenPoint = "hit_test_ui_at_screen_point";
         public const string HitTestUiAtViewportPoint = "hit_test_ui_at_viewport_point";
         public const string ValidateUiLayout = "validate_ui_layout";

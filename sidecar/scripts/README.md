@@ -1,4 +1,4 @@
-# Sidecar Script Index (R15-SPLIT Baseline)
+# Sidecar Script Index (R16-HYBRID Baseline)
 
 ## Active Validation / Gate Scripts
 - `mcp-job-runner.js`
@@ -11,10 +11,12 @@
 - `r10-contract-snapshot-guard.js`
 - `r10-doc-index-guard.js`
 - `r11-command-boundary-guard.js`
+- `r16-wire-guard.js`
 
 ## Utility Scripts
 - `diagnose-capture.js`
 - `diagnose-ui.js`
+- `diagnose-ui-specialist.js`
 - `replay-failed-report.js`
 - `setup-cursor-mcp.js`
 - `verify-mcp-setup.js`
@@ -40,18 +42,34 @@
   - validate budget fields (`partial`, `truncated_reason`)
   - write planning fields (`planned_actions_count`, `mapped_actions`)
 
+## UI Specialist Diagnose Script (R16-HYBRID-P3-01)
+- Script: `diagnose-ui-specialist.js`
+- Purpose: run `validate_ui_layout` in specialist mode (`include_repair_plan=true`) and verify that `repair_plan.recommended_action_type` is compatible with `get_action_catalog`.
+- Default output: `diagnose-ui-specialist-report.json` in current working directory.
+- Example:
+  - `node scripts/diagnose-ui-specialist.js --base-url http://127.0.0.1:46321 --scope-root Scene/Canvas/HUD`
+  - `node scripts/diagnose-ui-specialist.js --repair-style aggressive --max-repair-suggestions 10 --strict`
+  - `node scripts/diagnose-ui-specialist.js --skip-catalog --output ./tmp/diagnose-ui-specialist-report.json`
+- Key report checks:
+  - specialist output fields (`specialist_summary`, `repair_plan`, `repair_plan_generated_by`)
+  - action catalog compatibility (`all_recommended_actions_registered`)
+  - repair strategy distribution summary (`top_repair_strategies`)
+
 ## Recommended Execution Order
 1. `npm test`
 2. `npm run test:r15:qa`
-3. `npm run gate:r9-closure`
-4. `npm run gate:r9-docs`
-5. `npm run gate:r10-responsibility`
-6. `npm run gate:r10-contract-snapshot`
-7. `npm run gate:r10-docs`
-8. `npm run gate:r11-command-boundary`
-9. `npm run test:r10:qa`
-10. `npm run smoke`
-11. `npm run diagnose:ui -- --base-url http://127.0.0.1:46321 --skip-set`
+3. `npm run test:r16:qa`
+4. `npm run gate:r9-closure`
+5. `npm run gate:r9-docs`
+6. `npm run gate:r10-responsibility`
+7. `npm run gate:r10-contract-snapshot`
+8. `npm run gate:r10-docs`
+9. `npm run gate:r11-command-boundary`
+10. `npm run gate:r16-wire`
+11. `npm run test:r10:qa`
+12. `npm run smoke`
+13. `npm run diagnose:ui -- --base-url http://127.0.0.1:46321 --skip-set`
+14. `npm run diagnose:ui:specialist -- --base-url http://127.0.0.1:46321 --strict`
 
 ## R15 Split Guard Coverage
 - `r10-responsibility-guard.js`
@@ -66,3 +84,15 @@
 ## Rule
 - Do not add compatibility fallback scripts that bypass MCP write/read frozen contracts.
 - Any new script must be documented here and referenced by `Assets/Docs/Codex-Unity-MCP-Main-Index.md`.
+
+## R16 Hybrid Wire Guard
+- Script: `r16-wire-guard.js`
+- Purpose: verify R16 Phase-A wire contract closure and atomic test baseline visibility.
+- Report includes:
+  - wire markers (`action_data_json` external hardcut + `action_data_marshaled` internal bridge)
+  - unexpected wire token exposures outside internal allowlist files
+  - `AtomicActionTestBase` coverage map (`covered_action_types`, `missing_action_types`)
+- Run:
+  - `npm run gate:r16-wire`
+  - `node scripts/r16-wire-guard.js --json`
+  - `node scripts/r16-wire-guard.js --strict-atomic` (treat missing atomic coverage as hard fail)

@@ -228,6 +228,9 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 action_data_json = string.IsNullOrWhiteSpace(step.action_data_json)
                     ? "{}"
                     : step.action_data_json.Trim(),
+                action_data_marshaled = string.IsNullOrWhiteSpace(step.action_data_marshaled)
+                    ? string.Empty
+                    : step.action_data_marshaled.Trim(),
             };
 
             if (action.target_anchor != null && !string.IsNullOrEmpty(action.target_anchor_ref))

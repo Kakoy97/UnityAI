@@ -31,6 +31,12 @@ const {
 const { validateGetUiTree } = require("./get_ui_tree/validator");
 const { executeGetUiTree } = require("./get_ui_tree/handler");
 const {
+  validateGetSerializedPropertyTree,
+} = require("./get_serialized_property_tree/validator");
+const {
+  executeGetSerializedPropertyTree,
+} = require("./get_serialized_property_tree/handler");
+const {
   validateHitTestUiAtViewportPoint,
 } = require("./hit_test_ui_at_viewport_point/validator");
 const {
@@ -41,6 +47,9 @@ const { executeValidateUiLayout } = require("./validate_ui_layout/handler");
 const {
   executeSetUiProperties,
 } = require("./set_ui_properties/handler");
+const {
+  executeSetSerializedProperty,
+} = require("./set_serialized_property/handler");
 const {
   validateHitTestUiAtScreenPoint,
 } = require("./hit_test_ui_at_screen_point/validator");
@@ -59,7 +68,7 @@ function buildVisualActionsDescription(ctx) {
       ? context.visualActionHint.trim()
       : "";
   const base =
-    "Apply structured Unity visual actions. Hard requirements: based_on_read_token + top-level write_anchor(object_id+path). Use action_data as the primary payload carrier. Use get_action_catalog/get_action_schema for action DTO schema and get_tool_schema for full tool contract.";
+    "Apply structured Unity visual actions. Hard requirements: based_on_read_token + top-level write_anchor(object_id+path). Use action_data as the primary payload carrier. Prefer Phase-2 primitive names (create_object/destroy_object/rename_object/set_active/set_parent/set_sibling_index/duplicate_object/set_local_position/set_local_rotation/set_local_scale/set_world_position/set_world_rotation/reset_transform/set_rect_anchored_position/set_rect_size_delta/set_rect_pivot/set_rect_anchors). Legacy *_gameobject and set_transform_*/set_rect_transform_* names are deprecated aliases. Use get_action_catalog/get_action_schema for action DTO schema and get_tool_schema for full tool contract.";
   return hint ? `${base} ${hint}` : base;
 }
 
@@ -583,6 +592,195 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
     },
   },
   {
+    name: "set_serialized_property",
+    kind: "write",
+    lifecycle: "experimental",
+    http: { method: "POST", path: "/mcp/set_serialized_property", source: "body" },
+    execute: executeSetSerializedProperty,
+    mcp: {
+      expose: true,
+      description:
+        "Generic SerializedProperty write action. Converts patch payload to apply_visual_actions(set_serialized_property) and reuses OCC/read_token, write_anchor, and atomic rollback guarantees.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          based_on_read_token: {
+            type: "string",
+            description:
+              "Read token from MCP eyes tools. Required for every write request.",
+          },
+          write_anchor: {
+            type: "object",
+            description:
+              "Top-level write anchor. Must contain both object_id and path.",
+            additionalProperties: false,
+            properties: {
+              object_id: { type: "string" },
+              path: { type: "string" },
+            },
+            required: ["object_id", "path"],
+          },
+          target_anchor: {
+            type: "object",
+            description:
+              "Target GameObject anchor where the component instance is resolved.",
+            additionalProperties: false,
+            properties: {
+              object_id: { type: "string" },
+              path: { type: "string" },
+            },
+            required: ["object_id", "path"],
+          },
+          component_selector: {
+            type: "object",
+            additionalProperties: false,
+            description:
+              "Component selector on target_anchor. component_index defaults to 0.",
+            properties: {
+              component_assembly_qualified_name: {
+                type: "string",
+                description: "Assembly qualified component type name.",
+              },
+              component_index: {
+                type: "integer",
+                minimum: 0,
+                description: "Zero-based match index when multiple components share type.",
+              },
+            },
+            required: ["component_assembly_qualified_name"],
+          },
+          patches: {
+            type: "array",
+            description:
+              "Ordered SerializedProperty patches. value_kind controls which value field is required.",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                property_path: {
+                  type: "string",
+                  description: "SerializedProperty path, e.g. m_Color or m_Offsets.Array.size.",
+                },
+                value_kind: {
+                  type: "string",
+                  enum: [
+                    "integer",
+                    "float",
+                    "string",
+                    "enum",
+                    "vector2",
+                    "vector3",
+                    "color",
+                    "array",
+                    "object_reference",
+                  ],
+                },
+                int_value: { type: "integer" },
+                float_value: { type: "number" },
+                string_value: { type: "string" },
+                bool_value: { type: "boolean" },
+                enum_value: { type: "integer" },
+                enum_name: { type: "string" },
+                vector2_value: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    x: { type: "number" },
+                    y: { type: "number" },
+                  },
+                  required: ["x", "y"],
+                },
+                vector3_value: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    x: { type: "number" },
+                    y: { type: "number" },
+                    z: { type: "number" },
+                  },
+                  required: ["x", "y", "z"],
+                },
+                color_value: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    r: { type: "number" },
+                    g: { type: "number" },
+                    b: { type: "number" },
+                    a: { type: "number" },
+                  },
+                  required: ["r", "g", "b", "a"],
+                },
+                array_size: {
+                  type: "integer",
+                  minimum: 0,
+                },
+                object_ref: {
+                  type: "object",
+                  additionalProperties: false,
+                  description:
+                    "Object reference payload (scene_anchor or asset_guid/asset_path). Full resolver is introduced in follow-up phase.",
+                  properties: {
+                    scene_anchor: {
+                      type: "object",
+                      additionalProperties: false,
+                      properties: {
+                        object_id: { type: "string" },
+                        path: { type: "string" },
+                      },
+                      required: ["object_id", "path"],
+                    },
+                    asset_guid: { type: "string" },
+                    asset_path: { type: "string" },
+                    sub_asset_name: { type: "string" },
+                  },
+                },
+              },
+              required: ["property_path", "value_kind"],
+            },
+          },
+          preconditions: {
+            type: "array",
+            description:
+              "Optional preconditions: object_exists/component_exists/compile_idle.",
+            items: {
+              type: "object",
+            },
+          },
+          dry_run: {
+            type: "boolean",
+            description: "If true, only validate payload and skip Unity submission.",
+          },
+          thread_id: {
+            type: "string",
+            description: "Optional thread id override.",
+          },
+          idempotency_key: {
+            type: "string",
+            description: "Optional idempotency key override.",
+          },
+          user_intent: {
+            type: "string",
+            description: "Optional user intent for async job traceability.",
+          },
+          approval_mode: {
+            type: "string",
+            enum: ["auto", "require_user"],
+            description: "Optional approval mode. Default auto.",
+          },
+        },
+        required: [
+          "based_on_read_token",
+          "write_anchor",
+          "target_anchor",
+          "component_selector",
+          "patches",
+        ],
+      },
+    },
+  },
+  {
     name: "get_action_catalog",
     kind: "read",
     lifecycle: "stable",
@@ -857,6 +1055,102 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
     },
   },
   {
+    name: "get_serialized_property_tree",
+    kind: "read",
+    lifecycle: "experimental",
+    http: {
+      method: "POST",
+      path: "/mcp/get_serialized_property_tree",
+      source: "body",
+    },
+    validate: validateGetSerializedPropertyTree,
+    execute: executeGetSerializedPropertyTree,
+    mcp: {
+      expose: true,
+      description:
+        "Read SerializedProperty tree lazily for a specific component. Supports depth/page/node/char budgets and cursor paging (after_property_path) to avoid token explosion.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          target_anchor: {
+            type: "object",
+            description:
+              "Target GameObject anchor containing the component instance to inspect.",
+            additionalProperties: false,
+            properties: {
+              object_id: { type: "string" },
+              path: { type: "string" },
+            },
+            required: ["object_id", "path"],
+          },
+          component_selector: {
+            type: "object",
+            description:
+              "Component selector on target_anchor. component_index defaults to 0.",
+            additionalProperties: false,
+            properties: {
+              component_assembly_qualified_name: {
+                type: "string",
+                description: "Assembly qualified component type name.",
+              },
+              component_index: {
+                type: "integer",
+                minimum: 0,
+                description: "Zero-based index when multiple components share type.",
+              },
+            },
+            required: ["component_assembly_qualified_name"],
+          },
+          root_property_path: {
+            type: "string",
+            description:
+              "Optional root property path. Empty string means component root.",
+          },
+          depth: {
+            type: "integer",
+            minimum: 0,
+            description: "Max relative traversal depth from root_property_path.",
+          },
+          after_property_path: {
+            type: "string",
+            description:
+              "Cursor path for paging. Response next_cursor should be fed back here.",
+          },
+          page_size: {
+            type: "integer",
+            minimum: 1,
+            description: "Max nodes returned for current page.",
+          },
+          node_budget: {
+            type: "integer",
+            minimum: 1,
+            description: "Hard cap for returned nodes.",
+          },
+          char_budget: {
+            type: "integer",
+            minimum: 256,
+            description: "Approx serialized char budget for response payload.",
+          },
+          include_value_summary: {
+            type: "boolean",
+            description: "Include compact value summaries per node when true.",
+          },
+          include_non_visible: {
+            type: "boolean",
+            description: "Include non-visible serialized fields when true.",
+          },
+          timeout_ms: {
+            type: "integer",
+            minimum: 1000,
+            description: "Optional query timeout in milliseconds (>=1000).",
+          },
+        },
+        required: ["target_anchor", "component_selector"],
+      },
+    },
+  },
+  {
     name: "hit_test_ui_at_viewport_point",
     kind: "read",
     lifecycle: "experimental",
@@ -948,7 +1242,7 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
     mcp: {
       expose: true,
       description:
-        "Validate UI layout across resolutions and return structured issues (OUT_OF_BOUNDS/OVERLAP/NOT_CLICKABLE/TEXT_OVERFLOW).",
+        "Validate UI layout across resolutions and return structured issues (OUT_OF_BOUNDS/OVERLAP/NOT_CLICKABLE/TEXT_OVERFLOW). Optional specialist mode can emit deterministic repair_plan suggestions mapped to Phase-2 primitives.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -997,6 +1291,20 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
             type: "string",
             enum: ["scoped_roots_only", "full_tree"],
             description: "Layout refresh strategy before checks.",
+          },
+          include_repair_plan: {
+            type: "boolean",
+            description:
+              "When true, response may include specialist_summary + repair_plan suggestions.",
+          },
+          max_repair_suggestions: {
+            type: "integer",
+            description: "Optional cap for repair_plan suggestions (>=1).",
+          },
+          repair_style: {
+            type: "string",
+            enum: ["conservative", "balanced", "aggressive"],
+            description: "Repair strategy preference used by specialist planner.",
           },
           timeout_ms: {
             type: "integer",

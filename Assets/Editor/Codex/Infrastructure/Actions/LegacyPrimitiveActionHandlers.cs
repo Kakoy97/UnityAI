@@ -49,6 +49,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, code, message);
             }
 
+            RecordUndo(target, "Codex set_gameobject_active");
             target.SetActive(active);
             MarkTargetDirty(target);
             result.targetObjectPath = BuildGameObjectPath(target.transform);
@@ -75,6 +76,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, code, message);
             }
 
+            RecordUndo(target, "Codex rename_gameobject");
             target.name = name.Trim();
             MarkTargetDirty(target);
             result.targetObjectPath = BuildGameObjectPath(target.transform);
@@ -100,6 +102,166 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
             result.targetObjectPath = BuildGameObjectPath(target.transform);
             result.targetObjectId = BuildObjectId(target);
             Undo.DestroyObjectImmediate(target);
+            result.success = true;
+            result.errorCode = string.Empty;
+            result.errorMessage = string.Empty;
+            return result;
+        }
+
+        internal static UnityActionExecutionResult RunSetParent(
+            VisualLayerActionItem action,
+            bool worldPositionStays)
+        {
+            var result = BuildInitialResult(action);
+            string targetCode;
+            string targetMessage;
+            var target = ResolveTargetGameObject(action, out targetCode, out targetMessage);
+            if (target == null)
+            {
+                return Fail(result, targetCode, targetMessage);
+            }
+
+            string parentCode;
+            string parentMessage;
+            var parent = ResolveParentGameObject(action, out parentCode, out parentMessage);
+            if (parent == null)
+            {
+                return Fail(result, parentCode, parentMessage);
+            }
+
+            if (ReferenceEquals(target, parent))
+            {
+                return Fail(result, "E_SCHEMA_INVALID", "set_parent cannot parent an object to itself.");
+            }
+
+            if (parent.transform.IsChildOf(target.transform))
+            {
+                return Fail(
+                    result,
+                    "E_SCHEMA_INVALID",
+                    "set_parent cannot parent an object to one of its descendants.");
+            }
+
+            var previousLocalPosition = target.transform.localPosition;
+            var previousLocalRotation = target.transform.localRotation;
+            var previousLocalScale = target.transform.localScale;
+
+            RecordUndo(target.transform, "Codex set_parent");
+            Undo.SetTransformParent(target.transform, parent.transform, "Codex set_parent");
+            if (!worldPositionStays)
+            {
+                target.transform.localPosition = previousLocalPosition;
+                target.transform.localRotation = previousLocalRotation;
+                target.transform.localScale = previousLocalScale;
+            }
+
+            MarkTargetDirty(target);
+            MarkTargetDirty(parent);
+            result.targetObjectPath = BuildGameObjectPath(target.transform);
+            result.targetObjectId = BuildObjectId(target);
+            result.parentObjectPath = BuildGameObjectPath(parent.transform);
+            result.parentObjectId = BuildObjectId(parent);
+            result.success = true;
+            result.errorCode = string.Empty;
+            result.errorMessage = string.Empty;
+            return result;
+        }
+
+        internal static UnityActionExecutionResult RunSetSiblingIndex(
+            VisualLayerActionItem action,
+            int siblingIndex)
+        {
+            var result = BuildInitialResult(action);
+            if (siblingIndex < 0)
+            {
+                return Fail(result, "E_SCHEMA_INVALID", "sibling_index must be >= 0.");
+            }
+
+            string code;
+            string message;
+            var target = ResolveTargetGameObject(action, out code, out message);
+            if (target == null)
+            {
+                return Fail(result, code, message);
+            }
+
+            RecordUndo(target.transform, "Codex set_sibling_index");
+            target.transform.SetSiblingIndex(siblingIndex);
+            MarkTargetDirty(target);
+            result.targetObjectPath = BuildGameObjectPath(target.transform);
+            result.targetObjectId = BuildObjectId(target);
+            result.success = true;
+            result.errorCode = string.Empty;
+            result.errorMessage = string.Empty;
+            return result;
+        }
+
+        internal static UnityActionExecutionResult RunDuplicateGameObject(
+            VisualLayerActionItem action,
+            string name)
+        {
+            var result = BuildInitialResult(action);
+            string code;
+            string message;
+            var source = ResolveTargetGameObject(action, out code, out message);
+            if (source == null)
+            {
+                return Fail(result, code, message);
+            }
+
+            var duplicateName = string.IsNullOrWhiteSpace(name) ? source.name : name.Trim();
+            var parent = source.transform.parent;
+            GameObject duplicate;
+            if (parent != null)
+            {
+                duplicate = UnityEngine.Object.Instantiate(source, parent);
+            }
+            else
+            {
+                duplicate = UnityEngine.Object.Instantiate(source);
+            }
+
+            duplicate.name = duplicateName;
+            duplicate.transform.SetSiblingIndex(source.transform.GetSiblingIndex() + 1);
+            Undo.RegisterCreatedObjectUndo(duplicate, "Codex duplicate_object");
+
+            MarkTargetDirty(duplicate);
+            if (parent != null)
+            {
+                MarkTargetDirty(parent.gameObject);
+            }
+
+            result.targetObjectPath = BuildGameObjectPath(source.transform);
+            result.targetObjectId = BuildObjectId(source);
+            result.parentObjectPath = parent != null ? BuildGameObjectPath(parent) : string.Empty;
+            result.parentObjectId = parent != null ? BuildObjectId(parent.gameObject) : string.Empty;
+            result.createdObjectPath = BuildGameObjectPath(duplicate.transform);
+            result.createdObjectId = BuildObjectId(duplicate);
+            result.name = duplicate.name;
+            result.success = true;
+            result.errorCode = string.Empty;
+            result.errorMessage = string.Empty;
+            return result;
+        }
+
+        internal static UnityActionExecutionResult RunResetTransform(VisualLayerActionItem action)
+        {
+            var result = BuildInitialResult(action);
+            string code;
+            string message;
+            var target = ResolveTargetGameObject(action, out code, out message);
+            if (target == null)
+            {
+                return Fail(result, code, message);
+            }
+
+            RecordUndo(target.transform, "Codex reset_transform");
+            target.transform.localPosition = Vector3.zero;
+            target.transform.localRotation = Quaternion.identity;
+            target.transform.localScale = Vector3.one;
+            MarkTargetDirty(target);
+            result.targetObjectPath = BuildGameObjectPath(target.transform);
+            result.targetObjectId = BuildObjectId(target);
             result.success = true;
             result.errorCode = string.Empty;
             result.errorMessage = string.Empty;
@@ -184,6 +346,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, code, message);
             }
 
+            RecordUndo(rectTransform, "Codex set_rect_transform_anchors");
             rectTransform.anchorMin = min;
             rectTransform.anchorMax = max;
             MarkComponentAndTargetDirty(rectTransform);
@@ -214,6 +377,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, "E_ACTION_COMPONENT_NOT_FOUND", "Image component not found on target.");
             }
 
+            RecordUndo(image, "Codex set_ui_image_color");
             image.color = color;
             MarkComponentAndTargetDirty(image);
             result.targetObjectPath = BuildGameObjectPath(target.transform);
@@ -243,6 +407,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, "E_ACTION_COMPONENT_NOT_FOUND", "Image component not found on target.");
             }
 
+            RecordUndo(image, "Codex set_ui_image_raycast_target");
             image.raycastTarget = raycastTarget;
             MarkComponentAndTargetDirty(image);
             result.targetObjectPath = BuildGameObjectPath(target.transform);
@@ -273,6 +438,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, "E_ACTION_COMPONENT_NOT_FOUND", "Text or TMP_Text component not found on target.");
             }
 
+            RecordUndo(textLike, "Codex set_ui_text_content");
             string setError;
             if (!SetTextLikeProperty(type, textLike, "text", text ?? string.Empty, out setError))
             {
@@ -308,6 +474,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, "E_ACTION_COMPONENT_NOT_FOUND", "Text or TMP_Text component not found on target.");
             }
 
+            RecordUndo(textLike, "Codex set_ui_text_color");
             string setError;
             if (!SetTextLikeProperty(type, textLike, "color", color, out setError))
             {
@@ -343,6 +510,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, "E_ACTION_COMPONENT_NOT_FOUND", "Text or TMP_Text component not found on target.");
             }
 
+            RecordUndo(textLike, "Codex set_ui_text_font_size");
             string setError;
             if (!SetTextLikeProperty(type, textLike, "fontSize", fontSize, out setError))
             {
@@ -377,6 +545,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, "E_ACTION_COMPONENT_NOT_FOUND", "CanvasGroup component not found on target.");
             }
 
+            RecordUndo(canvasGroup, "Codex set_canvas_group_alpha");
             canvasGroup.alpha = alpha;
             MarkComponentAndTargetDirty(canvasGroup);
             result.targetObjectPath = BuildGameObjectPath(target.transform);
@@ -412,6 +581,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, "E_ACTION_COMPONENT_NOT_FOUND", "LayoutElement component not found on target.");
             }
 
+            RecordUndo(layoutElement, "Codex set_layout_element");
             layoutElement.minWidth = minWidth;
             layoutElement.minHeight = minHeight;
             layoutElement.preferredWidth = preferredWidth;
@@ -442,6 +612,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, code, message);
             }
 
+            RecordUndo(target.transform, "Codex set_transform_value");
             if (apply != null)
             {
                 apply(target.transform, value);
@@ -470,6 +641,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 return Fail(result, code, message);
             }
 
+            RecordUndo(rectTransform, "Codex set_rect_transform_value");
             if (apply != null)
             {
                 apply(rectTransform, value);
@@ -639,6 +811,18 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
             return false;
         }
 
+        private static void RecordUndo(UnityEngine.Object target, string undoName)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            Undo.RecordObject(
+                target,
+                string.IsNullOrWhiteSpace(undoName) ? "Codex visual action change" : undoName.Trim());
+        }
+
         private static void MarkTargetDirty(GameObject target)
         {
             if (target == null)
@@ -648,7 +832,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
 
             EditorUtility.SetDirty(target);
             PrefabUtility.RecordPrefabInstancePropertyModifications(target);
-            EditorSceneManager.MarkSceneDirty(target.scene);
+            MarkSceneDirtyIfTrackable(target.scene);
         }
 
         private static void MarkComponentAndTargetDirty(Component component)
@@ -708,7 +892,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 Undo.AddComponent(target, componentType);
                 EditorUtility.SetDirty(target);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(target);
-                EditorSceneManager.MarkSceneDirty(target.scene);
+                MarkSceneDirtyIfTrackable(target.scene);
             }
 
             result.success = true;
@@ -751,7 +935,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 GameObjectUtility.RemoveMonoBehavioursWithMissingScript(target);
                 EditorUtility.SetDirty(target);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(target);
-                EditorSceneManager.MarkSceneDirty(target.scene);
+                MarkSceneDirtyIfTrackable(target.scene);
                 result.success = true;
                 result.errorCode = string.Empty;
                 result.errorMessage = string.Empty;
@@ -790,7 +974,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
             Undo.DestroyObjectImmediate(existing);
             EditorUtility.SetDirty(target);
             PrefabUtility.RecordPrefabInstancePropertyModifications(target);
-            EditorSceneManager.MarkSceneDirty(target.scene);
+            MarkSceneDirtyIfTrackable(target.scene);
             result.success = true;
             result.errorCode = string.Empty;
             result.errorMessage = string.Empty;
@@ -863,7 +1047,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
 
                         EditorUtility.SetDirty(target);
                         PrefabUtility.RecordPrefabInstancePropertyModifications(target);
-                        EditorSceneManager.MarkSceneDirty(target.scene);
+                        MarkSceneDirtyIfTrackable(target.scene);
                         result.success = true;
                         result.errorCode = string.Empty;
                         result.errorMessage = string.Empty;
@@ -887,7 +1071,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
 
             EditorUtility.SetDirty(target);
             PrefabUtility.RecordPrefabInstancePropertyModifications(target);
-            EditorSceneManager.MarkSceneDirty(target.scene);
+            MarkSceneDirtyIfTrackable(target.scene);
             result.success = true;
             result.errorCode = string.Empty;
             result.errorMessage = string.Empty;
@@ -918,7 +1102,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
 
             EditorUtility.SetDirty(target);
             PrefabUtility.RecordPrefabInstancePropertyModifications(target);
-            EditorSceneManager.MarkSceneDirty(target.scene);
+            MarkSceneDirtyIfTrackable(target.scene);
             return true;
         }
 
@@ -1025,7 +1209,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
 
             EditorUtility.SetDirty(created);
             PrefabUtility.RecordPrefabInstancePropertyModifications(created);
-            EditorSceneManager.MarkSceneDirty(created.scene);
+            MarkSceneDirtyIfTrackable(created.scene);
 
             result.targetObjectPath = finalParent != null
                 ? BuildGameObjectPath(finalParent.transform)
@@ -1145,7 +1329,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
 
             var created = BuildCanvasObject("Canvas");
             Undo.RegisterCreatedObjectUndo(created, "Codex create Canvas");
-            EditorSceneManager.MarkSceneDirty(created.scene);
+            MarkSceneDirtyIfTrackable(created.scene);
             return created;
         }
 
@@ -1158,7 +1342,30 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
             Undo.RegisterCreatedObjectUndo(eventSystem, "Codex create EventSystem");
-            EditorSceneManager.MarkSceneDirty(eventSystem.scene);
+            MarkSceneDirtyIfTrackable(eventSystem.scene);
+        }
+
+        private static void MarkSceneDirtyIfTrackable(Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return;
+            }
+
+            var sceneName = string.IsNullOrWhiteSpace(scene.name) ? string.Empty : scene.name.Trim();
+            if (string.Equals(sceneName, "DontDestroyOnLoad", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(scene.path) &&
+                (string.IsNullOrEmpty(sceneName) ||
+                 sceneName.StartsWith("Preview Scene", StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
         }
 
         private static bool HasCanvasInAncestors(GameObject target)
@@ -1313,6 +1520,25 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
             return ResolveGameObjectByAnchor(
                 action.target_anchor,
                 "Target",
+                out errorCode,
+                out errorMessage);
+        }
+
+        private static GameObject ResolveParentGameObject(
+            VisualLayerActionItem action,
+            out string errorCode,
+            out string errorMessage)
+        {
+            if (action == null)
+            {
+                errorCode = "E_ACTION_SCHEMA_INVALID";
+                errorMessage = "Action payload is required.";
+                return null;
+            }
+
+            return ResolveGameObjectByAnchor(
+                action.parent_anchor,
+                "Parent",
                 out errorCode,
                 out errorMessage);
         }
