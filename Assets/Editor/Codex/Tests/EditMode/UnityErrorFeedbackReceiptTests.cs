@@ -49,7 +49,12 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                     success = false,
                     error_code = "E_TARGET_ANCHOR_CONFLICT",
                     error_message = string.Empty,
-                    duration_ms = 37
+                    duration_ms = 37,
+                    write_receipt = new UnityWriteReceipt
+                    {
+                        schema_version = "write_receipt.v1",
+                        success = false
+                    }
                 }
             };
 
@@ -79,6 +84,8 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.AreEqual(
                 "Target anchor conflict: object_id and path resolve to different objects.",
                 normalized.payload.error_message);
+            Assert.NotNull(normalized.payload.write_receipt);
+            Assert.AreEqual("write_receipt.v1", normalized.payload.write_receipt.schema_version);
         }
 
         [Test]

@@ -26,6 +26,9 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.NotNull(result);
             Assert.IsFalse(result.success);
             Assert.AreEqual("E_ACTION_HANDLER_NOT_FOUND", result.errorCode);
+            Assert.NotNull(result.writeReceipt);
+            Assert.AreEqual("write_receipt.v1", result.writeReceipt.schema_version);
+            Assert.NotNull(result.writeReceipt.console_snapshot);
         }
 
         [Test]

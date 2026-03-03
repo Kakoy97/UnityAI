@@ -1,0 +1,7 @@
+﻿{
+    "evidence":  [
+                     "✔ R18-CAPTURE-C-04 capture_scene_screenshot returns E_COMPOSITE_BUSY on composite reentry (0.2244ms)",
+                     "✔ R18-CAPTURE-C-04 composite runtime lock is released on early internal failure (0.3677ms)"
+                 ],
+    "source":  "test:r18:qa"
+}

@@ -147,6 +147,15 @@ class McpGateway {
       requested_deny_blocked_total: 0,
     };
     this.actionErrorCodeMissingTotal = 0;
+    this.v1PolishMetricsCollector =
+      opts.v1PolishMetricsCollector &&
+      typeof opts.v1PolishMetricsCollector === "object"
+        ? opts.v1PolishMetricsCollector
+        : null;
+    this.getCaptureCompositeMetricsSnapshot =
+      typeof opts.getCaptureCompositeMetricsSnapshot === "function"
+        ? opts.getCaptureCompositeMetricsSnapshot
+        : null;
     this.legacyAnchorGateObservedSinceMs = Date.now();
 
     this.lockManager = new LockManager();
@@ -740,6 +749,34 @@ class McpGateway {
     this.lifecycleMetrics.queue_promote_total += 1;
   }
 
+  recordReadTokenValidation(input) {
+    if (
+      this.v1PolishMetricsCollector &&
+      typeof this.v1PolishMetricsCollector.recordReadTokenValidation === "function"
+    ) {
+      this.v1PolishMetricsCollector.recordReadTokenValidation(input);
+    }
+  }
+
+  recordWriteJobFinalized(input) {
+    if (
+      this.v1PolishMetricsCollector &&
+      typeof this.v1PolishMetricsCollector.recordWriteJobFinalized === "function"
+    ) {
+      this.v1PolishMetricsCollector.recordWriteJobFinalized(input);
+    }
+  }
+
+  getV1PolishMetricsSnapshot() {
+    if (
+      this.v1PolishMetricsCollector &&
+      typeof this.v1PolishMetricsCollector.getSnapshot === "function"
+    ) {
+      return this.v1PolishMetricsCollector.getSnapshot();
+    }
+    return null;
+  }
+
   sweepLeaseJanitor(nowMs) {
     return sweepLeaseJanitor(this, nowMs);
   }
@@ -805,6 +842,12 @@ class McpGateway {
       !this.unitySnapshotService ||
       typeof this.unitySnapshotService.validateReadTokenForWrite !== "function"
     ) {
+      this.recordReadTokenValidation({
+        ok: false,
+        source: "mcp_gateway",
+        error_code: "E_INTERNAL",
+        message: "OCC read token validator is not configured",
+      });
       return {
         ok: false,
         outcome: this.error(
@@ -818,10 +861,29 @@ class McpGateway {
 
     const validation = this.unitySnapshotService.validateReadTokenForWrite(tokenValue);
     if (validation && validation.ok === true) {
+      this.recordReadTokenValidation({
+        ok: true,
+        source: "mcp_gateway",
+        error_code: "",
+        message: "",
+      });
       return {
         ok: true,
       };
     }
+
+    this.recordReadTokenValidation({
+      ok: false,
+      source: "mcp_gateway",
+      error_code:
+        validation && validation.error_code
+          ? validation.error_code
+          : "E_STALE_SNAPSHOT",
+      message:
+        validation && validation.message
+          ? validation.message
+          : "Read token validation failed",
+    });
 
     return {
       ok: false,

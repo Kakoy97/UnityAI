@@ -1,0 +1,39 @@
+﻿{
+    "ok":  true,
+    "preflight":  {
+                      "tool_name":  "apply_visual_actions",
+                      "valid":  false,
+                      "dry_run_alias":  true,
+                      "normalization_applied":  false,
+                      "blocking_errors":  [
+                                              {
+                                                  "error_code":  "E_STALE_SNAPSHOT",
+                                                  "message":  "based_on_read_token is missing or invalid",
+                                                  "recoverable":  true,
+                                                  "suggestion":  "请先调用读工具获取最新 token，并仅重试一次写操作。"
+                                              }
+                                          ],
+                      "non_blocking_warnings":  [
+
+                                                ],
+                      "normalized_payload":  {
+                                                 "write_anchor":  {
+                                                                      "object_id":  "test-id",
+                                                                      "path":  "Scene/Canvas/Panel"
+                                                                  },
+                                                 "based_on_read_token":  "test-token-123",
+                                                 "actions":  [
+                                                                 {
+                                                                     "target_anchor":  {
+                                                                                           "object_id":  "test-id",
+                                                                                           "path":  "Scene/Canvas/Panel"
+                                                                                       },
+                                                                     "action_data":  {
+
+                                                                                     },
+                                                                     "type":  "create_gameobject"
+                                                                 }
+                                                             ]
+                                             }
+                  }
+}

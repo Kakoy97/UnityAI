@@ -9,10 +9,12 @@ const {
 const ALLOWED_VIEW_MODES = new Set(["auto", "scene", "game"]);
 const ALLOWED_OUTPUT_MODES = new Set(["artifact_uri", "inline_base64"]);
 const ALLOWED_IMAGE_FORMATS = new Set(["png", "jpg"]);
+const MAX_MAX_BASE64_BYTES = 10 * 1024 * 1024;
 // Backward-compatible input acceptance:
 // final_pixels/editor_view are accepted at validator layer and fail-closed in handler.
 const ACCEPTED_CAPTURE_MODES = new Set([
   "render_output",
+  "composite",
   "final_pixels",
   "editor_view",
 ]);
@@ -37,6 +39,7 @@ function validateCaptureSceneScreenshot(body) {
       "width",
       "height",
       "jpeg_quality",
+      "max_base64_bytes",
       "timeout_ms",
       "include_ui",
     ]),
@@ -64,7 +67,7 @@ function validateCaptureSceneScreenshot(body) {
       ok: false,
       errorCode: "E_SCHEMA_INVALID",
       message:
-        "capture_mode must be one of: render_output|final_pixels|editor_view",
+        "capture_mode must be one of: render_output|composite|final_pixels|editor_view",
       statusCode: 400,
     };
   }
@@ -128,6 +131,25 @@ function validateCaptureSceneScreenshot(body) {
     const timeoutValidation = validateIntegerField(body.timeout_ms, 1000, "timeout_ms");
     if (!timeoutValidation.ok) {
       return timeoutValidation;
+    }
+  }
+
+  if (body.max_base64_bytes !== undefined) {
+    const maxBase64Validation = validateIntegerField(
+      body.max_base64_bytes,
+      1,
+      "max_base64_bytes"
+    );
+    if (!maxBase64Validation.ok) {
+      return maxBase64Validation;
+    }
+    if (Number(body.max_base64_bytes) > MAX_MAX_BASE64_BYTES) {
+      return {
+        ok: false,
+        errorCode: "E_SCHEMA_INVALID",
+        message: "max_base64_bytes must be an integer <= 10485760 when provided",
+        statusCode: 400,
+      };
     }
   }
 

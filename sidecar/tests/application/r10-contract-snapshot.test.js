@@ -20,6 +20,7 @@ test("R10-ARCH-03 error feedback payload contract snapshot remains stable", () =
     "error_message",
     "message",
     "recoverable",
+    "retry_policy",
     "status",
     "suggestion",
   ]);
@@ -27,6 +28,7 @@ test("R10-ARCH-03 error feedback payload contract snapshot remains stable", () =
   assert.equal(typeof feedback.error_message, "string");
   assert.equal(typeof feedback.suggestion, "string");
   assert.equal(typeof feedback.recoverable, "boolean");
+  assert.equal(typeof feedback.retry_policy, "object");
 });
 
 test("R10-ARCH-03 capability snapshot contract remains stable", () => {

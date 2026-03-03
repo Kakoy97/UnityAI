@@ -58,6 +58,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                     payload = new UnityGetUiTreePayload
                     {
                         ui_system = "ugui",
+                        root_path = "Scene/" + canvasGo.name,
                         include_inactive = true,
                         include_components = true,
                         include_layout = true,

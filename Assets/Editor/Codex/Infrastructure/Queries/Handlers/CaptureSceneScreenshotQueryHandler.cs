@@ -39,6 +39,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries.Handlers
                     width = payload.width,
                     height = payload.height,
                     jpeg_quality = payload.jpeg_quality,
+                    max_base64_bytes = payload.max_base64_bytes,
                     timeout_ms = payload.timeout_ms,
                     include_ui = payload.include_ui
                 }

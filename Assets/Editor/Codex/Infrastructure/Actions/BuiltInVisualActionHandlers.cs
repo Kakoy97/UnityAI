@@ -20,6 +20,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 target_anchor_ref = action.target_anchor_ref,
                 parent_anchor_ref = action.parent_anchor_ref,
                 action_data_json = action.action_data_json,
+                action_data_marshaled = action.action_data_marshaled,
                 component_assembly_qualified_name = action.component_assembly_qualified_name,
                 source_component_assembly_qualified_name = action.source_component_assembly_qualified_name,
                 name = action.name,

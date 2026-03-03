@@ -570,6 +570,12 @@ class UnitySnapshotService {
           ? message.trim()
           : "based_on_read_token is stale",
       suggestion: OCC_STALE_SNAPSHOT_SUGGESTION,
+      retry_policy: {
+        allow_auto_retry: true,
+        max_attempts: 1,
+        strategy: "refresh_read_token_then_retry_once",
+        required_sequence: ["get_current_selection", "retry_write_once"],
+      },
     };
   }
 

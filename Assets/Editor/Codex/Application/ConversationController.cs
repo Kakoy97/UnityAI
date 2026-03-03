@@ -33,6 +33,7 @@ namespace UnityAI.Editor.Codex.Application
         private const int SelectionSnapshotIndexNodeBudget = 192;
         private const int ConsoleSnapshotMaxErrors = 50;
         private const double RuntimePingProbeIntervalSeconds = 4d;
+        private const double CapabilityHeartbeatIntervalSeconds = 30d;
 
         private readonly ISidecarGateway _sidecarGateway;
         private readonly ISidecarProcessManager _processManager;
@@ -71,6 +72,9 @@ namespace UnityAI.Editor.Codex.Application
         private double _lastRuntimePingProbeAt;
         private bool _capabilityReportInFlight;
         private string _lastReportedCapabilityVersion = string.Empty;
+        private bool _capabilityHeartbeatInFlight;
+        private double _lastCapabilityHeartbeatAt;
+        private bool _onboardingScriptInFlight;
 
         public ConversationController(
             ISidecarGateway sidecarGateway,
@@ -162,6 +166,10 @@ namespace UnityAI.Editor.Codex.Application
                        _pendingUnityActionRequest.payload != null &&
                        _pendingUnityActionRequest.payload.action != null;
             }
+        }
+        public bool IsOnboardingScriptInFlight
+        {
+            get { return _onboardingScriptInFlight; }
         }
         public IReadOnlyList<UiLogEntry> Logs { get { return _logs; } }
         public string ActiveRequestId { get { return _activeRequestId; } }
@@ -386,13 +394,19 @@ namespace UnityAI.Editor.Codex.Application
                 var result = await _sidecarGateway.ReportSelectionSnapshotAsync(SidecarUrl, request);
                 if (!result.TransportSuccess || !result.IsHttpSuccess || result.Data == null || !result.Data.ok)
                 {
+                    var errorCode = result.TransportSuccess ? ReadErrorCode(result) : string.Empty;
+                    if (string.Equals(errorCode, "E_GONE", StringComparison.Ordinal))
+                    {
+                        return;
+                    }
+
                     if (force)
                     {
                         AddLog(
                             UiLogLevel.Warning,
                             "unity.selection.snapshot failed: " +
                             (result.TransportSuccess
-                                ? ReadErrorCode(result)
+                                ? errorCode
                                 : result.ErrorMessage));
                     }
                     return;
@@ -448,13 +462,19 @@ namespace UnityAI.Editor.Codex.Application
                 var result = await _sidecarGateway.ReportConsoleSnapshotAsync(SidecarUrl, request);
                 if (!result.TransportSuccess || !result.IsHttpSuccess || result.Data == null || !result.Data.ok)
                 {
+                    var errorCode = result.TransportSuccess ? ReadErrorCode(result) : string.Empty;
+                    if (string.Equals(errorCode, "E_GONE", StringComparison.Ordinal))
+                    {
+                        return;
+                    }
+
                     if (force)
                     {
                         AddLog(
                             UiLogLevel.Warning,
                             "unity.console.snapshot failed: " +
                             (result.TransportSuccess
-                                ? ReadErrorCode(result)
+                                ? errorCode
                                 : result.ErrorMessage));
                     }
 

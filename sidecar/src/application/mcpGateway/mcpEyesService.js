@@ -22,6 +22,10 @@ class McpEyesService {
       preconditionService: opts.preconditionService,
       mcpGateway: opts.mcpGateway,
       capabilityStore: opts.capabilityStore,
+      v1PolishMetricsCollector: opts.v1PolishMetricsCollector,
+      retryFuseEnabled: opts.retryFuseEnabled,
+      retryFuseWindowMs: opts.retryFuseWindowMs,
+      retryFuseMaxAttempts: opts.retryFuseMaxAttempts,
       withMcpErrorFeedback,
       validationError,
     });
@@ -37,6 +41,10 @@ class McpEyesService {
 
   setUiProperties(body) {
     return this.writeService.setUiProperties(body);
+  }
+
+  preflightValidateWritePayload(body) {
+    return this.writeService.preflightValidateWritePayload(body);
   }
 
   getCurrentSelection() {

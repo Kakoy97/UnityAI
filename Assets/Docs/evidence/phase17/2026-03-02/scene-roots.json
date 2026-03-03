@@ -1,0 +1,41 @@
+﻿{
+    "ok":  true,
+    "data":  {
+                 "scene_path":  "",
+                 "include_inactive":  false,
+                 "scene_revision":  "rev_1772460697191",
+                 "returned_count":  2,
+                 "roots":  [
+                               {
+                                   "object_id":  "GlobalObjectId_V1-2-00000000000000000000000000000000-1273351993-0",
+                                   "path":  "Scene/Main Camera",
+                                   "name":  "Main Camera",
+                                   "active":  true,
+                                   "child_count":  0
+                               },
+                               {
+                                   "object_id":  "GlobalObjectId_V1-2-00000000000000000000000000000000-1788726586-0",
+                                   "path":  "Scene/Directional Light",
+                                   "name":  "Directional Light",
+                                   "active":  true,
+                                   "child_count":  0
+                               }
+                           ]
+             },
+    "read_token":  {
+                       "token":  "rt_mm9b63up_gt7rnq55onv00000",
+                       "issued_at":  "2026-03-02T15:02:57.793Z",
+                       "hard_max_age_ms":  180000,
+                       "revision_vector":  {
+                                               "scene_revision":  "rev_1772460697191",
+                                               "asset_revision":  "asset_rev_1772463777787",
+                                               "compile_epoch":  0
+                                           },
+                       "scope":  {
+                                     "kind":  "scene",
+                                     "object_id":  "GlobalObjectId_V1-2-00000000000000000000000000000000-1273351993-0",
+                                     "path":  "Scene"
+                                 }
+                   },
+    "captured_at":  "2026-03-02T15:02:57.7874205Z"
+}

@@ -10,6 +10,7 @@ const {
 } = require("../../src/ports/contracts");
 
 const V1_UI_TOOLS = Object.freeze([
+  "get_ui_overlay_report",
   "get_ui_tree",
   "hit_test_ui_at_viewport_point",
   "validate_ui_layout",
@@ -57,6 +58,7 @@ test("UI-V1 tools are present in command registry and tools/list visibility form
 test("UI-V1 tool required-field snapshot remains stable", () => {
   const registry = getMcpCommandRegistry();
   const expectedRequiredByTool = {
+    get_ui_overlay_report: [],
     get_ui_tree: [],
     hit_test_ui_at_viewport_point: ["x", "y"],
     validate_ui_layout: [],
@@ -78,6 +80,21 @@ test("UI-V1 tool required-field snapshot remains stable", () => {
 
 test("UI-V1 schema key snapshots stay stable for mapping/runtime fields", () => {
   const registry = getMcpCommandRegistry();
+
+  const overlay = registry.getToolMetadataByName("get_ui_overlay_report", {});
+  const overlayProps = overlay.input_schema.properties;
+  assert.equal(Object.prototype.hasOwnProperty.call(overlayProps, "scope"), true);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(overlayProps, "max_nodes"),
+    true
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      overlayProps,
+      "max_children_per_canvas"
+    ),
+    true
+  );
 
   const tree = registry.getToolMetadataByName("get_ui_tree", {});
   const treeProps = tree.input_schema.properties;

@@ -15,6 +15,30 @@ const {
   executeGetToolSchema,
 } = require("./get_tool_schema/handler");
 const {
+  validateGetWriteContractBundle,
+} = require("./get_write_contract_bundle/validator");
+const {
+  executeGetWriteContractBundle,
+} = require("./get_write_contract_bundle/handler");
+const {
+  validatePreflightValidateWritePayload,
+} = require("./preflight_validate_write_payload/validator");
+const {
+  executePreflightValidateWritePayload,
+} = require("./preflight_validate_write_payload/handler");
+const {
+  validateSetupCursorMcp,
+} = require("./setup_cursor_mcp/validator");
+const {
+  executeSetupCursorMcp,
+} = require("./setup_cursor_mcp/handler");
+const {
+  validateVerifyMcpSetup,
+} = require("./verify_mcp_setup/validator");
+const {
+  executeVerifyMcpSetup,
+} = require("./verify_mcp_setup/handler");
+const {
   validateListAssetsInFolder,
 } = require("./list_assets_in_folder/validator");
 const { validateGetSceneRoots } = require("./get_scene_roots/validator");
@@ -28,6 +52,12 @@ const {
 const {
   executeCaptureSceneScreenshot,
 } = require("./capture_scene_screenshot/handler");
+const {
+  validateGetUiOverlayReport,
+} = require("./get_ui_overlay_report/validator");
+const {
+  executeGetUiOverlayReport,
+} = require("./get_ui_overlay_report/handler");
 const { validateGetUiTree } = require("./get_ui_tree/validator");
 const { executeGetUiTree } = require("./get_ui_tree/handler");
 const {
@@ -68,8 +98,56 @@ function buildVisualActionsDescription(ctx) {
       ? context.visualActionHint.trim()
       : "";
   const base =
-    "Apply structured Unity visual actions. Hard requirements: based_on_read_token + top-level write_anchor(object_id+path). Use action_data as the primary payload carrier. Prefer Phase-2 primitive names (create_object/destroy_object/rename_object/set_active/set_parent/set_sibling_index/duplicate_object/set_local_position/set_local_rotation/set_local_scale/set_world_position/set_world_rotation/reset_transform/set_rect_anchored_position/set_rect_size_delta/set_rect_pivot/set_rect_anchors). Legacy *_gameobject and set_transform_*/set_rect_transform_* names are deprecated aliases. Use get_action_catalog/get_action_schema for action DTO schema and get_tool_schema for full tool contract.";
+    "Apply structured Unity visual actions. Hard requirements: based_on_read_token + top-level write_anchor(object_id+path), and action_data object payloads. Recommended shortest sequence: get_current_selection -> apply_visual_actions. Use get_action_catalog/get_action_schema for action DTO schema and get_tool_schema for the full tool envelope. On payload errors, fix envelope via get_tool_schema first, then use get_action_schema for action_data details. Prefer Phase-2 primitive action names; legacy aliases are deprecated.";
   return hint ? `${base} ${hint}` : base;
+}
+
+function readEnvBoolean(name, fallback) {
+  const raw = process && process.env ? process.env[name] : undefined;
+  if (raw === undefined || raw === null || raw === "") {
+    return fallback;
+  }
+  const normalized = String(raw).trim().toLowerCase();
+  if (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "yes" ||
+    normalized === "on"
+  ) {
+    return true;
+  }
+  if (
+    normalized === "0" ||
+    normalized === "false" ||
+    normalized === "no" ||
+    normalized === "off"
+  ) {
+    return false;
+  }
+  return fallback;
+}
+
+function isCompositeCaptureEnabledForManifest(ctx) {
+  const context = ctx && typeof ctx === "object" ? ctx : {};
+  if (typeof context.captureCompositeEnabled === "boolean") {
+    return context.captureCompositeEnabled;
+  }
+  return readEnvBoolean("CAPTURE_COMPOSITE_ENABLED", false);
+}
+
+function buildCaptureSceneScreenshotDescription(ctx) {
+  if (isCompositeCaptureEnabledForManifest(ctx)) {
+    return (
+      "Capture Unity visual output for verification. Unity runtime dispatch is registry-backed. " +
+      "capture_mode supports render_output (stable) and composite (diagnostic synthesis; PlayMode-only on Unity side). " +
+      "final_pixels/editor_view remain disabled and return E_CAPTURE_MODE_DISABLED."
+    );
+  }
+  return (
+    "Capture Unity visual output for verification. Unity runtime dispatch is registry-backed. " +
+    "Current stable mode is capture_mode=render_output only. capture_mode=composite is feature-flagged and currently disabled. " +
+    "final_pixels/editor_view are disabled and return E_CAPTURE_MODE_DISABLED."
+  );
 }
 
 function validateGetUnityTaskStatusArgs(args) {
@@ -214,6 +292,97 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
           },
         },
         required: ["job_id"],
+      },
+    },
+  },
+  {
+    name: "get_current_selection",
+    kind: "read",
+    lifecycle: "experimental",
+    http: { method: "POST", path: "/mcp/get_current_selection", source: "body" },
+    turnServiceMethod: "getCurrentSelectionForMcp",
+    mcp: {
+      expose: true,
+      description:
+        "Read latest Unity selection snapshot and return a write-ready read_token for OCC flow. This is step-1 of the shortest write sequence: get_current_selection -> apply_visual_actions.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    name: "get_gameobject_components",
+    kind: "read",
+    lifecycle: "experimental",
+    http: {
+      method: "POST",
+      path: "/mcp/get_gameobject_components",
+      source: "body",
+    },
+    turnServiceMethod: "getGameObjectComponentsForMcp",
+    mcp: {
+      expose: true,
+      description:
+        "Read component list from latest selection snapshot target or optional target_anchor override.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          target_anchor: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              object_id: { type: "string" },
+              path: { type: "string" },
+            },
+            required: ["object_id", "path"],
+          },
+        },
+      },
+    },
+  },
+  {
+    name: "get_hierarchy_subtree",
+    kind: "read",
+    lifecycle: "experimental",
+    http: {
+      method: "POST",
+      path: "/mcp/get_hierarchy_subtree",
+      source: "body",
+    },
+    turnServiceMethod: "getHierarchySubtreeForMcp",
+    mcp: {
+      expose: true,
+      description:
+        "Read hierarchy subtree from latest selection snapshot target or optional target_anchor override.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          target_anchor: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              object_id: { type: "string" },
+              path: { type: "string" },
+            },
+            required: ["object_id", "path"],
+          },
+          depth: {
+            type: "integer",
+            description: "Optional subtree depth budget (0..3).",
+          },
+          node_budget: {
+            type: "integer",
+            description: "Optional max returned nodes (1..2000).",
+          },
+          char_budget: {
+            type: "integer",
+            description: "Optional serialized char budget (256..100000).",
+          },
+        },
       },
     },
   },
@@ -652,6 +821,8 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
           },
           patches: {
             type: "array",
+            minItems: 1,
+            maxItems: 64,
             description:
               "Ordered SerializedProperty patches. value_kind controls which value field is required.",
             items: {
@@ -668,13 +839,39 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
                     "integer",
                     "float",
                     "string",
+                    "bool",
                     "enum",
+                    "quaternion",
+                    "vector4",
                     "vector2",
                     "vector3",
+                    "rect",
                     "color",
                     "array",
+                    "animation_curve",
                     "object_reference",
                   ],
+                },
+                op: {
+                  type: "string",
+                  enum: ["set", "insert", "remove", "clear"],
+                  description:
+                    "Array operation selector when value_kind=array. Defaults to set.",
+                },
+                index: {
+                  type: "integer",
+                  minimum: 0,
+                  description:
+                    "Array index for op=insert and single-index op=remove.",
+                },
+                indices: {
+                  type: "array",
+                  description:
+                    "Array indices for batch op=remove. Applied in descending order.",
+                  items: {
+                    type: "integer",
+                    minimum: 0,
+                  },
                 },
                 int_value: { type: "integer" },
                 float_value: { type: "number" },
@@ -682,6 +879,28 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
                 bool_value: { type: "boolean" },
                 enum_value: { type: "integer" },
                 enum_name: { type: "string" },
+                quaternion_value: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    x: { type: "number" },
+                    y: { type: "number" },
+                    z: { type: "number" },
+                    w: { type: "number" },
+                  },
+                  required: ["x", "y", "z", "w"],
+                },
+                vector4_value: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    x: { type: "number" },
+                    y: { type: "number" },
+                    z: { type: "number" },
+                    w: { type: "number" },
+                  },
+                  required: ["x", "y", "z", "w"],
+                },
                 vector2_value: {
                   type: "object",
                   additionalProperties: false,
@@ -712,9 +931,25 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
                   },
                   required: ["r", "g", "b", "a"],
                 },
+                rect_value: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    x: { type: "number" },
+                    y: { type: "number" },
+                    width: { type: "number" },
+                    height: { type: "number" },
+                  },
+                  required: ["x", "y", "width", "height"],
+                },
                 array_size: {
                   type: "integer",
                   minimum: 0,
+                },
+                animation_curve_value: {
+                  type: "object",
+                  description:
+                    "Reserved payload for animation_curve. Current phase enforces read-only restriction.",
                 },
                 object_ref: {
                   type: "object",
@@ -750,7 +985,8 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
           },
           dry_run: {
             type: "boolean",
-            description: "If true, only validate payload and skip Unity submission.",
+            description:
+              "If true, run Unity-side validation only and return per-patch summary without persisting changes.",
           },
           thread_id: {
             type: "string",
@@ -887,6 +1123,160 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
     },
   },
   {
+    name: "get_write_contract_bundle",
+    kind: "read",
+    lifecycle: "experimental",
+    http: { method: "POST", path: "/mcp/get_write_contract_bundle", source: "body" },
+    validate: validateGetWriteContractBundle,
+    execute: executeGetWriteContractBundle,
+    mcp: {
+      expose: true,
+      description:
+        "Aggregate write contract guidance in one call: tool contract + action contract + minimal payload template + common error-fix map.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          tool_name: {
+            type: "string",
+            description:
+              "Optional write tool name. Defaults to apply_visual_actions.",
+          },
+          action_type: {
+            type: "string",
+            description:
+              "Optional action type for template/action schema. Defaults to rename_object.",
+          },
+          catalog_version: {
+            type: "string",
+            description:
+              "Optional expected capability catalog_version for cache safety.",
+          },
+          budget_chars: {
+            type: "integer",
+            description:
+              "Optional response character budget. Sidecar applies bounded trim policy.",
+          },
+          include_error_fix_map: {
+            type: "boolean",
+            description: "Optional. Include common error->fix mapping (default true).",
+          },
+          include_canonical_examples: {
+            type: "boolean",
+            description: "Optional. Include canonical payload examples (default true).",
+          },
+        },
+      },
+    },
+  },
+  {
+    name: "preflight_validate_write_payload",
+    kind: "read",
+    lifecycle: "experimental",
+    http: {
+      method: "POST",
+      path: "/mcp/preflight_validate_write_payload",
+      source: "body",
+    },
+    validate: validatePreflightValidateWritePayload,
+    execute: executePreflightValidateWritePayload,
+    mcp: {
+      expose: true,
+      description:
+        "Validate + normalize a write payload without dispatching Unity job execution. This is the recommended replacement for dry_run alias flow.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          tool_name: {
+            type: "string",
+            enum: [
+              "apply_script_actions",
+              "apply_visual_actions",
+              "set_ui_properties",
+            ],
+            default: "apply_visual_actions",
+            description: "Target write tool name for preflight validation.",
+          },
+          payload: {
+            type: "object",
+            description:
+              "Exact request payload for the target write tool. Preflight validates this payload and may return normalized_payload/suggested_patch.",
+          },
+        },
+        required: ["payload"],
+      },
+    },
+  },
+  {
+    name: "setup_cursor_mcp",
+    kind: "read",
+    lifecycle: "experimental",
+    http: {
+      method: "POST",
+      path: "/mcp/setup_cursor_mcp",
+      source: "body",
+    },
+    validate: validateSetupCursorMcp,
+    execute: executeSetupCursorMcp,
+    mcp: {
+      expose: true,
+      description:
+        "Write or update Cursor MCP config for unity-sidecar (native/cline path whitelist only). This is for onboarding and reconfiguration.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          mode: {
+            type: "string",
+            enum: ["native", "cline"],
+            default: "native",
+            description: "Target Cursor config mode.",
+          },
+          sidecar_base_url: {
+            type: "string",
+            description:
+              "Optional sidecar base URL. Defaults to http://127.0.0.1:46321.",
+          },
+          dry_run: {
+            type: "boolean",
+            description: "When true, returns planned result without writing file.",
+          },
+        },
+      },
+    },
+  },
+  {
+    name: "verify_mcp_setup",
+    kind: "read",
+    lifecycle: "experimental",
+    http: {
+      method: "POST",
+      path: "/mcp/verify_mcp_setup",
+      source: "body",
+    },
+    validate: validateVerifyMcpSetup,
+    execute: executeVerifyMcpSetup,
+    mcp: {
+      expose: true,
+      description:
+        "Verify Cursor MCP onboarding readiness and return structured diagnostics for native/cline config.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          mode: {
+            type: "string",
+            enum: ["auto", "native", "cline"],
+            default: "auto",
+            description:
+              "auto checks both native and cline config; native/cline checks one mode only.",
+          },
+        },
+      },
+    },
+  },
+  {
     name: "capture_scene_screenshot",
     kind: "read",
     lifecycle: "experimental",
@@ -899,8 +1289,7 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
     execute: executeCaptureSceneScreenshot,
     mcp: {
       expose: true,
-      description:
-        "Capture Unity visual output for verification. Unity runtime dispatch is registry-backed. Current stable mode is capture_mode=render_output only. final_pixels/editor_view are disabled in closure phase and will return E_CAPTURE_MODE_DISABLED.",
+      description: buildCaptureSceneScreenshotDescription,
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -913,9 +1302,9 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
           },
           capture_mode: {
             type: "string",
-            enum: ["render_output"],
+            enum: ["render_output", "composite"],
             description:
-              "Capture semantics. render_output=camera render. Other legacy modes are currently disabled.",
+              "Capture semantics. render_output=camera render (stable). composite=diagnostic synthesized capture (flag-gated).",
           },
           output_mode: {
             type: "string",
@@ -940,6 +1329,11 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
             type: "integer",
             description:
               "Optional JPEG quality (1..100). Effective only when image_format=jpg.",
+          },
+          max_base64_bytes: {
+            type: "integer",
+            description:
+              "Optional inline_base64 upper bound (bytes). If exceeded, output auto-falls back to artifact_uri.",
           },
           timeout_ms: {
             type: "integer",
@@ -1055,6 +1449,69 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
     },
   },
   {
+    name: "get_ui_overlay_report",
+    kind: "read",
+    lifecycle: "experimental",
+    http: {
+      method: "POST",
+      path: "/mcp/get_ui_overlay_report",
+      source: "body",
+    },
+    validate: validateGetUiOverlayReport,
+    execute: executeGetUiOverlayReport,
+    mcp: {
+      expose: true,
+      description:
+        "Inspect ScreenSpaceOverlay coverage and return structured overlay diagnostics. Use this before screenshot verification to know whether render_output will miss critical UI.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          root_path: {
+            type: "string",
+            description:
+              "Optional hierarchy root path filter. Deprecated alias of scope.root_path.",
+          },
+          scope: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              root_path: {
+                type: "string",
+                description:
+                  "Optional hierarchy root path filter for overlay diagnostics.",
+              },
+            },
+          },
+          include_inactive: {
+            type: "boolean",
+            description:
+              "Whether inactive overlays and children are included in the report.",
+          },
+          include_children_summary: {
+            type: "boolean",
+            description:
+              "Whether each overlay canvas includes sampled child element summaries.",
+          },
+          max_nodes: {
+            type: "integer",
+            description:
+              "Optional global node budget (overlay canvas + child summary nodes, >=1).",
+          },
+          max_children_per_canvas: {
+            type: "integer",
+            description:
+              "Optional max child summary nodes per overlay canvas (>=1).",
+          },
+          timeout_ms: {
+            type: "integer",
+            description: "Optional query timeout in milliseconds (>=1000).",
+          },
+        },
+      },
+    },
+  },
+  {
     name: "get_serialized_property_tree",
     kind: "read",
     lifecycle: "experimental",
@@ -1068,7 +1525,7 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
     mcp: {
       expose: true,
       description:
-        "Read SerializedProperty tree lazily for a specific component. Supports depth/page/node/char budgets and cursor paging (after_property_path) to avoid token explosion.",
+        "Read SerializedProperty tree lazily for one or more components on the same target. Supports depth/page/node/char budgets, cursor paging for single-component mode, and node-level llm_hint/common_use fields.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -1101,6 +1558,29 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
               },
             },
             required: ["component_assembly_qualified_name"],
+          },
+          component_selectors: {
+            type: "array",
+            description:
+              "Optional multi-component selectors on the same target_anchor (max 8). When used with more than one selector, after_property_path is disabled in this phase.",
+            minItems: 1,
+            maxItems: 8,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                component_assembly_qualified_name: {
+                  type: "string",
+                  description: "Assembly qualified component type name.",
+                },
+                component_index: {
+                  type: "integer",
+                  minimum: 0,
+                  description: "Zero-based index when multiple components share type.",
+                },
+              },
+              required: ["component_assembly_qualified_name"],
+            },
           },
           root_property_path: {
             type: "string",
@@ -1146,7 +1626,8 @@ const MCP_COMMAND_DEFINITIONS = Object.freeze([
             description: "Optional query timeout in milliseconds (>=1000).",
           },
         },
-        required: ["target_anchor", "component_selector"],
+        required: ["target_anchor"],
+        anyOf: [{ required: ["component_selector"] }, { required: ["component_selectors"] }],
       },
     },
   },

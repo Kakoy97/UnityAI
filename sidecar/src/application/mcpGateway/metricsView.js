@@ -4,6 +4,9 @@ const { cloneJson } = require("../../utils/turnUtils");
 const { normalizeLease, toIsoTimestamp } = require("../jobRuntime/jobLease");
 const { OBSERVABILITY_FREEZE_CONTRACT } = require("../../ports/contracts");
 const { getMcpErrorFeedbackMetricsSnapshot } = require("./mcpErrorFeedback");
+const {
+  buildDefaultV1PolishMetricsSnapshot,
+} = require("../v1PolishMetricsCollector");
 
 function buildJobStatusPayload(gateway, job) {
   const item = job && typeof job === "object" ? job : {};
@@ -119,6 +122,14 @@ function getMcpMetrics(gateway) {
     error_feedback_by_code: errorFeedbackMetrics.error_feedback_by_code,
   });
   const legacyGate = gateway.getLegacyAnchorGateSnapshot();
+  const v1PolishMetrics =
+    gateway && typeof gateway.getV1PolishMetricsSnapshot === "function"
+      ? gateway.getV1PolishMetricsSnapshot()
+      : null;
+  const captureCompositeMetrics =
+    gateway && typeof gateway.getCaptureCompositeMetricsSnapshot === "function"
+      ? gateway.getCaptureCompositeMetricsSnapshot()
+      : null;
   return {
     ...baseMetrics,
     legacy_anchor_mode_requested: gateway.legacyAnchorModeRequested,
@@ -135,6 +146,39 @@ function getMcpMetrics(gateway) {
     legacy_anchor_requested_deny_blocked_total:
       gateway.legacyAnchorModeMetrics.requested_deny_blocked_total,
     action_error_code_missing_total: gateway.actionErrorCodeMissingTotal,
+    v1_polish_metrics:
+      v1PolishMetrics && typeof v1PolishMetrics === "object"
+        ? cloneJson(v1PolishMetrics)
+        : buildDefaultV1PolishMetricsSnapshot({
+            enabled: false,
+            storageMode: "not_configured",
+          }),
+    capture_composite:
+      captureCompositeMetrics && typeof captureCompositeMetrics === "object"
+        ? cloneJson(captureCompositeMetrics)
+        : {
+            enabled: false,
+            in_flight: false,
+            fuse_failure_threshold: 3,
+            fuse_cooldown_ms: 60000,
+            fused: false,
+            fused_until_ms: 0,
+            fused_until: "",
+            consecutive_failures: 0,
+            total_failures: 0,
+            total_black_failures: 0,
+            total_error_failures: 0,
+            total_fuse_trips: 0,
+            total_fallback_renders: 0,
+            total_probe_attempts: 0,
+            total_probe_recoveries: 0,
+            total_busy_rejections: 0,
+            last_failure_at: "",
+            last_failure_reason: "",
+            last_fuse_opened_at: "",
+            last_probe_recovered_at: "",
+            last_busy_at: "",
+          },
   };
 }
 
@@ -142,4 +186,3 @@ module.exports = {
   buildJobStatusPayload,
   getMcpMetrics,
 };
-

@@ -153,6 +153,8 @@ class UnityDispatcher {
       };
     }
 
+    runtime.last_action_result = cloneJson(payload);
+
     if (payload.success !== true) {
       const errorCode = normalizeUnityActionFailureCode(
         payload,
@@ -207,7 +209,6 @@ class UnityDispatcher {
         ? Math.floor(Number(runtime.next_visual_index)) + 1
         : 1;
     runtime.phase = "action_pending";
-    runtime.last_action_result = cloneJson(payload);
     runtime.last_action_error = null;
     runtime.reboot_wait_started_at = 0;
 

@@ -77,6 +77,23 @@ namespace UnityAI.Editor.Codex.Infrastructure.Read
             };
         }
 
+        internal static UnityGetUiOverlayReportResponse BuildGetUiOverlayReportFailure(
+            string requestId,
+            string errorCode,
+            string errorMessage)
+        {
+            return new UnityGetUiOverlayReportResponse
+            {
+                ok = false,
+                request_id = NormalizeRequestId(requestId),
+                captured_at = NowIso(),
+                error_code = NormalizeReadErrorCode(errorCode),
+                error_message = NormalizeReadErrorMessage(errorMessage),
+                read_token = null,
+                data = null,
+            };
+        }
+
         internal static UnityGetSerializedPropertyTreeResponse BuildGetSerializedPropertyTreeFailure(
             string requestId,
             string errorCode,

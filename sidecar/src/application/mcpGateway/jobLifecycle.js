@@ -215,6 +215,9 @@ function finalizeJob(gateway, jobId, patch) {
     updated_at: now,
   };
   const updated = gateway.jobStore.updateJob(jobId, merged);
+  if (typeof gateway.recordWriteJobFinalized === "function") {
+    gateway.recordWriteJobFinalized(updated || merged);
+  }
   const released = gateway.lockManager.release(jobId);
   if (released && typeof gateway.recordLockRelease === "function") {
     gateway.recordLockRelease();

@@ -85,6 +85,7 @@ async function executeGetSerializedPropertyTree(context, requestBody) {
           truncated: false,
           truncated_reason: "",
           next_cursor: "",
+          components: [],
           nodes: [],
         };
   const snapshotService =
@@ -117,12 +118,43 @@ async function executeGetSerializedPropertyTree(context, requestBody) {
 function normalizeResponseData(source) {
   const result = source && typeof source === "object" ? { ...source } : {};
   result.nodes = Array.isArray(result.nodes) ? result.nodes : [];
+  result.components = Array.isArray(result.components) ? result.components : [];
   result.returned_count = Number.isFinite(Number(result.returned_count))
     ? Math.floor(Number(result.returned_count))
     : result.nodes.length;
   result.truncated = result.truncated === true;
   result.truncated_reason = normalizeNonEmptyString(result.truncated_reason);
   result.next_cursor = normalizeNonEmptyString(result.next_cursor);
+  for (let i = 0; i < result.components.length; i += 1) {
+    const entry =
+      result.components[i] && typeof result.components[i] === "object"
+        ? { ...result.components[i] }
+        : {};
+    entry.selector_index = Number.isFinite(Number(entry.selector_index))
+      ? Math.floor(Number(entry.selector_index))
+      : i;
+    entry.nodes = Array.isArray(entry.nodes) ? entry.nodes : [];
+    entry.returned_count = Number.isFinite(Number(entry.returned_count))
+      ? Math.floor(Number(entry.returned_count))
+      : entry.nodes.length;
+    entry.truncated = entry.truncated === true;
+    entry.truncated_reason = normalizeNonEmptyString(entry.truncated_reason);
+    entry.next_cursor = normalizeNonEmptyString(entry.next_cursor);
+    result.components[i] = entry;
+  }
+  if (result.components.length === 0 && result.component && typeof result.component === "object") {
+    result.components = [
+      {
+        selector_index: 0,
+        component: result.component,
+        returned_count: result.returned_count,
+        truncated: result.truncated,
+        truncated_reason: result.truncated_reason,
+        next_cursor: result.next_cursor,
+        nodes: result.nodes,
+      },
+    ];
+  }
   return result;
 }
 

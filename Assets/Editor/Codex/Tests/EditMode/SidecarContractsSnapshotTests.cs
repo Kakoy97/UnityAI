@@ -73,7 +73,61 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "success",
                 "error_code",
                 "error_message",
-                "duration_ms");
+                "duration_ms",
+                "result_data",
+                "write_receipt");
+            AssertFieldSnapshot(
+                typeof(UnityWriteReceipt),
+                "schema_version",
+                "captured_at",
+                "success",
+                "error_code",
+                "target_resolution",
+                "scene_diff",
+                "target_delta",
+                "created_object_delta",
+                "property_changes",
+                "console_snapshot");
+            AssertFieldSnapshot(
+                typeof(UnityWriteSceneDiff),
+                "dirty_scene_count_before",
+                "dirty_scene_count_after",
+                "added_dirty_scene_paths",
+                "cleared_dirty_scene_paths",
+                "dirty_scene_set_changed");
+            AssertFieldSnapshot(
+                typeof(UnityWriteTargetDelta),
+                "before",
+                "after",
+                "changed_fields");
+            AssertFieldSnapshot(
+                typeof(UnityWriteTargetSnapshot),
+                "exists",
+                "object_id",
+                "path",
+                "name",
+                "active",
+                "parent_path",
+                "component_count",
+                "child_count");
+            AssertFieldSnapshot(
+                typeof(UnityWriteConsoleSnapshot),
+                "captured_at",
+                "window_start_at",
+                "window_end_at",
+                "window_seconds",
+                "max_entries",
+                "total_errors",
+                "truncated",
+                "errors");
+            AssertFieldSnapshot(
+                typeof(UnityWriteConsoleEntry),
+                "timestamp",
+                "log_type",
+                "error_code",
+                "condition",
+                "file",
+                "line");
         }
 
         [Test]
@@ -88,6 +142,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "width",
                 "height",
                 "jpeg_quality",
+                "max_base64_bytes",
                 "timeout_ms",
                 "include_ui");
             AssertFieldSnapshot(
@@ -106,6 +161,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "byte_size",
                 "artifact_uri",
                 "image_base64",
+                "visual_evidence",
                 "unity_state",
                 "pixel_sanity",
                 "camera_used",
@@ -116,6 +172,11 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "read_timing",
                 "editor_window_rect_screen_px",
                 "include_gizmos_effective");
+            AssertFieldSnapshot(
+                typeof(UnityScreenshotVisualEvidence),
+                "artifact_uri",
+                "pixel_hash",
+                "diff_summary");
             AssertFieldSnapshot(
                 typeof(UnityScreenshotRect),
                 "x",
@@ -371,6 +432,56 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "overflowing",
                 "preferred_width",
                 "preferred_height");
+        }
+
+        [Test]
+        public void UnityGetUiOverlayReportContracts_FieldSnapshot_RemainsStable()
+        {
+            AssertFieldSnapshot(
+                typeof(UnityGetUiOverlayReportPayload),
+                "root_path",
+                "scope",
+                "include_inactive",
+                "include_children_summary",
+                "max_nodes",
+                "max_children_per_canvas",
+                "timeout_ms");
+            AssertFieldSnapshot(
+                typeof(UnityGetUiOverlayReportData),
+                "scope",
+                "include_inactive",
+                "include_children_summary",
+                "max_nodes",
+                "max_children_per_canvas",
+                "returned_canvas_count",
+                "truncated",
+                "truncated_reason",
+                "overlay_total_coverage_percent",
+                "non_overlay_canvases_count",
+                "diagnosis_codes",
+                "diagnosis",
+                "recommended_capture_mode",
+                "overlay_canvases");
+            AssertFieldSnapshot(
+                typeof(UnityUiOverlayCanvasSummary),
+                "object_id",
+                "path",
+                "name",
+                "active",
+                "render_mode",
+                "sorting_layer_id",
+                "sorting_order",
+                "screen_coverage_percent",
+                "interactable_elements",
+                "children_summary");
+            AssertFieldSnapshot(
+                typeof(UnityUiOverlayElementSummary),
+                "object_id",
+                "path",
+                "name",
+                "type",
+                "interactable",
+                "rect_screen_px");
         }
 
         [Test]

@@ -2,7 +2,7 @@
 
 const { normalizeSnapshotComponents } = require("./snapshotComponents");
 const { normalizeLease } = require("./leaseUtils");
-const OCC_STALE_SNAPSHOT_SUGGESTION = "请先调用读工具获取最新 token。";
+const OCC_STALE_SNAPSHOT_SUGGESTION = "请先调用读工具获取最新 token，并仅重试一次写操作。";
 
 // Helper functions - defined in dependency order
 

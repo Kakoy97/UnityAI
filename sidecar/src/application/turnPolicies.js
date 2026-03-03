@@ -7,9 +7,18 @@
 
 "use strict";
 
+const {
+  SCHEMA_ISSUE_CATEGORIES,
+  resolveSchemaIssueClassification,
+} = require("./schemaIssueClassifier");
+const {
+  buildAnchorMachineFixCompensation,
+} = require("./schemaCompensationFixes");
+const { buildRetryPolicyForErrorCode } = require("./retryPolicy");
+
 const ANCHOR_RETRY_SUGGESTION =
   "请先调用读工具获取目标 object_id 与 path，再重试写操作。";
-const OCC_STALE_SNAPSHOT_SUGGESTION = "请先调用读工具获取最新 token。";
+const OCC_STALE_SNAPSHOT_SUGGESTION = "请先调用读工具获取最新 token，并仅重试一次写操作。";
 const ANCHOR_ERROR_CODES = Object.freeze([
   "E_ACTION_SCHEMA_INVALID",
   "E_TARGET_ANCHOR_CONFLICT",
@@ -94,7 +103,32 @@ const MCP_ERROR_FEEDBACK_TEMPLATES = Object.freeze({
   E_CAPTURE_MODE_DISABLED: Object.freeze({
     recoverable: true,
     suggestion:
-      "capture_scene_screenshot currently supports capture_mode=render_output only. Retry with render_output.",
+      "capture_scene_screenshot currently keeps render_output as baseline. If you need composite, enable CAPTURE_COMPOSITE_ENABLED + UNITY_CAPTURE_COMPOSITE_ENABLED; otherwise retry with render_output after get_ui_overlay_report.",
+  }),
+  E_COMPOSITE_BUSY: Object.freeze({
+    recoverable: true,
+    suggestion:
+      "Another composite capture is running. Wait for it to finish, then retry capture_scene_screenshot(capture_mode=composite).",
+  }),
+  E_COMPOSITE_PLAYMODE_REQUIRED: Object.freeze({
+    recoverable: true,
+    suggestion:
+      "Composite capture currently requires Unity Play Mode. Enter Play Mode or fallback to capture_mode=render_output.",
+  }),
+  E_COMPOSITE_CAPTURE_RESTRICTED: Object.freeze({
+    recoverable: true,
+    suggestion:
+      "Composite EditMode capture was restricted by safety guard. Retry with capture_mode=render_output and inspect get_ui_overlay_report.",
+  }),
+  E_UI_OVERLAY_REPORT_SOURCE_NOT_FOUND: Object.freeze({
+    recoverable: true,
+    suggestion:
+      "Overlay UI source was not found. Ensure target Canvas exists and retry get_ui_overlay_report.",
+  }),
+  E_UI_OVERLAY_REPORT_QUERY_FAILED: Object.freeze({
+    recoverable: true,
+    suggestion:
+      "Overlay report query failed. Check Unity editor state and retry get_ui_overlay_report with lower max_nodes/budgets if needed.",
   }),
   E_UI_TREE_SOURCE_NOT_FOUND: Object.freeze({
     recoverable: true,
@@ -144,7 +178,7 @@ const MCP_ERROR_FEEDBACK_TEMPLATES = Object.freeze({
   E_COMMAND_DISABLED: Object.freeze({
     recoverable: true,
     suggestion:
-      "This command is currently disabled. Use tools/list for current availability and prefer get_ui_tree + capture_scene_screenshot(render_output).",
+      "This command is currently disabled. Use tools/list for current availability and prefer get_ui_overlay_report + get_ui_tree + capture_scene_screenshot(render_output).",
   }),
   E_TARGET_NOT_FOUND: Object.freeze({
     recoverable: true,
@@ -230,6 +264,11 @@ const MCP_ERROR_FEEDBACK_TEMPLATES = Object.freeze({
     recoverable: true,
     suggestion:
       "Do not send stringified action_data fields. Send action_data as a JSON object and retry.",
+  }),
+  E_ACTION_PROPERTY_WRITE_RESTRICTED: Object.freeze({
+    recoverable: true,
+    suggestion:
+      "Target property is write-restricted in set_serialized_property (for example ManagedReference/AnimationCurve). Use get_serialized_property_tree to inspect writable fields, then retry with supported paths.",
   }),
   E_COMPOSITE_PAYLOAD_INVALID: Object.freeze({
     recoverable: true,
@@ -614,6 +653,32 @@ function resolveActionTypeForSchemaCompensation(requestBody) {
   return "";
 }
 
+function shouldUseActionSchemaCompensation(code, actionSchemaRef, schemaIssue) {
+  if (!actionSchemaRef || !ACTION_SCHEMA_PRIORITY_ERROR_CODES.has(code)) {
+    return false;
+  }
+
+  if (code === "E_ACTION_DESERIALIZE_FAILED") {
+    return true;
+  }
+  if (code === "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED") {
+    return true;
+  }
+  if (code === "E_ACTION_PAYLOAD_INVALID") {
+    return schemaIssue.category !== SCHEMA_ISSUE_CATEGORIES.anchor;
+  }
+  if (code === "E_ACTION_SCHEMA_INVALID") {
+    if (
+      schemaIssue.category === SCHEMA_ISSUE_CATEGORIES.anchor ||
+      schemaIssue.category === SCHEMA_ISSUE_CATEGORIES.token
+    ) {
+      return false;
+    }
+    return true;
+  }
+  return true;
+}
+
 function buildValidationSchemaCompensation(validation, options) {
   const source = validation && typeof validation === "object" ? validation : {};
   const code = normalizePolicyErrorCode(source.errorCode || source.error_code);
@@ -632,9 +697,21 @@ function buildValidationSchemaCompensation(validation, options) {
   const actionSchemaRef = actionType
     ? buildSchemaRef(actionType, catalogVersion)
     : null;
+  const schemaIssue = resolveSchemaIssueClassification(source);
+  const machineFixCompensation = buildAnchorMachineFixCompensation(
+    {
+      requestBody,
+      correctedPayload: opts.correctedPayload,
+    },
+    schemaIssue
+  );
 
   if (code !== "E_COMPOSITE_PAYLOAD_INVALID") {
-    const useActionSchema = ACTION_SCHEMA_PRIORITY_ERROR_CODES.has(code) && !!actionSchemaRef;
+    const useActionSchema = shouldUseActionSchemaCompensation(
+      code,
+      actionSchemaRef,
+      schemaIssue
+    );
     const primarySchemaRef = useActionSchema
       ? actionSchemaRef
       : toolSchemaRef || actionSchemaRef;
@@ -645,6 +722,10 @@ function buildValidationSchemaCompensation(validation, options) {
       retryable: true,
       schema_source: useActionSchema ? "get_action_schema" : "get_tool_schema",
       schema_ref: primarySchemaRef,
+      schema_issue_category: schemaIssue.category,
+      ...(schemaIssue.field_path ? { field_path: schemaIssue.field_path } : {}),
+      ...(schemaIssue.fix_kind ? { fix_kind: schemaIssue.fix_kind } : {}),
+      ...(machineFixCompensation ? machineFixCompensation : {}),
       ...(toolSchemaRef &&
       (primarySchemaRef.tool !== toolSchemaRef.tool ||
         primarySchemaRef.params.tool_name !== toolSchemaRef.params.tool_name)
@@ -763,10 +844,12 @@ function resolveAutoCancelErrorMessage(errorCode) {
 function getMcpErrorFeedbackTemplate(errorCode, errorMessage) {
   const code = normalizePolicyErrorCode(errorCode);
   const message = typeof errorMessage === "string" ? errorMessage : "";
+  const retryPolicy = buildRetryPolicyForErrorCode(code);
   if (isAnchorValidationErrorCode(code)) {
     return {
       recoverable: true,
       suggestion: ANCHOR_RETRY_SUGGESTION,
+      retry_policy: retryPolicy,
     };
   }
 
@@ -775,6 +858,7 @@ function getMcpErrorFeedbackTemplate(errorCode, errorMessage) {
     return {
       recoverable: template.recoverable === true,
       suggestion: template.suggestion || MCP_ERROR_FEEDBACK_DEFAULT.fallbackSuggestion,
+      retry_policy: retryPolicy,
     };
   }
 
@@ -782,12 +866,14 @@ function getMcpErrorFeedbackTemplate(errorCode, errorMessage) {
     return {
       recoverable: MCP_ERROR_FEEDBACK_DEFAULT.recoverable,
       suggestion: MCP_ERROR_FEEDBACK_DEFAULT.timeoutSuggestion,
+      retry_policy: retryPolicy,
     };
   }
 
   return {
     recoverable: MCP_ERROR_FEEDBACK_DEFAULT.recoverable,
     suggestion: MCP_ERROR_FEEDBACK_DEFAULT.fallbackSuggestion,
+    retry_policy: retryPolicy,
   };
 }
 
@@ -804,6 +890,7 @@ module.exports = {
   isAutoCancelErrorCode,
   resolveAutoCancelErrorMessage,
   buildValidationSchemaCompensation,
+  resolveSchemaIssueClassification,
   ERROR_SCHEMA_HINT_MAX_CHARS,
   getMcpErrorFeedbackTemplate,
 };

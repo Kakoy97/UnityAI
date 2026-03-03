@@ -34,8 +34,6 @@ namespace UnityAI.Editor.Codex.UI
             _controller.SidecarUrl = EditorPrefs.GetString(SidecarUrlEditorPrefKey, DefaultSidecarUrl);
             _controller.ThreadId = EditorPrefs.GetString(ThreadIdEditorPrefKey, DefaultThreadId);
             _controller.Changed += OnControllerChanged;
-            Selection.selectionChanged += OnSelectionChanged;
-            _controller.NotifySelectionChanged(Selection.activeGameObject);
 
             if (_logStyle == null)
             {
@@ -53,17 +51,6 @@ namespace UnityAI.Editor.Codex.UI
                 EditorPrefs.SetString(ThreadIdEditorPrefKey, _controller.ThreadId);
                 _controller.Changed -= OnControllerChanged;
             }
-            Selection.selectionChanged -= OnSelectionChanged;
-        }
-
-        private void OnSelectionChanged()
-        {
-            if (_controller == null)
-            {
-                return;
-            }
-
-            _controller.NotifySelectionChanged(Selection.activeGameObject);
         }
 
         private void OnGUI()
@@ -101,12 +88,53 @@ namespace UnityAI.Editor.Codex.UI
                 }
             }
 
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Onboarding", EditorStyles.boldLabel);
+            using (new EditorGUI.DisabledScope(_controller.IsOnboardingScriptInFlight))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Setup MCP (Native)", GUILayout.Height(22)))
+                    {
+                        _ = _controller.SetupCursorMcpNativeAsync();
+                    }
+
+                    if (GUILayout.Button("Setup MCP (Cline)", GUILayout.Height(22)))
+                    {
+                        _ = _controller.SetupCursorMcpClineAsync();
+                    }
+
+                    if (GUILayout.Button("Verify MCP", GUILayout.Height(22)))
+                    {
+                        _ = _controller.VerifyMcpSetupAsync();
+                    }
+                }
+            }
+
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Phase6 Smoke Write+Action", GUILayout.Height(22)))
+                if (GUILayout.Button("Open Native Config", GUILayout.Height(20)))
                 {
-                    _ = _controller.ApplyPhase6SmokeWriteAsync(Selection.activeGameObject);
+                    _controller.RevealCursorMcpConfig(true);
                 }
+
+                if (GUILayout.Button("Open Cline Config", GUILayout.Height(20)))
+                {
+                    _controller.RevealCursorMcpConfig(false);
+                }
+            }
+
+            EditorGUILayout.LabelField(
+                "Native MCP Config",
+                _controller.GetCursorMcpConfigPathPreview(true));
+            EditorGUILayout.LabelField(
+                "Cline MCP Config",
+                _controller.GetCursorMcpConfigPathPreview(false));
+            if (_controller.IsOnboardingScriptInFlight)
+            {
+                EditorGUILayout.HelpBox(
+                    "Onboarding script is running. Please wait for completion.",
+                    MessageType.Info);
             }
 
             using (new EditorGUILayout.HorizontalScope())

@@ -1,0 +1,146 @@
+﻿{
+    "status":  "ok",
+    "observability_phase":  "phase6_freeze",
+    "metrics_contract_version":  "mcp.metrics.v1",
+    "timestamp":  "2026-03-02T15:03:13.979Z",
+    "status_query_calls":  0,
+    "stream_connect_calls":  0,
+    "stream_events_published":  0,
+    "stream_events_delivered":  0,
+    "stream_replay_events_sent":  0,
+    "stream_recovery_jobs_sent":  0,
+    "stream_subscriber_rejects":  0,
+    "stream_subscriber_drops":  0,
+    "push_events_total":  0,
+    "query_to_push_ratio":  null,
+    "active_stream_subscribers":  0,
+    "stream_max_subscribers":  32,
+    "stream_recovery_jobs_max":  20,
+    "recent_stream_buffer_size":  0,
+    "running_job_id":  "",
+    "queued_job_count":  0,
+    "total_job_count":  0,
+    "auto_cleanup_enforced":  true,
+    "lease_heartbeat_timeout_ms":  60000,
+    "lease_max_runtime_ms":  300000,
+    "reboot_wait_timeout_ms":  180000,
+    "lease_janitor_interval_ms":  1000,
+    "auto_cancel_total":  0,
+    "auto_cancel_heartbeat_timeout_total":  0,
+    "auto_cancel_max_runtime_total":  0,
+    "auto_cancel_reboot_wait_timeout_total":  0,
+    "lock_release_total":  0,
+    "queue_promote_total":  0,
+    "error_feedback_normalized_total":  7,
+    "error_stack_sanitized_total":  1,
+    "error_path_sanitized_total":  0,
+    "error_message_truncated_total":  0,
+    "error_fixed_suggestion_enforced_total":  0,
+    "error_feedback_by_code":  {
+                                   "E_UI_TREE_SOURCE_NOT_FOUND":  6,
+                                   "E_UNITY_NOT_CONNECTED":  1
+                               },
+    "legacy_anchor_mode_requested":  "warn",
+    "legacy_anchor_mode_effective":  "warn",
+    "legacy_anchor_deny_signoff":  false,
+    "legacy_anchor_deny_gate_required_days":  7,
+    "legacy_anchor_zero_hit_window_days":  0,
+    "legacy_anchor_deny_gate_ready":  false,
+    "legacy_anchor_warn_hits_total":  0,
+    "legacy_anchor_warn_hits_by_action":  {
+
+                                          },
+    "legacy_anchor_last_hit_at":  "",
+    "legacy_anchor_requested_deny_blocked_total":  0,
+    "action_error_code_missing_total":  0,
+    "v1_polish_metrics":  {
+                              "schema_version":  "v1_polish_metrics.v1",
+                              "enabled":  true,
+                              "retention_days":  7,
+                              "window_start_date":  "2026-03-02",
+                              "window_end_date":  "2026-03-02",
+                              "updated_at":  "2026-03-02T15:03:13.979Z",
+                              "storage":  {
+                                              "mode":  "file_snapshot",
+                                              "path":  ".state\\v1-polish-metrics.json"
+                                          },
+                              "counters":  {
+                                               "tool_calls_total":  7,
+                                               "write_tool_calls_total":  1,
+                                               "task_requests_total":  1,
+                                               "generalized_write_total":  1,
+                                               "primitive_write_total":  0,
+                                               "dry_run_total":  1,
+                                               "read_token_checks_total":  0,
+                                               "read_token_fail_total":  0,
+                                               "read_token_expiry_total":  0,
+                                               "write_jobs_finalized_total":  0,
+                                               "write_jobs_failed_total":  0,
+                                               "write_jobs_rollback_inferred_total":  0,
+                                               "property_path_samples_total":  1
+                                           },
+                              "derived":  {
+                                              "avg_tool_calls_per_task":  7,
+                                              "write_rollback_rate":  0,
+                                              "read_token_expiry_rate":  0,
+                                              "dry_run_usage_rate":  1
+                                          },
+                              "by_tool":  [
+                                              {
+                                                  "tool_name":  "get_ui_tree",
+                                                  "total":  3,
+                                                  "write_calls":  0,
+                                                  "dry_run_calls":  0,
+                                                  "generalized_write_calls":  0,
+                                                  "primitive_write_calls":  0
+                                              },
+                                              {
+                                                  "tool_name":  "find_objects_by_component",
+                                                  "total":  1,
+                                                  "write_calls":  0,
+                                                  "dry_run_calls":  0,
+                                                  "generalized_write_calls":  0,
+                                                  "primitive_write_calls":  0
+                                              },
+                                              {
+                                                  "tool_name":  "get_scene_roots",
+                                                  "total":  1,
+                                                  "write_calls":  0,
+                                                  "dry_run_calls":  0,
+                                                  "generalized_write_calls":  0,
+                                                  "primitive_write_calls":  0
+                                              },
+                                              {
+                                                  "tool_name":  "get_serialized_property_tree",
+                                                  "total":  1,
+                                                  "write_calls":  0,
+                                                  "dry_run_calls":  0,
+                                                  "generalized_write_calls":  0,
+                                                  "primitive_write_calls":  0
+                                              },
+                                              {
+                                                  "tool_name":  "set_serialized_property",
+                                                  "total":  1,
+                                                  "write_calls":  1,
+                                                  "dry_run_calls":  1,
+                                                  "generalized_write_calls":  1,
+                                                  "primitive_write_calls":  0
+                                              }
+                                          ],
+                              "top_property_paths":  [
+                                                         {
+                                                             "property_path":  "m_Enabled",
+                                                             "count":  1
+                                                         }
+                                                     ],
+                              "top_value_kinds":  [
+                                                      {
+                                                          "value_kind":  "bool",
+                                                          "count":  1
+                                                      }
+                                                  ],
+                              "top_array_ops":  [
+
+                                                ]
+                          }
+}

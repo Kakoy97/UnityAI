@@ -22,6 +22,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries
         public const string FindObjectsByComponent = "find_objects_by_component";
         public const string QueryPrefabInfo = "query_prefab_info";
         public const string CaptureSceneScreenshot = "capture_scene_screenshot";
+        public const string GetUiOverlayReport = "get_ui_overlay_report";
         public const string GetUiTree = "get_ui_tree";
         public const string GetSerializedPropertyTree = "get_serialized_property_tree";
         public const string HitTestUiAtScreenPoint = "hit_test_ui_at_screen_point";

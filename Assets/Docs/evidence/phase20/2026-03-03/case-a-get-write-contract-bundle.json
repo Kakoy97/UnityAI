@@ -1,0 +1,139 @@
+﻿{
+    "ok":  true,
+    "tool_name":  "apply_visual_actions",
+    "action_type":  "rename_object",
+    "bundle_budget_chars":  3600,
+    "trim_priority":  [
+                          "write_envelope_contract",
+                          "minimal_valid_payload_template",
+                          "canonical_examples",
+                          "error_fix_map"
+                      ],
+    "write_envelope_contract":  {
+                                    "tool_name":  "apply_visual_actions",
+                                    "required_top_level":  [
+                                                               "based_on_read_token",
+                                                               "write_anchor",
+                                                               "actions"
+                                                           ],
+                                    "required_action_level":  [
+                                                                  "type",
+                                                                  "target_anchor",
+                                                                  "action_data"
+                                                              ],
+                                    "action_anchor_requirement":  "target_required",
+                                    "write_anchor_shape":  {
+                                                               "object_id":  "string(minLength=1)",
+                                                               "path":  "string(minLength=1)"
+                                                           },
+                                    "required_sequence":  [
+                                                              "get_current_selection",
+                                                              "apply_visual_actions"
+                                                          ]
+                                },
+    "minimal_valid_payload_template":  {
+                                           "based_on_read_token":  "\u003cfrom get_current_selection.read_token\u003e",
+                                           "write_anchor":  {
+                                                                "object_id":  "\u003cid\u003e",
+                                                                "path":  "Scene/Path"
+                                                            },
+                                           "actions":  [
+                                                           {
+                                                               "type":  "rename_object",
+                                                               "target_anchor":  {
+                                                                                     "object_id":  "\u003cid\u003e",
+                                                                                     "path":  "Scene/Path"
+                                                                                 },
+                                                               "action_data":  {
+
+                                                                               }
+                                                           }
+                                                       ]
+                                       },
+    "canonical_examples":  [
+                               {
+                                   "name":  "minimal_valid_payload",
+                                   "summary":  "Smallest valid payload with OCC/read token + anchors.",
+                                   "payload":  {
+                                                   "based_on_read_token":  "\u003cfrom get_current_selection.read_token\u003e",
+                                                   "write_anchor":  {
+                                                                        "object_id":  "\u003cid\u003e",
+                                                                        "path":  "Scene/Path"
+                                                                    },
+                                                   "actions":  [
+                                                                   {
+                                                                       "type":  "rename_object",
+                                                                       "target_anchor":  {
+                                                                                             "object_id":  "\u003cid\u003e",
+                                                                                             "path":  "Scene/Path"
+                                                                                         },
+                                                                       "action_data":  {
+
+                                                                                       }
+                                                                   }
+                                                               ]
+                                               }
+                               }
+                           ],
+    "error_fix_map":  {
+                          "E_ACTION_SCHEMA_INVALID":  {
+                                                          "summary":  "Anchor or payload shape invalid.",
+                                                          "next_step":  "call_get_tool_schema_then_retry",
+                                                          "preferred_schema_tool":  "get_tool_schema"
+                                                      },
+                          "E_STALE_SNAPSHOT":  {
+                                                   "summary":  "Read token is stale.",
+                                                   "next_step":  "call_get_current_selection_then_retry",
+                                                   "preferred_schema_tool":  "none"
+                                               },
+                          "E_ACTION_DESERIALIZE_FAILED":  {
+                                                              "summary":  "action_data does not match action DTO schema.",
+                                                              "next_step":  "call_get_action_schema_then_retry",
+                                                              "preferred_schema_tool":  "get_action_schema"
+                                                          }
+                      },
+    "action_schema_summary":  {
+                                  "action_type":  "rename_object",
+                                  "anchor_policy":  "target_required",
+                                  "schema_hint":  {
+                                                      "type":  "object",
+                                                      "required":  [
+                                                                       "name"
+                                                                   ],
+                                                      "properties":  {
+                                                                         "name":  {
+                                                                                      "type":  "string",
+                                                                                      "description":  "New object name."
+                                                                                  }
+                                                                     }
+                                                  }
+                              },
+    "tool_schema_summary":  {
+                                "tool_name":  "apply_visual_actions",
+                                "transport":  {
+                                                  "method":  "POST",
+                                                  "path":  "/mcp/apply_visual_actions",
+                                                  "source":  "body",
+                                                  "query_key":  ""
+                                              },
+                                "required_top_level":  [
+                                                           "based_on_read_token",
+                                                           "write_anchor",
+                                                           "actions"
+                                                       ]
+                            },
+    "action_schema_ref":  {
+                              "tool":  "get_action_schema",
+                              "params":  {
+                                             "action_type":  "rename_object"
+                                         }
+                          },
+    "tool_schema_ref":  {
+                            "tool":  "get_tool_schema",
+                            "params":  {
+                                           "tool_name":  "apply_visual_actions"
+                                       }
+                        },
+    "budget_truncated":  false,
+    "bundle_chars":  2289
+}

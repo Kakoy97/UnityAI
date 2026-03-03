@@ -24,6 +24,10 @@ const { McpEyesService } = require("./mcpGateway/mcpEyesService");
 const { QueryStore } = require("./queryRuntime/queryStore");
 const { QueryCoordinator } = require("./queryCoordinator");
 const { CapabilityStore } = require("./capabilityStore");
+const { normalizeWriteToolOutcome } = require("./writeReceiptFormatter");
+const {
+  createCaptureCompositeRuntime,
+} = require("./captureCompositeRuntime");
 
 const SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
 
@@ -44,6 +48,17 @@ class TurnService {
         ? Number(deps.sessionCacheTtlMs)
         : SESSION_CACHE_TTL_MS;
     this.enableMcpEyes = deps.enableMcpEyes === true;
+    this.v1PolishMetricsCollector =
+      deps.v1PolishMetricsCollector &&
+      typeof deps.v1PolishMetricsCollector === "object"
+        ? deps.v1PolishMetricsCollector
+        : null;
+    this.captureCompositeEnabled = deps.captureCompositeEnabled === true;
+    this.captureCompositeRuntime = createCaptureCompositeRuntime({
+      enabled: this.captureCompositeEnabled,
+      fuseFailureThreshold: deps.captureCompositeFuseFailureThreshold,
+      fuseCooldownMs: deps.captureCompositeFuseCooldownMs,
+    });
     this.unityQueryContractVersion =
       typeof deps.unityQueryContractVersion === "string" &&
       deps.unityQueryContractVersion.trim()
@@ -80,6 +95,9 @@ class TurnService {
       legacyAnchorDenySignoff: deps.legacyAnchorDenySignoff,
       mcpSnapshotStore: deps.mcpSnapshotStore,
       fileActionExecutor: this.fileActionExecutor,
+      v1PolishMetricsCollector: this.v1PolishMetricsCollector,
+      getCaptureCompositeMetricsSnapshot: () =>
+        this.captureCompositeRuntime.getMetricsSnapshot(Date.now()),
     });
     this.preconditionService = new PreconditionService({
       turnStore: this.turnStore,
@@ -96,6 +114,10 @@ class TurnService {
       enqueueAndWaitForUnityQuery: this.enqueueAndWaitForUnityQuery.bind(this),
       submitUnityQueryAndWait: this.submitUnityQueryAndWait.bind(this),
       queryContractVersion: this.unityQueryContractVersion,
+      v1PolishMetricsCollector: this.v1PolishMetricsCollector,
+      retryFuseEnabled: deps.retryFuseEnabled,
+      retryFuseWindowMs: deps.retryFuseWindowMs,
+      retryFuseMaxAttempts: deps.retryFuseMaxAttempts,
     });
     this.queryStore = new QueryStore({
       terminalRetentionMs: deps.unityQueryTerminalRetentionMs,
@@ -475,15 +497,15 @@ class TurnService {
   }
 
   submitUnityTask(body) {
-    return this.mcpGateway.submitUnityTask(body);
+    return this.normalizeWriteOutcome(this.mcpGateway.submitUnityTask(body));
   }
 
   getUnityTaskStatus(jobId) {
-    return this.mcpGateway.getUnityTaskStatus(jobId);
+    return this.normalizeWriteOutcome(this.mcpGateway.getUnityTaskStatus(jobId));
   }
 
   cancelUnityTask(body) {
-    return this.mcpGateway.cancelUnityTask(body);
+    return this.normalizeWriteOutcome(this.mcpGateway.cancelUnityTask(body));
   }
 
   heartbeatMcp(body) {
@@ -491,15 +513,21 @@ class TurnService {
   }
 
   applyScriptActionsForMcp(body) {
-    return this.mcpEyesService.applyScriptActions(body);
+    return this.normalizeWriteOutcome(this.mcpEyesService.applyScriptActions(body));
   }
 
   applyVisualActionsForMcp(body) {
-    return this.mcpEyesService.applyVisualActions(body);
+    return this.normalizeWriteOutcome(this.mcpEyesService.applyVisualActions(body));
   }
 
   setUiPropertiesForMcp(body) {
-    return this.mcpEyesService.setUiProperties(body);
+    return this.normalizeWriteOutcome(this.mcpEyesService.setUiProperties(body));
+  }
+
+  preflightValidateWritePayloadForMcp(body) {
+    return this.normalizeWriteOutcome(
+      this.mcpEyesService.preflightValidateWritePayload(body)
+    );
   }
 
   getCurrentSelectionForMcp() {
@@ -565,6 +593,15 @@ class TurnService {
       statusCode: 200,
       body: this.mcpGateway.getMcpMetrics(),
     };
+  }
+
+  recordMcpToolInvocation(input) {
+    if (
+      this.v1PolishMetricsCollector &&
+      typeof this.v1PolishMetricsCollector.recordToolInvocation === "function"
+    ) {
+      this.v1PolishMetricsCollector.recordToolInvocation(input);
+    }
   }
 
   registerMcpStreamSubscriber(options) {
@@ -672,6 +709,13 @@ class TurnService {
         ...(diff ? { diff } : {}),
       },
     };
+  }
+
+  normalizeWriteOutcome(outcome) {
+    if (outcome && typeof outcome.then === "function") {
+      return outcome.then((resolved) => normalizeWriteToolOutcome(resolved));
+    }
+    return normalizeWriteToolOutcome(outcome);
   }
 
   mapFileErrorToStatus(errorCode) {

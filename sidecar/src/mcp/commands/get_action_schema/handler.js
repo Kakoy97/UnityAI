@@ -1,5 +1,9 @@
 "use strict";
 
+const {
+  buildActionSchemaUsabilityPack,
+} = require("../../../application/writeContractBundle");
+
 function executeGetActionSchema(context, requestBody) {
   const ctx = context && typeof context === "object" ? context : {};
   const payload =
@@ -56,12 +60,32 @@ function executeGetActionSchema(context, requestBody) {
       },
     };
   }
+
+  let actionCapability =
+    schema && schema.action && typeof schema.action === "object"
+      ? schema.action
+      : null;
+  if (!actionCapability && schema.ok && schema.not_modified === true) {
+    const uncached = capabilityStore.getActionSchema({
+      action_type: actionType,
+      catalog_version: payload.catalog_version,
+    });
+    if (uncached && uncached.ok && uncached.action && typeof uncached.action === "object") {
+      actionCapability = uncached.action;
+    }
+  }
+  const usabilityPack = buildActionSchemaUsabilityPack({
+    actionType,
+    action: actionCapability || {},
+  });
+
   return {
     statusCode: 200,
     body: {
       ok: true,
       action_type: actionType,
       ...schema,
+      ...usabilityPack,
     },
   };
 }

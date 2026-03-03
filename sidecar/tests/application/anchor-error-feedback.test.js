@@ -50,6 +50,43 @@ test("E_STALE_SNAPSHOT suggestion is fixed and exact", () => {
 
   assert.equal(outcome.error_code, "E_STALE_SNAPSHOT");
   assert.equal(outcome.suggestion, OCC_STALE_SNAPSHOT_SUGGESTION);
+  assert.equal(outcome.retry_policy.allow_auto_retry, true);
+  assert.equal(outcome.retry_policy.max_attempts, 1);
+  assert.equal(
+    Array.isArray(outcome.retry_policy.required_sequence),
+    true
+  );
+  assert.equal(
+    outcome.retry_policy.required_sequence.includes("get_current_selection"),
+    true
+  );
+});
+
+test("R20-UX-D-02 non-stale schema errors are marked manual-fix (no blind auto-retry)", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_ACTION_SCHEMA_INVALID",
+    message: "actions[0].target_anchor.object_id is required",
+  });
+
+  assert.equal(outcome.error_code, "E_ACTION_SCHEMA_INVALID");
+  assert.equal(outcome.retry_policy.allow_auto_retry, false);
+  assert.equal(outcome.retry_policy.max_attempts, 0);
+  assert.equal(outcome.retry_policy.strategy, "manual_fix_required");
+});
+
+test("E_CAPTURE_MODE_DISABLED suggestion guides overlay-first diagnostics", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_CAPTURE_MODE_DISABLED",
+    message: "capture mode disabled",
+  });
+
+  assert.equal(outcome.error_code, "E_CAPTURE_MODE_DISABLED");
+  assert.equal(outcome.recoverable, true);
+  assert.equal(
+    outcome.suggestion.includes("get_ui_overlay_report"),
+    true
+  );
+  assert.equal(outcome.suggestion.includes("render_output"), true);
 });
 
 test("auto-cancel errors use standardized feedback and hide stack payloads", () => {

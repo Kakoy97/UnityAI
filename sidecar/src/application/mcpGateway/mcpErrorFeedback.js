@@ -49,6 +49,33 @@ function normalizeSchemaRef(ref) {
   };
 }
 
+function normalizeOptionalString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function normalizeRetryPolicy(policy) {
+  const source = policy && typeof policy === "object" ? policy : null;
+  if (!source) {
+    return null;
+  }
+  const output = {
+    allow_auto_retry: source.allow_auto_retry === true,
+    max_attempts:
+      Number.isFinite(Number(source.max_attempts)) && Number(source.max_attempts) >= 0
+        ? Math.floor(Number(source.max_attempts))
+        : source.allow_auto_retry === true
+          ? 1
+          : 0,
+    strategy: normalizeOptionalString(source.strategy) || "manual_fix_required",
+  };
+  if (Array.isArray(source.required_sequence) && source.required_sequence.length > 0) {
+    output.required_sequence = source.required_sequence
+      .filter((item) => normalizeOptionalString(item))
+      .map((item) => normalizeOptionalString(item));
+  }
+  return output;
+}
+
 function bumpByCode(errorCode) {
   const code = normalizeErrorCode(errorCode, "E_INTERNAL");
   const current = Number(errorFeedbackMetrics.error_feedback_by_code[code]) || 0;
@@ -84,6 +111,9 @@ function withMcpErrorFeedback(body) {
     errorCode,
     suggestionFromCode
   );
+  const retryPolicy = normalizeRetryPolicy(
+    source.retry_policy || feedback.retry_policy
+  );
 
   errorFeedbackMetrics.error_feedback_normalized_total += 1;
   if (sanitized.diagnostics && sanitized.diagnostics.stack_sanitized) {
@@ -111,6 +141,7 @@ function withMcpErrorFeedback(body) {
     suggestion: fixedSuggestion.suggestion,
     recoverable: feedback.recoverable,
     message: sanitized.message,
+    ...(retryPolicy ? { retry_policy: retryPolicy } : {}),
   };
 }
 
@@ -141,10 +172,24 @@ function resetMcpErrorFeedbackMetrics() {
 
 function validationError(validation, options) {
   const schemaCompensationRaw = buildValidationSchemaCompensation(validation, options);
+  const normalizedFieldPath = normalizeOptionalString(
+    schemaCompensationRaw && schemaCompensationRaw.field_path
+  );
+  const normalizedFixKind = normalizeOptionalString(
+    schemaCompensationRaw && schemaCompensationRaw.fix_kind
+  );
+  const normalizedSchemaIssueCategory = normalizeOptionalString(
+    schemaCompensationRaw && schemaCompensationRaw.schema_issue_category
+  );
   const schemaCompensation =
     schemaCompensationRaw && typeof schemaCompensationRaw === "object"
       ? {
           ...schemaCompensationRaw,
+          ...(normalizedFieldPath ? { field_path: normalizedFieldPath } : {}),
+          ...(normalizedFixKind ? { fix_kind: normalizedFixKind } : {}),
+          ...(normalizedSchemaIssueCategory
+            ? { schema_issue_category: normalizedSchemaIssueCategory }
+            : {}),
           ...(normalizeSchemaRef(schemaCompensationRaw.schema_ref)
             ? { schema_ref: normalizeSchemaRef(schemaCompensationRaw.schema_ref) }
             : {}),

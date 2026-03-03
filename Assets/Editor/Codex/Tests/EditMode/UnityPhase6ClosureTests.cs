@@ -62,6 +62,11 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(hookedField);
             Assert.IsTrue((bool)hookedField.GetValue(null));
+            var selectionHookedField = typeof(UnityRagQueryPollingBootstrap).GetField(
+                "_selectionHooked",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(selectionHookedField);
+            Assert.IsTrue((bool)selectionHookedField.GetValue(null));
 
             var chatWindowPath = Path.Combine(
                 Directory.GetCurrentDirectory(),
@@ -73,6 +78,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.IsTrue(File.Exists(chatWindowPath));
             var source = File.ReadAllText(chatWindowPath);
             StringAssert.DoesNotContain("PollRagQueriesAsync(", source);
+            StringAssert.DoesNotContain("Selection.selectionChanged", source);
         }
 
         [Test]

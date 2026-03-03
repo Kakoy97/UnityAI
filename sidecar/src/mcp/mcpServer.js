@@ -565,6 +565,18 @@ class UnityMcpServer {
     return this.callToolByName("set_serialized_property", args);
   }
 
+  async getCurrentSelection(args) {
+    return this.callToolByName("get_current_selection", args);
+  }
+
+  async getGameObjectComponents(args) {
+    return this.callToolByName("get_gameobject_components", args);
+  }
+
+  async getHierarchySubtree(args) {
+    return this.callToolByName("get_hierarchy_subtree", args);
+  }
+
   async listAssetsInFolder(args) {
     return this.callToolByName("list_assets_in_folder", args);
   }
@@ -593,12 +605,32 @@ class UnityMcpServer {
     return this.callToolByName("get_tool_schema", args);
   }
 
+  async getWriteContractBundle(args) {
+    return this.callToolByName("get_write_contract_bundle", args);
+  }
+
+  async preflightValidateWritePayload(args) {
+    return this.callToolByName("preflight_validate_write_payload", args);
+  }
+
+  async setupCursorMcp(args) {
+    return this.callToolByName("setup_cursor_mcp", args);
+  }
+
+  async verifyMcpSetup(args) {
+    return this.callToolByName("verify_mcp_setup", args);
+  }
+
   async captureSceneScreenshot(args) {
     return this.callToolByName("capture_scene_screenshot", args);
   }
 
   async getUiTree(args) {
     return this.callToolByName("get_ui_tree", args);
+  }
+
+  async getUiOverlayReport(args) {
+    return this.callToolByName("get_ui_overlay_report", args);
   }
 
   async getSerializedPropertyTree(args) {

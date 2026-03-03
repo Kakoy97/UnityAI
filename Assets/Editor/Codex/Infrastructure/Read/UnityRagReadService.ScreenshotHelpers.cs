@@ -323,6 +323,10 @@ namespace UnityAI.Editor.Codex.Infrastructure
         private static string NormalizeCaptureMode(string value)
         {
             var normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
+            if (string.Equals(normalized, CaptureModeComposite, StringComparison.Ordinal))
+            {
+                return CaptureModeComposite;
+            }
             if (string.Equals(normalized, CaptureModeFinalPixels, StringComparison.Ordinal))
             {
                 return CaptureModeFinalPixels;

@@ -232,6 +232,20 @@ test("capability routes expose offline/connecting/ready/stale lifecycle", async 
   assert.equal(typeof schema.body.etag, "string");
   assert.equal(schema.body.action.type, "set_ui_image_color");
   assert.equal(schema.body.action.action_data_schema.type, "object");
+  assert.ok(schema.body.write_envelope_contract);
+  assert.equal(
+    schema.body.write_envelope_contract.tool_name,
+    "apply_visual_actions"
+  );
+  assert.ok(schema.body.minimal_valid_payload_template);
+  assert.equal(
+    Array.isArray(schema.body.minimal_valid_payload_template.actions),
+    true
+  );
+  assert.equal(
+    schema.body.minimal_valid_payload_template.actions[0].type,
+    "set_ui_image_color"
+  );
 
   const schemaCached = await invokeRoute(
     route,

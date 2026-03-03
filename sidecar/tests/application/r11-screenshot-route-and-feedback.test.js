@@ -76,6 +76,11 @@ function buildTurnService(overrides) {
             mime_type: "image/png",
             width: 1280,
             height: 720,
+            visual_evidence: {
+              artifact_uri: "artifact://unity/snapshots/scene_001.png",
+              pixel_hash: "route_hash_001",
+              diff_summary: "mode:render_output",
+            },
           },
         };
       },
@@ -127,6 +132,7 @@ test("R11-QA screenshot route dispatches through registry and returns tokenized 
       view_mode: "scene",
       capture_mode: "render_output",
       output_mode: "artifact_uri",
+      max_base64_bytes: 280000,
       timeout_ms: 3000,
     }
   );
@@ -135,6 +141,10 @@ test("R11-QA screenshot route dispatches through registry and returns tokenized 
   assert.equal(response.body.ok, true);
   assert.equal(response.body.data.artifact_uri, "artifact://unity/snapshots/scene_001.png");
   assert.equal(response.body.data.capture_mode_effective, "render_output");
+  assert.equal(
+    response.body.data.visual_evidence.pixel_hash,
+    "route_hash_001"
+  );
   assert.equal(response.body.read_token.token, "readtok_capture_route_001");
 });
 
@@ -220,6 +230,55 @@ test("R11-QA get_ui_tree route dispatches through registry", async () => {
   assert.equal(response.body.ok, true);
   assert.equal(response.body.data.ui_system, "ugui");
   assert.equal(response.body.read_token.token, "readtok_ui_tree_route_001");
+});
+
+test("R18-CAPTURE-A-01 get_ui_overlay_report route dispatches through registry", async () => {
+  const route = createRouter({
+    turnService: buildTurnService({
+      queryCoordinator: {
+        async enqueueAndWaitForUnityQuery(request) {
+          assert.equal(request.queryType, "get_ui_overlay_report");
+          return {
+            ok: true,
+            captured_at: "2026-03-03T00:00:03.000Z",
+            data: {
+              overlay_canvases: [],
+              overlay_total_coverage_percent: 0,
+              non_overlay_canvases_count: 1,
+              diagnosis_codes: ["OVERLAY_NONE"],
+              recommended_capture_mode: "render_output",
+            },
+          };
+        },
+      },
+      unitySnapshotService: {
+        issueReadTokenForQueryResult(queryType) {
+          assert.equal(queryType, "get_ui_overlay_report");
+          return {
+            token: "readtok_overlay_route_001",
+          };
+        },
+      },
+    }),
+    port: 46321,
+  });
+
+  const response = await invokeJsonRoute(
+    route,
+    "POST",
+    "/mcp/get_ui_overlay_report",
+    {
+      scope: {
+        root_path: "Scene/Canvas",
+      },
+      max_nodes: 200,
+    }
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.ok, true);
+  assert.equal(response.body.read_token.token, "readtok_overlay_route_001");
+  assert.equal(response.body.data.recommended_capture_mode, "render_output");
 });
 
 test("V1-CLOSE route dispatches hit_test_ui_at_viewport_point through registry", async () => {
@@ -449,6 +508,16 @@ test("R11-CLOSE disabled capture/hit_test return stable disabled feedback and do
   assert.equal(screenshotResponse.statusCode, 409);
   assert.equal(screenshotResponse.body.error_code, "E_CAPTURE_MODE_DISABLED");
   assert.equal(screenshotResponse.body.recoverable, true);
+  assert.equal(
+    String(screenshotResponse.body.suggestion || "").includes(
+      "get_ui_overlay_report"
+    ),
+    true
+  );
+  assert.equal(
+    String(screenshotResponse.body.suggestion || "").includes("render_output"),
+    true
+  );
 
   const hitResponse = await invokeJsonRoute(
     route,

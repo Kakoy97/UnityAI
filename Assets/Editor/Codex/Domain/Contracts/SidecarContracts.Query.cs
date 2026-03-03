@@ -114,6 +114,9 @@ namespace UnityAI.Editor.Codex.Domain
         public bool include_layout;
         public bool include_interaction;
         public bool include_text_metrics;
+        public bool include_children_summary;
+        public int max_nodes;
+        public int max_children_per_canvas;
 
         public string view_mode;
         public string capture_mode;
@@ -122,6 +125,7 @@ namespace UnityAI.Editor.Codex.Domain
         public int width;
         public int height;
         public int jpeg_quality;
+        public int max_base64_bytes;
         public int timeout_ms;
         public bool include_ui;
 
@@ -145,6 +149,7 @@ namespace UnityAI.Editor.Codex.Domain
 
         public UnityObjectAnchor target_anchor;
         public SerializedPropertyComponentSelector component_selector;
+        public SerializedPropertyComponentSelector[] component_selectors;
         public string root_property_path;
         public int depth;
         public string after_property_path;
@@ -479,6 +484,7 @@ namespace UnityAI.Editor.Codex.Domain
     {
         public UnityObjectAnchor target_anchor;
         public SerializedPropertyComponentSelector component_selector;
+        public SerializedPropertyComponentSelector[] component_selectors;
         public string root_property_path;
         public int depth;
         public string after_property_path;
@@ -508,6 +514,7 @@ namespace UnityAI.Editor.Codex.Domain
     public sealed class UnityGetSerializedPropertyTreeData
     {
         public UnitySerializedPropertyTreeComponentInfo component;
+        public UnitySerializedPropertyTreeComponentData[] components;
         public string root_property_path;
         public int depth;
         public string after_property_path;
@@ -534,6 +541,19 @@ namespace UnityAI.Editor.Codex.Domain
 
 
     [Serializable]
+    public sealed class UnitySerializedPropertyTreeComponentData
+    {
+        public int selector_index;
+        public UnitySerializedPropertyTreeComponentInfo component;
+        public int returned_count;
+        public bool truncated;
+        public string truncated_reason;
+        public string next_cursor;
+        public UnitySerializedPropertyTreeNode[] nodes;
+    }
+
+
+    [Serializable]
     public sealed class UnitySerializedPropertyTreeNode
     {
         public string property_path;
@@ -546,6 +566,8 @@ namespace UnityAI.Editor.Codex.Domain
         public string read_only_reason;
         public string value_summary;
         public bool has_visible_children;
+        public bool common_use;
+        public string llm_hint;
     }
 
 }

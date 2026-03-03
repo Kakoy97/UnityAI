@@ -161,6 +161,13 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.IsTrue(capability.ActionDataSchemaJson.Contains("component_selector"));
             Assert.IsTrue(capability.ActionDataSchemaJson.Contains("patches"));
             Assert.IsTrue(capability.ActionDataSchemaJson.Contains("object_ref"));
+            Assert.IsTrue(capability.ActionDataSchemaJson.Contains("bool"));
+            Assert.IsTrue(capability.ActionDataSchemaJson.Contains("op"));
+            Assert.IsTrue(capability.ActionDataSchemaJson.Contains("dry_run"));
+            Assert.IsTrue(capability.ActionDataSchemaJson.Contains("quaternion"));
+            Assert.IsTrue(capability.ActionDataSchemaJson.Contains("vector4"));
+            Assert.IsTrue(capability.ActionDataSchemaJson.Contains("rect"));
+            Assert.IsTrue(capability.ActionDataSchemaJson.Contains("animation_curve"));
         }
 
         private sealed class TestActionHandlerA : IMcpVisualActionHandler

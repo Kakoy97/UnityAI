@@ -29,9 +29,17 @@ test("tools/list uses minimal visual schema and includes lazy schema tools", asy
   assert.equal(names.includes("get_action_catalog"), true);
   assert.equal(names.includes("get_action_schema"), true);
   assert.equal(names.includes("get_tool_schema"), true);
+  assert.equal(names.includes("get_write_contract_bundle"), true);
+  assert.equal(names.includes("preflight_validate_write_payload"), true);
+  assert.equal(names.includes("setup_cursor_mcp"), true);
+  assert.equal(names.includes("verify_mcp_setup"), true);
   assert.equal(names.includes("capture_scene_screenshot"), true);
+  assert.equal(names.includes("get_ui_overlay_report"), true);
   assert.equal(names.includes("get_ui_tree"), true);
   assert.equal(names.includes("get_serialized_property_tree"), true);
+  assert.equal(names.includes("get_current_selection"), true);
+  assert.equal(names.includes("get_gameobject_components"), true);
+  assert.equal(names.includes("get_hierarchy_subtree"), true);
   assert.equal(names.includes("hit_test_ui_at_viewport_point"), true);
   assert.equal(names.includes("validate_ui_layout"), true);
   assert.equal(names.includes("set_ui_properties"), true);
@@ -49,6 +57,14 @@ test("tools/list uses minimal visual schema and includes lazy schema tools", asy
   );
   assert.equal(
     visual.description.includes("get_tool_schema"),
+    true
+  );
+  assert.equal(
+    visual.description.includes("Recommended shortest sequence"),
+    true
+  );
+  assert.equal(
+    visual.description.includes("get_current_selection -> apply_visual_actions"),
     true
   );
   assert.equal(
@@ -102,10 +118,10 @@ test("tools/list uses minimal visual schema and includes lazy schema tools", asy
   );
   assert.deepEqual(
     screenshotSchema.inputSchema.properties.capture_mode.enum,
-    ["render_output"]
+    ["render_output", "composite"]
   );
   assert.equal(
-    screenshotSchema.description.includes("render_output only"),
+    screenshotSchema.description.includes("feature-flagged"),
     true
   );
   assert.equal(
@@ -131,7 +147,17 @@ test("tools/list uses minimal visual schema and includes lazy schema tools", asy
     true
   );
   assert.equal(
-    spTreeSchema.inputSchema.required.includes("component_selector"),
+    Object.prototype.hasOwnProperty.call(
+      spTreeSchema.inputSchema.properties,
+      "component_selector"
+    ),
+    true
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      spTreeSchema.inputSchema.properties,
+      "component_selectors"
+    ),
     true
   );
   assert.equal(
@@ -141,9 +167,17 @@ test("tools/list uses minimal visual schema and includes lazy schema tools", asy
     ),
     true
   );
+  const selectionTool = definitions.find(
+    (item) => item.name === "get_current_selection"
+  );
+  assert.ok(selectionTool);
+  assert.equal(
+    selectionTool.description.includes("shortest write sequence"),
+    true
+  );
 });
 
-test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screenshot/get_ui_tree/get_serialized_property_tree/hit_test_ui_at_viewport_point/validate_ui_layout/set_ui_properties/set_serialized_property tools map to sidecar endpoints", async () => {
+test("get_action_catalog/get_action_schema/get_tool_schema/get_write_contract_bundle/preflight_validate_write_payload/setup_cursor_mcp/verify_mcp_setup/capture_scene_screenshot/get_ui_overlay_report/get_ui_tree/get_serialized_property_tree/get_current_selection/get_gameobject_components/get_hierarchy_subtree/hit_test_ui_at_viewport_point/validate_ui_layout/set_ui_properties/set_serialized_property tools map to sidecar endpoints", async () => {
   const server = Object.create(UnityMcpServer.prototype);
   server.sidecarBaseUrl = "http://127.0.0.1:46321";
   const calls = [];
@@ -167,9 +201,46 @@ test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screens
   await server.getToolSchema({
     tool_name: "apply_visual_actions",
   });
+  await server.getWriteContractBundle({
+    tool_name: "apply_visual_actions",
+    action_type: "rename_object",
+    budget_chars: 3600,
+  });
+  await server.preflightValidateWritePayload({
+    tool_name: "apply_visual_actions",
+    payload: {
+      based_on_read_token: "tok_preflight_123456789012345678",
+      write_anchor: {
+        object_id: "go_canvas",
+        path: "Scene/Canvas",
+      },
+      actions: [
+        {
+          type: "rename_object",
+          target_anchor: {},
+          action_data: {
+            name: "Panel_Renamed",
+          },
+        },
+      ],
+    },
+  });
+  await server.setupCursorMcp({
+    mode: "native",
+    dry_run: true,
+  });
+  await server.verifyMcpSetup({
+    mode: "auto",
+  });
   await server.captureSceneScreenshot({
     view_mode: "scene",
     output_mode: "artifact_uri",
+  });
+  await server.getUiOverlayReport({
+    scope: {
+      root_path: "Scene/Canvas",
+    },
+    max_nodes: 256,
   });
   await server.getUiTree({
     ui_system: "ugui",
@@ -186,6 +257,21 @@ test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screens
     },
     depth: 1,
     page_size: 32,
+  });
+  await server.getCurrentSelection({});
+  await server.getGameObjectComponents({
+    target_anchor: {
+      object_id: "go_button",
+      path: "Scene/Canvas/Button",
+    },
+  });
+  await server.getHierarchySubtree({
+    target_anchor: {
+      object_id: "go_canvas",
+      path: "Scene/Canvas",
+    },
+    depth: 2,
+    node_budget: 256,
   });
   await server.hitTestUiAtViewportPoint({
     coord_space: "viewport_px",
@@ -274,10 +360,67 @@ test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screens
     },
     {
       method: "POST",
+      url: "http://127.0.0.1:46321/mcp/get_write_contract_bundle",
+      body: {
+        tool_name: "apply_visual_actions",
+        action_type: "rename_object",
+        budget_chars: 3600,
+      },
+    },
+    {
+      method: "POST",
+      url: "http://127.0.0.1:46321/mcp/preflight_validate_write_payload",
+      body: {
+        tool_name: "apply_visual_actions",
+        payload: {
+          based_on_read_token: "tok_preflight_123456789012345678",
+          write_anchor: {
+            object_id: "go_canvas",
+            path: "Scene/Canvas",
+          },
+          actions: [
+            {
+              type: "rename_object",
+              target_anchor: {},
+              action_data: {
+                name: "Panel_Renamed",
+              },
+            },
+          ],
+        },
+      },
+    },
+    {
+      method: "POST",
+      url: "http://127.0.0.1:46321/mcp/setup_cursor_mcp",
+      body: {
+        mode: "native",
+        dry_run: true,
+      },
+    },
+    {
+      method: "POST",
+      url: "http://127.0.0.1:46321/mcp/verify_mcp_setup",
+      body: {
+        mode: "auto",
+      },
+    },
+    {
+      method: "POST",
       url: "http://127.0.0.1:46321/mcp/capture_scene_screenshot",
       body: {
         view_mode: "scene",
         output_mode: "artifact_uri",
+      },
+    },
+    {
+      method: "POST",
+      url: "http://127.0.0.1:46321/mcp/get_ui_overlay_report",
+      body: {
+        scope: {
+          root_path: "Scene/Canvas",
+        },
+        max_nodes: 256,
       },
     },
     {
@@ -302,6 +445,33 @@ test("get_action_catalog/get_action_schema/get_tool_schema/capture_scene_screens
         },
         depth: 1,
         page_size: 32,
+      },
+    },
+    {
+      method: "POST",
+      url: "http://127.0.0.1:46321/mcp/get_current_selection",
+      body: {},
+    },
+    {
+      method: "POST",
+      url: "http://127.0.0.1:46321/mcp/get_gameobject_components",
+      body: {
+        target_anchor: {
+          object_id: "go_button",
+          path: "Scene/Canvas/Button",
+        },
+      },
+    },
+    {
+      method: "POST",
+      url: "http://127.0.0.1:46321/mcp/get_hierarchy_subtree",
+      body: {
+        target_anchor: {
+          object_id: "go_canvas",
+          path: "Scene/Canvas",
+        },
+        depth: 2,
+        node_budget: 256,
       },
     },
     {

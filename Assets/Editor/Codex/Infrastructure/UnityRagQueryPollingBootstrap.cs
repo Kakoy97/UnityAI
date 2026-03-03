@@ -11,9 +11,12 @@ namespace UnityAI.Editor.Codex.Infrastructure
         private const string ThreadIdEditorPrefKey = "CodexUnity.ThreadId";
         private const string DefaultSidecarUrl = "http://127.0.0.1:46321";
         private const string DefaultThreadId = "t_default";
+        private const double SelectionSnapshotProbeIntervalSeconds = 8d;
 
         private static readonly ConversationController SharedController;
         private static bool _updateHooked;
+        private static bool _selectionHooked;
+        private static double _lastSelectionProbeAt;
 
         static UnityRagQueryPollingBootstrap()
         {
@@ -29,6 +32,7 @@ namespace UnityAI.Editor.Codex.Infrastructure
             SharedController.InitializeFromPersistedState();
 
             HookEditorUpdate();
+            HookSelectionChanged();
         }
 
         public static ConversationController GetController()
@@ -43,7 +47,9 @@ namespace UnityAI.Editor.Codex.Infrastructure
                 return;
             }
 
-            _ = SharedController.PollRagQueriesAsync(GetNowSeconds());
+            var now = GetNowSeconds();
+            _ = SharedController.PollRagQueriesAsync(now);
+            MaybeProbeSelectionSnapshot(now);
         }
 
         private static double GetNowSeconds()
@@ -60,6 +66,40 @@ namespace UnityAI.Editor.Codex.Infrastructure
 
             EditorApplication.update += OnEditorUpdate;
             _updateHooked = true;
+        }
+
+        private static void HookSelectionChanged()
+        {
+            if (_selectionHooked)
+            {
+                return;
+            }
+
+            Selection.selectionChanged += OnSelectionChanged;
+            _selectionHooked = true;
+            OnSelectionChanged();
+        }
+
+        private static void OnSelectionChanged()
+        {
+            if (SharedController == null)
+            {
+                return;
+            }
+
+            SharedController.NotifySelectionChanged(Selection.activeGameObject);
+        }
+
+        private static void MaybeProbeSelectionSnapshot(double now)
+        {
+            if (_lastSelectionProbeAt > 0d &&
+                now - _lastSelectionProbeAt < SelectionSnapshotProbeIntervalSeconds)
+            {
+                return;
+            }
+
+            _lastSelectionProbeAt = now;
+            OnSelectionChanged();
         }
     }
 }

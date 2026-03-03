@@ -1,5 +1,9 @@
 "use strict";
 
+const {
+  buildToolSchemaUsabilityPack,
+} = require("../../../application/writeContractBundle");
+
 function executeGetToolSchema(context, requestBody) {
   const ctx = context && typeof context === "object" ? context : {};
   const payload =
@@ -37,6 +41,10 @@ function executeGetToolSchema(context, requestBody) {
     };
   }
 
+  const usabilityPack = buildToolSchemaUsabilityPack({
+    toolName: metadata.name,
+  });
+
   return {
     statusCode: 200,
     body: {
@@ -48,6 +56,7 @@ function executeGetToolSchema(context, requestBody) {
       transport: metadata.transport,
       input_schema: metadata.input_schema,
       tools_list_input_schema: metadata.tools_list_input_schema,
+      ...usabilityPack,
       schema_source: "registry_full",
       guidance:
         "tools/list exposes compact schema; use get_tool_schema for full contract details.",
@@ -58,4 +67,3 @@ function executeGetToolSchema(context, requestBody) {
 module.exports = {
   executeGetToolSchema,
 };
-

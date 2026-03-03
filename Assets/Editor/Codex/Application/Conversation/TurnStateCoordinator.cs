@@ -358,14 +358,15 @@ namespace UnityAI.Editor.Codex.Application
             {
                 string validationErrorCode;
                 string validationErrorMessage;
-                if (!TryValidateActionRequestPayload(
-                        envelope.payload,
-                        out validationErrorCode,
-                        out validationErrorMessage))
+                var isPayloadValid = TryValidateActionRequestPayload(
+                    envelope.payload,
+                    out validationErrorCode,
+                    out validationErrorMessage);
+                if (!isPayloadValid)
                 {
                     LogDiagnostic(
                         UiLogLevel.Warning,
-                        "diag.action.capture[" + sourceTag + "]: envelope action is incomplete, ignored. action=" +
+                        "diag.action.capture[" + sourceTag + "]: envelope action is incomplete, forwarding to execution gate for deterministic failure. action=" +
                         BuildActionDebugText(envelope.payload.action) +
                         ", write_anchor=" +
                         FormatAnchorDebug(envelope.payload.write_anchor) +
@@ -374,47 +375,52 @@ namespace UnityAI.Editor.Codex.Application
                         ", message=" +
                         SafeString(validationErrorMessage) +
                         ".");
-                    Debug.LogWarning(
-                        "[Codex] envelope action invalid; strict envelope mode keeps action pending.");
+                    var invalidMessage =
+                        "[Codex] envelope action invalid; forwarding to execution gate." +
+                        " source=" + SafeString(sourceTag) +
+                        ", source_request_id=" + SafeString(statusRequestId) +
+                        ", envelope_request_id=" + SafeString(envelope.request_id) +
+                        ", error_code=" + SafeString(validationErrorCode) +
+                        ", error_message=" + SafeString(validationErrorMessage) + ".";
+                    AddLog(UiLogLevel.Warning, invalidMessage);
+                    Debug.LogWarning(invalidMessage);
                 }
-                else
+
+                LogDiagnostic(
+                    UiLogLevel.Info,
+                    "diag.action.capture[" + sourceTag + "]: source_request_id=" +
+                    SafeString(statusRequestId) +
+                    ", envelope_request_id=" + SafeString(envelope.request_id) +
+                    ", action=" + BuildActionDebugText(envelope.payload.action) + ".");
+
+                if (!string.IsNullOrEmpty(statusRequestId) &&
+                    !string.IsNullOrEmpty(envelope.request_id) &&
+                    !string.Equals(statusRequestId, envelope.request_id, StringComparison.Ordinal))
                 {
                     LogDiagnostic(
-                        UiLogLevel.Info,
-                        "diag.action.capture[" + sourceTag + "]: source_request_id=" +
-                        SafeString(statusRequestId) +
-                        ", envelope_request_id=" + SafeString(envelope.request_id) +
-                        ", action=" + BuildActionDebugText(envelope.payload.action) + ".");
-
-                    if (!string.IsNullOrEmpty(statusRequestId) &&
-                        !string.IsNullOrEmpty(envelope.request_id) &&
-                        !string.Equals(statusRequestId, envelope.request_id, StringComparison.Ordinal))
-                    {
-                        LogDiagnostic(
-                            UiLogLevel.Warning,
-                            "diag.action.capture[" + sourceTag + "]: request_id mismatch (source=" +
-                            statusRequestId + ", envelope=" + envelope.request_id + ").");
-                    }
-
-                    if (!string.IsNullOrEmpty(envelope.request_id))
-                    {
-                        _activeRequestId = envelope.request_id;
-                    }
-
-                    if (!string.IsNullOrEmpty(envelope.turn_id))
-                    {
-                        _turnId = envelope.turn_id;
-                    }
-
-                    if (!string.IsNullOrEmpty(envelope.payload.action.component_assembly_qualified_name))
-                    {
-                        _pendingCompileComponentAssemblyQualifiedName =
-                            envelope.payload.action.component_assembly_qualified_name;
-                    }
-
-                    _pendingUnityActionRequest = envelope;
-                    return true;
+                        UiLogLevel.Warning,
+                        "diag.action.capture[" + sourceTag + "]: request_id mismatch (source=" +
+                        statusRequestId + ", envelope=" + envelope.request_id + ").");
                 }
+
+                if (!string.IsNullOrEmpty(envelope.request_id))
+                {
+                    _activeRequestId = envelope.request_id;
+                }
+
+                if (!string.IsNullOrEmpty(envelope.turn_id))
+                {
+                    _turnId = envelope.turn_id;
+                }
+
+                if (!string.IsNullOrEmpty(envelope.payload.action.component_assembly_qualified_name))
+                {
+                    _pendingCompileComponentAssemblyQualifiedName =
+                        envelope.payload.action.component_assembly_qualified_name;
+                }
+
+                _pendingUnityActionRequest = envelope;
+                return true;
             }
 
             LogDiagnostic(

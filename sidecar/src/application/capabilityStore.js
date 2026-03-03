@@ -100,6 +100,10 @@ class CapabilityStore {
   markUnitySignal() {
     const nowMs = this.nowMs();
     this.lastUnitySignalAtMs = nowMs;
+    if (this.hasCapabilityCatalog()) {
+      this.setConnectionState("ready", nowMs);
+      return;
+    }
     if (
       this.unityConnectionState === "offline" ||
       this.unityConnectionState === "stale"
@@ -635,16 +639,35 @@ class CapabilityStore {
   }
 
   refreshConnectionState() {
-    if (this.unityConnectionState !== "ready") {
+    if (
+      this.unityConnectionState !== "ready" &&
+      this.unityConnectionState !== "connecting"
+    ) {
       return;
     }
-    if (!this.capabilityUpdatedAtMs) {
+    const freshnessMs = this.getFreshnessTimestampMs();
+    if (!freshnessMs) {
       return;
     }
-    const elapsed = this.nowMs() - this.capabilityUpdatedAtMs;
+    const elapsed = this.nowMs() - freshnessMs;
     if (elapsed > this.capabilityStaleAfterMs) {
       this.setConnectionState("stale");
+      return;
     }
+    if (this.unityConnectionState === "connecting" && this.hasCapabilityCatalog()) {
+      this.setConnectionState("ready");
+    }
+  }
+
+  hasCapabilityCatalog() {
+    return this.capabilityActionsByType.size > 0 || this.capabilityUpdatedAtMs > 0;
+  }
+
+  getFreshnessTimestampMs() {
+    return Math.max(
+      Number(this.capabilityUpdatedAtMs) || 0,
+      Number(this.lastUnitySignalAtMs) || 0
+    );
   }
 
   setConnectionState(nextState, nowMsInput) {

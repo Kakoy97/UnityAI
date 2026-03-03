@@ -61,12 +61,27 @@ namespace UnityAI.Editor.Codex.Application
                     out actionValidationErrorCode,
                     out actionValidationErrorMessage))
             {
+                var actionTargetAnchorDebug = action == null
+                    ? "null"
+                    : FormatAnchorDebug(action.target_anchor);
+                var actionParentAnchorDebug = action == null
+                    ? "null"
+                    : FormatAnchorDebug(action.parent_anchor);
+                var writeAnchorDebug = actionPayload == null
+                    ? "null"
+                    : FormatAnchorDebug(actionPayload.write_anchor);
                 AddLog(
                     UiLogLevel.Warning,
                     "Pending action schema check failed on execution gate. Execution blocked. error_code=" +
                     SafeString(actionValidationErrorCode) +
                     ", message=" +
-                    SafeString(actionValidationErrorMessage));
+                    SafeString(actionValidationErrorMessage) +
+                    ", write_anchor=" +
+                    writeAnchorDebug +
+                    ", target_anchor=" +
+                    actionTargetAnchorDebug +
+                    ", parent_anchor=" +
+                    actionParentAnchorDebug);
                 execution = new UnityActionExecutionResult
                 {
                     actionType = action != null ? action.type : string.Empty,
@@ -186,7 +201,9 @@ namespace UnityAI.Editor.Codex.Application
                     success = execution.success,
                     error_code = normalizedActionErrorCode,
                     error_message = normalizedActionErrorMessage,
-                    duration_ms = execution.durationMs
+                    duration_ms = execution.durationMs,
+                    result_data = execution.resultData,
+                    write_receipt = execution.writeReceipt
                 }
             };
 
@@ -198,7 +215,18 @@ namespace UnityAI.Editor.Codex.Application
             Debug.Log(
                 "[Codex] unity.action.result => " + _activeRequestId +
                 " success=" + execution.success +
-                (execution.success ? string.Empty : " code=" + normalizedActionErrorCode));
+                (execution.success
+                    ? string.Empty
+                    : " code=" + normalizedActionErrorCode +
+                      " message=" + normalizedActionErrorMessage));
+
+            var historyAppend = OperationHistoryStore.Append(request);
+            if (!historyAppend.Success)
+            {
+                AddLog(
+                    UiLogLevel.Warning,
+                    "operation_history append failed: " + SafeString(historyAppend.ErrorMessage));
+            }
 
             _runtimeState = TurnRuntimeState.ActionExecuting;
             BusyReason = "Action Executing";
@@ -400,10 +428,31 @@ namespace UnityAI.Editor.Codex.Application
             var hasParentAnchor = HasCompleteAnchor(action.parent_anchor);
             var hasInvalidTargetAnchor = action.target_anchor != null && !hasTargetAnchor;
             var hasInvalidParentAnchor = action.parent_anchor != null && !hasParentAnchor;
+            // Compatibility hardening:
+            // Some upstream payloads may carry a malformed optional parent_anchor
+            // alongside a valid target_anchor. For non-create actions, parent_anchor
+            // is optional; drop malformed parent_anchor instead of hard-failing.
+            if (!IsCreateGameObjectAction(action) &&
+                hasTargetAnchor &&
+                hasInvalidParentAnchor &&
+                !hasInvalidTargetAnchor)
+            {
+                action.parent_anchor = null;
+                hasParentAnchor = false;
+                hasInvalidParentAnchor = false;
+            }
+
             if (hasInvalidTargetAnchor || hasInvalidParentAnchor)
             {
                 errorCode = "E_ACTION_SCHEMA_INVALID";
                 errorMessage = "payload.action target_anchor/parent_anchor must include object_id and path.";
+                return false;
+            }
+
+            if (IsCreateGameObjectAction(action) && !hasParentAnchor)
+            {
+                errorCode = "E_ACTION_SCHEMA_INVALID";
+                errorMessage = "payload.action.parent_anchor is required for create action.";
                 return false;
             }
 
@@ -415,6 +464,25 @@ namespace UnityAI.Editor.Codex.Application
             }
 
             return true;
+        }
+
+
+        private static bool IsCreateGameObjectAction(VisualLayerActionItem action)
+        {
+            if (action == null || string.IsNullOrWhiteSpace(action.type))
+            {
+                return false;
+            }
+
+            var normalized = action.type.Trim();
+            return string.Equals(
+                       normalized,
+                       "create_gameobject",
+                       StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(
+                       normalized,
+                       "create_object",
+                       StringComparison.OrdinalIgnoreCase);
         }
 
 

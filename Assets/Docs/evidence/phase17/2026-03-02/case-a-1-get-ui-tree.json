@@ -1,0 +1,5 @@
+﻿{
+    "status":  "skipped",
+    "error":  "远程服务器返回错误: (404) 未找到。",
+    "reason":  "No UI components found in scene"
+}

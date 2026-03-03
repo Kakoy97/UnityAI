@@ -34,16 +34,23 @@ const ALLOWED_COMPONENT_SELECTOR_KEYS = new Set([
 const ALLOWED_PATCH_KEYS = new Set([
   "property_path",
   "value_kind",
+  "op",
+  "index",
+  "indices",
   "int_value",
   "float_value",
   "string_value",
   "bool_value",
   "enum_value",
   "enum_name",
+  "quaternion_value",
+  "vector4_value",
   "vector2_value",
   "vector3_value",
+  "rect_value",
   "color_value",
   "array_size",
+  "animation_curve_value",
   "object_ref",
   "action_data_json",
   "action_data_marshaled",
@@ -60,13 +67,20 @@ const ALLOWED_VALUE_KINDS = new Set([
   "integer",
   "float",
   "string",
+  "bool",
   "enum",
+  "quaternion",
+  "vector4",
   "vector2",
   "vector3",
+  "rect",
   "color",
   "array",
+  "animation_curve",
   "object_reference",
 ]);
+const ALLOWED_ARRAY_OPS = new Set(["set", "insert", "remove", "clear"]);
+const MAX_PATCHES_PER_ACTION = 64;
 
 function fail(message, errorCode = "E_SCHEMA_INVALID", statusCode = 400) {
   return {
@@ -121,6 +135,28 @@ function validateInteger(value, fieldPath, minimum) {
   return { ok: true };
 }
 
+function validateIntegerArray(values, fieldPath, minimum, options) {
+  const opts = options && typeof options === "object" ? options : {};
+  const requireNonEmpty = opts.requireNonEmpty === true;
+  if (!Array.isArray(values)) {
+    return fail(`${fieldPath} must be an array`);
+  }
+  if (requireNonEmpty && values.length === 0) {
+    return fail(`${fieldPath} must be a non-empty array`);
+  }
+  for (let i = 0; i < values.length; i += 1) {
+    const itemValidation = validateInteger(values[i], `${fieldPath}[${i}]`, minimum);
+    if (!itemValidation.ok) {
+      return itemValidation;
+    }
+  }
+  return { ok: true };
+}
+
+function normalizeArrayOp(value) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
 function validateVector2(value, fieldPath) {
   if (!isObject(value)) {
     return fail(`${fieldPath} must be an object`);
@@ -161,6 +197,60 @@ function validateVector3(value, fieldPath) {
     return yValidation;
   }
   return validateFiniteNumber(value.z, `${fieldPath}.z`);
+}
+
+function validateVector4(value, fieldPath) {
+  if (!isObject(value)) {
+    return fail(`${fieldPath} must be an object`);
+  }
+  const keysValidation = validateAllowedKeys(
+    value,
+    new Set(["x", "y", "z", "w"]),
+    fieldPath
+  );
+  if (!keysValidation.ok) {
+    return keysValidation;
+  }
+  const xValidation = validateFiniteNumber(value.x, `${fieldPath}.x`);
+  if (!xValidation.ok) {
+    return xValidation;
+  }
+  const yValidation = validateFiniteNumber(value.y, `${fieldPath}.y`);
+  if (!yValidation.ok) {
+    return yValidation;
+  }
+  const zValidation = validateFiniteNumber(value.z, `${fieldPath}.z`);
+  if (!zValidation.ok) {
+    return zValidation;
+  }
+  return validateFiniteNumber(value.w, `${fieldPath}.w`);
+}
+
+function validateRect(value, fieldPath) {
+  if (!isObject(value)) {
+    return fail(`${fieldPath} must be an object`);
+  }
+  const keysValidation = validateAllowedKeys(
+    value,
+    new Set(["x", "y", "width", "height"]),
+    fieldPath
+  );
+  if (!keysValidation.ok) {
+    return keysValidation;
+  }
+  const xValidation = validateFiniteNumber(value.x, `${fieldPath}.x`);
+  if (!xValidation.ok) {
+    return xValidation;
+  }
+  const yValidation = validateFiniteNumber(value.y, `${fieldPath}.y`);
+  if (!yValidation.ok) {
+    return yValidation;
+  }
+  const widthValidation = validateFiniteNumber(value.width, `${fieldPath}.width`);
+  if (!widthValidation.ok) {
+    return widthValidation;
+  }
+  return validateFiniteNumber(value.height, `${fieldPath}.height`);
 }
 
 function validateColor(value, fieldPath) {
@@ -235,7 +325,7 @@ function validatePatchByValueKind(patch, fieldPath) {
   const kind = String(patch.value_kind || "").trim();
   if (!kind || !ALLOWED_VALUE_KINDS.has(kind)) {
     return fail(
-      `${fieldPath}.value_kind must be one of integer/float/string/enum/vector2/vector3/color/array/object_reference`
+      `${fieldPath}.value_kind must be one of integer/float/string/bool/enum/quaternion/vector4/vector2/vector3/rect/color/array/animation_curve/object_reference`
     );
   }
 
@@ -251,6 +341,12 @@ function validatePatchByValueKind(patch, fieldPath) {
     }
     return { ok: true };
   }
+  if (kind === "bool") {
+    if (typeof patch.bool_value !== "boolean") {
+      return fail(`${fieldPath}.bool_value must be a boolean`);
+    }
+    return { ok: true };
+  }
   if (kind === "enum") {
     if (patch.enum_value !== undefined) {
       return validateInteger(patch.enum_value, `${fieldPath}.enum_value`);
@@ -260,20 +356,54 @@ function validatePatchByValueKind(patch, fieldPath) {
     }
     return { ok: true };
   }
+  if (kind === "quaternion") {
+    return validateVector4(
+      patch.quaternion_value,
+      `${fieldPath}.quaternion_value`
+    );
+  }
+  if (kind === "vector4") {
+    return validateVector4(patch.vector4_value, `${fieldPath}.vector4_value`);
+  }
   if (kind === "vector2") {
     return validateVector2(patch.vector2_value, `${fieldPath}.vector2_value`);
   }
   if (kind === "vector3") {
     return validateVector3(patch.vector3_value, `${fieldPath}.vector3_value`);
   }
+  if (kind === "rect") {
+    return validateRect(patch.rect_value, `${fieldPath}.rect_value`);
+  }
   if (kind === "color") {
     return validateColor(patch.color_value, `${fieldPath}.color_value`);
   }
   if (kind === "array") {
-    return validateInteger(patch.array_size, `${fieldPath}.array_size`, 0);
+    const op = normalizeArrayOp(patch.op) || "set";
+    if (!ALLOWED_ARRAY_OPS.has(op)) {
+      return fail(`${fieldPath}.op must be one of set/insert/remove/clear when value_kind=array`);
+    }
+    if (op === "set") {
+      return validateInteger(patch.array_size, `${fieldPath}.array_size`, 0);
+    }
+    if (op === "insert") {
+      return validateInteger(patch.index, `${fieldPath}.index`, 0);
+    }
+    if (op === "remove") {
+      const hasIndices = Array.isArray(patch.indices) && patch.indices.length > 0;
+      if (hasIndices) {
+        return validateIntegerArray(patch.indices, `${fieldPath}.indices`, 0, {
+          requireNonEmpty: true,
+        });
+      }
+      return validateInteger(patch.index, `${fieldPath}.index`, 0);
+    }
+    return { ok: true };
   }
   if (kind === "object_reference") {
     return validateObjectRef(patch.object_ref, `${fieldPath}.object_ref`);
+  }
+  if (kind === "animation_curve") {
+    return { ok: true };
   }
   return { ok: true };
 }
@@ -295,6 +425,7 @@ function buildSetSerializedPropertyApplyVisualPayload(body) {
         type: "set_serialized_property",
         target_anchor: source.target_anchor,
         action_data: {
+          dry_run: source.dry_run === true,
           component_selector: source.component_selector,
           patches: source.patches,
         },
@@ -357,6 +488,9 @@ function validateSetSerializedProperty(body) {
 
   if (!Array.isArray(body.patches) || body.patches.length === 0) {
     return fail("patches must be a non-empty array");
+  }
+  if (body.patches.length > MAX_PATCHES_PER_ACTION) {
+    return fail(`patches length exceeds max allowed ${MAX_PATCHES_PER_ACTION}`);
   }
 
   for (let index = 0; index < body.patches.length; index += 1) {

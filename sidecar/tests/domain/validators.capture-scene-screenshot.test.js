@@ -15,10 +15,17 @@ test("capture_scene_screenshot validator accepts valid payload", () => {
     image_format: "png",
     width: 1280,
     height: 720,
+    max_base64_bytes: 512000,
     timeout_ms: 3000,
     include_ui: true,
   });
   assert.equal(result.ok, true);
+
+  const compositeResult = validateCaptureSceneScreenshot({
+    capture_mode: "composite",
+    output_mode: "artifact_uri",
+  });
+  assert.equal(compositeResult.ok, true);
 });
 
 test("capture_scene_screenshot validator rejects unexpected fields", () => {
@@ -46,7 +53,7 @@ test("capture_scene_screenshot validator rejects invalid enum values", () => {
   assert.equal(invalidCaptureMode.errorCode, "E_SCHEMA_INVALID");
   assert.equal(
     invalidCaptureMode.message,
-    "capture_mode must be one of: render_output|final_pixels|editor_view"
+    "capture_mode must be one of: render_output|composite|final_pixels|editor_view"
   );
 });
 
@@ -77,5 +84,25 @@ test("capture_scene_screenshot validator rejects invalid numeric ranges", () => 
   assert.equal(
     badTimeout.message,
     "timeout_ms must be an integer >= 1000 when provided"
+  );
+
+  const badMaxBase64 = validateCaptureSceneScreenshot({
+    max_base64_bytes: 0,
+  });
+  assert.equal(badMaxBase64.ok, false);
+  assert.equal(badMaxBase64.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(
+    badMaxBase64.message,
+    "max_base64_bytes must be an integer >= 1 when provided"
+  );
+
+  const tooLargeMaxBase64 = validateCaptureSceneScreenshot({
+    max_base64_bytes: 10 * 1024 * 1024 + 1,
+  });
+  assert.equal(tooLargeMaxBase64.ok, false);
+  assert.equal(tooLargeMaxBase64.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(
+    tooLargeMaxBase64.message,
+    "max_base64_bytes must be an integer <= 10485760 when provided"
   );
 });

@@ -27,7 +27,7 @@ function isValidReadTokenString(value) {
 }
 
 const FIXED_ERROR_SUGGESTION_BY_CODE = Object.freeze({
-  E_STALE_SNAPSHOT: "请先调用读工具获取最新 token。",
+  E_STALE_SNAPSHOT: "请先调用读工具获取最新 token，并仅重试一次写操作。",
 });
 
 function enforceFixedErrorSuggestion(errorCode, suggestion) {
@@ -1218,6 +1218,18 @@ function validateUnityActionResult(body) {
       ok: false,
       errorCode: "E_SCHEMA_INVALID",
       message: "payload.result_data must be an object when provided",
+      statusCode: 400,
+    };
+  }
+
+  if (
+    body.payload.write_receipt !== undefined &&
+    !isObject(body.payload.write_receipt)
+  ) {
+    return {
+      ok: false,
+      errorCode: "E_SCHEMA_INVALID",
+      message: "payload.write_receipt must be an object when provided",
       statusCode: 400,
     };
   }

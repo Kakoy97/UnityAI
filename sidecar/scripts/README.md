@@ -17,16 +17,42 @@
 - `diagnose-capture.js`
 - `diagnose-ui.js`
 - `diagnose-ui-specialist.js`
+- `generate-v1-polish-primitive-report.js`
 - `replay-failed-report.js`
 - `setup-cursor-mcp.js`
 - `verify-mcp-setup.js`
 
+## Cursor MCP Onboarding (R19-SU-A-02)
+- Script mode:
+  - `npm run mcp:setup-cursor -- --native http://127.0.0.1:46321`
+  - `npm run mcp:verify -- --auto`
+- MCP tool mode:
+  - `setup_cursor_mcp` (native/cline + optional `sidecar_base_url` + `dry_run`)
+  - `verify_mcp_setup` (auto/native/cline readiness report)
+- Security contract:
+  - setup path is whitelist-only (`Cursor/mcp.json` or `cline_mcp_settings.json`)
+  - no arbitrary file write path is accepted from tool payload
+
 ## Screenshot Closure Notes
-- Screenshot baseline is `capture_scene_screenshot(capture_mode=render_output)` + `get_ui_tree`.
-- `diagnose-capture.js` only validates this baseline flow.
+- Screenshot baseline is `capture_scene_screenshot(capture_mode=render_output)`.
+- `diagnose-capture.js` now runs the combined capture diagnose chain:
+  `get_ui_tree + get_ui_overlay_report + validate_ui_layout + capture_scene_screenshot`.
+- Default report output file: `diagnose-capture-report.json`.
 - `final_pixels` / `editor_view` are disabled and should return `E_CAPTURE_MODE_DISABLED`.
 - `hit_test_ui_at_screen_point` is disabled and should return `E_COMMAND_DISABLED`.
 - Removed script: `verify-final-pixels-mode.ps1` (no longer valid for R11-CLOSE).
+
+## Capture Diagnose Script (R18-CAPTURE-B-01)
+- Script: `diagnose-capture.js`
+- Purpose: run screenshot + structured UI diagnostics in one command and emit a single JSON report for acceptance evidence.
+- Example:
+  - `node scripts/diagnose-capture.js --base-url http://127.0.0.1:46321 --scope-root Scene/Canvas/HUD`
+  - `node scripts/diagnose-capture.js --view-mode game --width 1920 --height 1080 --output ./tmp/diagnose-capture-report.json`
+- Key report checks:
+  - capture baseline (`capture_mode_effective=render_output`, pixel sanity)
+  - overlay coverage + recommendation (`get_ui_overlay_report`)
+  - UI structure and runtime resolution (`get_ui_tree`)
+  - layout issue summary (`validate_ui_layout`)
 
 ## UI V1 Diagnose Script
 - Script: `diagnose-ui.js`
@@ -59,17 +85,18 @@
 1. `npm test`
 2. `npm run test:r15:qa`
 3. `npm run test:r16:qa`
-4. `npm run gate:r9-closure`
-5. `npm run gate:r9-docs`
-6. `npm run gate:r10-responsibility`
-7. `npm run gate:r10-contract-snapshot`
-8. `npm run gate:r10-docs`
-9. `npm run gate:r11-command-boundary`
-10. `npm run gate:r16-wire`
-11. `npm run test:r10:qa`
-12. `npm run smoke`
-13. `npm run diagnose:ui -- --base-url http://127.0.0.1:46321 --skip-set`
-14. `npm run diagnose:ui:specialist -- --base-url http://127.0.0.1:46321 --strict`
+4. `npm run test:r17:qa`
+5. `npm run gate:r9-closure`
+6. `npm run gate:r9-docs`
+7. `npm run gate:r10-responsibility`
+8. `npm run gate:r10-contract-snapshot`
+9. `npm run gate:r10-docs`
+10. `npm run gate:r11-command-boundary`
+11. `npm run gate:r16-wire`
+12. `npm run test:r10:qa`
+13. `npm run smoke`
+14. `npm run diagnose:ui -- --base-url http://127.0.0.1:46321 --skip-set`
+15. `npm run diagnose:ui:specialist -- --base-url http://127.0.0.1:46321 --strict`
 
 ## R15 Split Guard Coverage
 - `r10-responsibility-guard.js`
@@ -96,3 +123,12 @@
   - `npm run gate:r16-wire`
   - `node scripts/r16-wire-guard.js --json`
   - `node scripts/r16-wire-guard.js --strict-atomic` (treat missing atomic coverage as hard fail)
+
+## V1-POLISH Primitive Candidate Report (R17-POLISH-O11Y-02)
+- Script: `generate-v1-polish-primitive-report.js`
+- Purpose: aggregate `v1-polish-metrics.json` and output TopN high-frequency `property_path` candidates for primitive promotion review.
+- Default input: `sidecar/.state/v1-polish-metrics.json`
+- Default output: `sidecar/.state/v1-polish-primitive-candidates.json`
+- Run:
+  - `npm run metrics:v1-polish:report`
+  - `npm run metrics:v1-polish:report:ci`

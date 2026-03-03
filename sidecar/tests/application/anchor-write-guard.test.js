@@ -218,6 +218,54 @@ test("apply_visual_actions keeps unknown action submit-open when capability poli
   assert.equal(outcome.body.dry_run, true);
 });
 
+test("apply_visual_actions forwards set_serialized_property dry_run into Unity dispatch path", () => {
+  const { service } = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_set_serialized_property_dryrun_1");
+  const token = issueReadToken(service);
+
+  const outcome = service.applyVisualActionsForMcp({
+    based_on_read_token: token,
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    dry_run: true,
+    actions: [
+      {
+        type: "set_serialized_property",
+        target_anchor: {
+          object_id: "go_root",
+          path: "Scene/Root",
+        },
+        action_data: {
+          dry_run: true,
+          component_selector: {
+            component_assembly_qualified_name:
+              "UnityEngine.Transform, UnityEngine.CoreModule",
+            component_index: 0,
+          },
+          patches: [
+            {
+              property_path: "m_LocalPosition",
+              value_kind: "vector3",
+              vector3_value: {
+                x: 1,
+                y: 2,
+                z: 3,
+              },
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  assert.equal(outcome.statusCode, 202);
+  assert.equal(typeof outcome.body.job_id, "string");
+  assert.equal(service.mcpGateway.jobStore.listJobs().length, 1);
+});
+
 test("set_ui_properties dry_run plans mapped actions and never queues Unity job", () => {
   const { service } = createService();
   markUnityReady(service);
@@ -268,4 +316,242 @@ test("set_ui_properties dry_run plans mapped actions and never queues Unity job"
   ]);
   assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
   assert.equal(service.mcpGateway.jobQueue.size(), 0);
+});
+
+test("R20-UX-C-02 apply_visual_actions dry_run auto-fills single-action target_anchor from write_anchor", () => {
+  const { service } = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_r20_ux_c02_1");
+  const token = issueReadToken(service);
+
+  const outcome = service.applyVisualActionsForMcp({
+    based_on_read_token: token,
+    write_anchor: {
+      object_id: "go_panel",
+      path: "Scene/Canvas/Panel",
+    },
+    actions: [
+      {
+        type: "rename_object",
+        target_anchor: {},
+        action_data: {
+          name: "Panel_Renamed",
+        },
+      },
+    ],
+    dry_run: true,
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(outcome.body.dry_run, true);
+  assert.equal(outcome.body.normalization_applied, true);
+  assert.equal(
+    outcome.body.normalized_payload.actions[0].target_anchor.object_id,
+    "go_panel"
+  );
+  assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
+  assert.equal(service.mcpGateway.jobQueue.size(), 0);
+});
+
+test("R20-UX-C-02 apply_visual_actions dry_run auto-fills single-action parent_anchor for create action", () => {
+  const { service } = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_r20_ux_c02_create_1");
+  const token = issueReadToken(service);
+
+  const outcome = service.applyVisualActionsForMcp({
+    based_on_read_token: token,
+    write_anchor: {
+      object_id: "go_canvas",
+      path: "Scene/Canvas",
+    },
+    actions: [
+      {
+        type: "create_gameobject",
+        parent_anchor: {},
+        action_data: {
+          name: "StartButton",
+          ui_type: "Button",
+        },
+      },
+    ],
+    dry_run: true,
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(outcome.body.dry_run, true);
+  assert.equal(outcome.body.normalization_applied, true);
+  assert.equal(
+    outcome.body.normalized_payload.actions[0].parent_anchor.object_id,
+    "go_canvas"
+  );
+  assert.equal(
+    outcome.body.normalized_payload.actions[0].parent_anchor.path,
+    "Scene/Canvas"
+  );
+  assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
+  assert.equal(service.mcpGateway.jobQueue.size(), 0);
+});
+
+test("R20-UX-C-01 preflight_validate_write_payload returns normalized payload without Unity dispatch", () => {
+  const { service } = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_r20_ux_c01_1");
+  const token = issueReadToken(service);
+
+  const outcome = service.preflightValidateWritePayloadForMcp({
+    tool_name: "apply_visual_actions",
+    payload: {
+      based_on_read_token: token,
+      write_anchor: {
+        object_id: "go_panel",
+        path: "Scene/Canvas/Panel",
+      },
+      actions: [
+        {
+          type: "rename_object",
+          target_anchor: {},
+          action_data: {
+            name: "Panel_Renamed",
+          },
+        },
+      ],
+      dry_run: true,
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(outcome.body.preflight.valid, true);
+  assert.equal(outcome.body.preflight.normalization_applied, true);
+  assert.equal(
+    outcome.body.preflight.normalized_payload.actions[0].target_anchor.path,
+    "Scene/Canvas/Panel"
+  );
+  assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
+  assert.equal(service.mcpGateway.jobQueue.size(), 0);
+});
+
+test("R20-UX-C-01 preflight_validate_write_payload auto-fills create parent_anchor from write_anchor", () => {
+  const { service } = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_r20_ux_c01_create_1");
+  const token = issueReadToken(service);
+
+  const outcome = service.preflightValidateWritePayloadForMcp({
+    tool_name: "apply_visual_actions",
+    payload: {
+      based_on_read_token: token,
+      write_anchor: {
+        object_id: "go_canvas",
+        path: "Scene/Canvas",
+      },
+      actions: [
+        {
+          type: "create_gameobject",
+          parent_anchor: {},
+          action_data: {
+            name: "StartButton",
+            ui_type: "Button",
+          },
+        },
+      ],
+      dry_run: true,
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(outcome.body.preflight.valid, true);
+  assert.equal(outcome.body.preflight.normalization_applied, true);
+  assert.equal(
+    outcome.body.preflight.normalized_payload.actions[0].parent_anchor.path,
+    "Scene/Canvas"
+  );
+  assert.equal(
+    outcome.body.preflight.suggested_patch[0].path,
+    "/actions/0/parent_anchor"
+  );
+  assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
+  assert.equal(service.mcpGateway.jobQueue.size(), 0);
+});
+
+test("R20-UX-D-01 duplicate retry fuse blocks repeated same-payload failures in same thread", () => {
+  const { service } = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_r20_ux_d01_1");
+  const token = issueReadToken(service);
+  const payload = {
+    thread_id: "t_retry_fuse",
+    based_on_read_token: token,
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    actions: [
+      {
+        type: "add_component",
+        component_assembly_qualified_name:
+          "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+      },
+    ],
+  };
+
+  const first = service.applyVisualActionsForMcp(payload);
+  const second = service.applyVisualActionsForMcp(payload);
+  const third = service.applyVisualActionsForMcp(payload);
+
+  assert.equal(first.statusCode, 400);
+  assert.equal(first.body.error_code, "E_ACTION_SCHEMA_INVALID");
+  assert.equal(second.statusCode, 400);
+  assert.equal(second.body.error_code, "E_ACTION_SCHEMA_INVALID");
+  assert.equal(third.statusCode, 429);
+  assert.equal(third.body.error_code, "E_DUPLICATE_RETRY_BLOCKED");
+  assert.equal(
+    third.body.retry_fuse && third.body.retry_fuse.scope,
+    "per_thread"
+  );
+  assert.equal(
+    third.body.retry_fuse && third.body.retry_fuse.thread_id,
+    "t_retry_fuse"
+  );
+});
+
+test("R20-UX-D-01 duplicate retry fuse does not block identical payload across different thread_id", () => {
+  const { service } = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_r20_ux_d01_2");
+  const token = issueReadToken(service);
+  const basePayload = {
+    based_on_read_token: token,
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    actions: [
+      {
+        type: "add_component",
+        component_assembly_qualified_name:
+          "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+      },
+    ],
+  };
+
+  service.applyVisualActionsForMcp({
+    ...basePayload,
+    thread_id: "t_retry_fuse_a",
+  });
+  service.applyVisualActionsForMcp({
+    ...basePayload,
+    thread_id: "t_retry_fuse_a",
+  });
+  const crossThread = service.applyVisualActionsForMcp({
+    ...basePayload,
+    thread_id: "t_retry_fuse_b",
+  });
+
+  assert.equal(crossThread.statusCode, 400);
+  assert.equal(crossThread.body.error_code, "E_ACTION_SCHEMA_INVALID");
 });

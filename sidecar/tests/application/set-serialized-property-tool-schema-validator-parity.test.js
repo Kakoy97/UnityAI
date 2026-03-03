@@ -10,11 +10,17 @@ const {
 } = require("../../src/mcp/commands/set_serialized_property/validator");
 
 const VALID_TOKEN = "tok_set_serialized_property_1234567890";
+const MAX_PATCHES_PER_ACTION = 64;
 
-function getRequired(name) {
+function getMetadata(name) {
   const registry = getMcpCommandRegistry();
   const metadata = registry.getToolMetadataByName(name, {});
   assert.ok(metadata, `metadata missing: ${name}`);
+  return metadata;
+}
+
+function getRequired(name) {
+  const metadata = getMetadata(name);
   return Array.isArray(metadata.input_schema && metadata.input_schema.required)
     ? [...metadata.input_schema.required].sort()
     : [];
@@ -59,6 +65,36 @@ test("set_serialized_property schema required snapshot aligns with validator", (
     "target_anchor",
     "write_anchor",
   ]);
+});
+
+test("set_serialized_property schema enum includes bool and enforces max patches", () => {
+  const metadata = getMetadata("set_serialized_property");
+  const patches = metadata.input_schema.properties.patches;
+  assert.equal(patches.minItems, 1);
+  assert.equal(patches.maxItems, MAX_PATCHES_PER_ACTION);
+  assert.deepEqual(
+    patches.items.properties.value_kind.enum,
+    [
+      "integer",
+      "float",
+      "string",
+      "bool",
+      "enum",
+      "quaternion",
+      "vector4",
+      "vector2",
+      "vector3",
+      "rect",
+      "color",
+      "array",
+      "animation_curve",
+      "object_reference",
+    ]
+  );
+  assert.deepEqual(
+    patches.items.properties.op.enum,
+    ["set", "insert", "remove", "clear"]
+  );
 });
 
 test("set_serialized_property validator rejects stringified action_data hardcut fields", () => {
@@ -118,6 +154,184 @@ test("set_serialized_property validator validates object_reference payload varia
   assert.equal(invalid.errorCode, "E_SCHEMA_INVALID");
 });
 
+test("set_serialized_property validator accepts bool and rejects non-boolean bool_value", () => {
+  const valid = buildValidPayload();
+  valid.patches = [
+    {
+      property_path: "m_RaycastTarget",
+      value_kind: "bool",
+      bool_value: false,
+    },
+  ];
+  assert.equal(validateSetSerializedProperty(valid).ok, true);
+
+  const invalid = buildValidPayload();
+  invalid.patches = [
+    {
+      property_path: "m_RaycastTarget",
+      value_kind: "bool",
+      bool_value: "false",
+    },
+  ];
+  const outcome = validateSetSerializedProperty(invalid);
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errorCode, "E_SCHEMA_INVALID");
+});
+
+test("set_serialized_property validator rejects patch count over hard limit", () => {
+  const payload = buildValidPayload();
+  payload.patches = [];
+  for (let i = 0; i < MAX_PATCHES_PER_ACTION + 1; i += 1) {
+    payload.patches.push({
+      property_path: "m_SomeInt",
+      value_kind: "integer",
+      int_value: i,
+    });
+  }
+
+  const outcome = validateSetSerializedProperty(payload);
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(
+    outcome.message.includes(`max allowed ${MAX_PATCHES_PER_ACTION}`),
+    true
+  );
+});
+
+test("set_serialized_property validator validates array op payloads", () => {
+  const insertPayload = buildValidPayload();
+  insertPayload.patches = [
+    {
+      property_path: "m_Items",
+      value_kind: "array",
+      op: "insert",
+      index: 2,
+    },
+  ];
+  assert.equal(validateSetSerializedProperty(insertPayload).ok, true);
+
+  const removePayload = buildValidPayload();
+  removePayload.patches = [
+    {
+      property_path: "m_Items",
+      value_kind: "array",
+      op: "remove",
+      indices: [1, 3],
+    },
+  ];
+  assert.equal(validateSetSerializedProperty(removePayload).ok, true);
+
+  const clearPayload = buildValidPayload();
+  clearPayload.patches = [
+    {
+      property_path: "m_Items",
+      value_kind: "array",
+      op: "clear",
+    },
+  ];
+  assert.equal(validateSetSerializedProperty(clearPayload).ok, true);
+});
+
+test("set_serialized_property validator validates quaternion/vector4/rect kinds", () => {
+  const quaternionPayload = buildValidPayload();
+  quaternionPayload.patches = [
+    {
+      property_path: "rotation",
+      value_kind: "quaternion",
+      quaternion_value: {
+        x: 0,
+        y: 0,
+        z: 0,
+        w: 1,
+      },
+    },
+  ];
+  assert.equal(validateSetSerializedProperty(quaternionPayload).ok, true);
+
+  const vector4Payload = buildValidPayload();
+  vector4Payload.patches = [
+    {
+      property_path: "weights",
+      value_kind: "vector4",
+      vector4_value: {
+        x: 1,
+        y: 2,
+        z: 3,
+        w: 4,
+      },
+    },
+  ];
+  assert.equal(validateSetSerializedProperty(vector4Payload).ok, true);
+
+  const rectPayload = buildValidPayload();
+  rectPayload.patches = [
+    {
+      property_path: "rectValue",
+      value_kind: "rect",
+      rect_value: {
+        x: 10,
+        y: 20,
+        width: 100,
+        height: 50,
+      },
+    },
+  ];
+  assert.equal(validateSetSerializedProperty(rectPayload).ok, true);
+});
+
+test("set_serialized_property validator accepts animation_curve kind placeholder payload", () => {
+  const payload = buildValidPayload();
+  payload.patches = [
+    {
+      property_path: "curve",
+      value_kind: "animation_curve",
+      animation_curve_value: {
+        keys: [],
+      },
+    },
+  ];
+  assert.equal(validateSetSerializedProperty(payload).ok, true);
+});
+
+test("set_serialized_property validator rejects invalid array op payloads", () => {
+  const missingIndex = buildValidPayload();
+  missingIndex.patches = [
+    {
+      property_path: "m_Items",
+      value_kind: "array",
+      op: "insert",
+    },
+  ];
+  const missingIndexOutcome = validateSetSerializedProperty(missingIndex);
+  assert.equal(missingIndexOutcome.ok, false);
+  assert.equal(missingIndexOutcome.errorCode, "E_SCHEMA_INVALID");
+
+  const removeMissingTargets = buildValidPayload();
+  removeMissingTargets.patches = [
+    {
+      property_path: "m_Items",
+      value_kind: "array",
+      op: "remove",
+    },
+  ];
+  const removeOutcome = validateSetSerializedProperty(removeMissingTargets);
+  assert.equal(removeOutcome.ok, false);
+  assert.equal(removeOutcome.errorCode, "E_SCHEMA_INVALID");
+
+  const badOp = buildValidPayload();
+  badOp.patches = [
+    {
+      property_path: "m_Items",
+      value_kind: "array",
+      op: "merge",
+      array_size: 2,
+    },
+  ];
+  const badOpOutcome = validateSetSerializedProperty(badOp);
+  assert.equal(badOpOutcome.ok, false);
+  assert.equal(badOpOutcome.errorCode, "E_SCHEMA_INVALID");
+});
+
 test("set_serialized_property maps to apply_visual_actions contract payload", () => {
   const payload = buildValidPayload();
   const mapped = buildSetSerializedPropertyApplyVisualPayload(payload);
@@ -133,4 +347,5 @@ test("set_serialized_property maps to apply_visual_actions contract payload", ()
     payload.component_selector
   );
   assert.deepEqual(mapped.actions[0].action_data.patches, payload.patches);
+  assert.equal(mapped.actions[0].action_data.dry_run, true);
 });

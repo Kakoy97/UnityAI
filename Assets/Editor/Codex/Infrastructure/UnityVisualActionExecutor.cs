@@ -26,6 +26,7 @@ namespace UnityAI.Editor.Codex.Infrastructure
         {
             var watch = Stopwatch.StartNew();
             var executionResult = BuildInitialResult(action);
+            var writeReceiptBaseline = WriteReceiptService.CaptureBefore(action, selected);
 
             try
             {
@@ -64,6 +65,18 @@ namespace UnityAI.Editor.Codex.Infrastructure
                 if (executionResult != null)
                 {
                     executionResult.durationMs = (int)watch.ElapsedMilliseconds;
+                    if (executionResult.writeReceipt == null)
+                    {
+                        try
+                        {
+                            executionResult.writeReceipt =
+                                WriteReceiptService.Build(writeReceiptBaseline, action, executionResult);
+                        }
+                        catch (Exception ex)
+                        {
+                            executionResult.writeReceipt = BuildFallbackWriteReceipt(executionResult, ex);
+                        }
+                    }
                 }
             }
         }
@@ -116,7 +129,9 @@ namespace UnityAI.Editor.Codex.Infrastructure
                 success = false,
                 errorCode = string.Empty,
                 errorMessage = string.Empty,
-                durationMs = 0
+                durationMs = 0,
+                resultData = null,
+                writeReceipt = null,
             };
         }
 
@@ -195,6 +210,66 @@ namespace UnityAI.Editor.Codex.Infrastructure
                 return singleLine;
             }
             return singleLine.Substring(0, maxLength).TrimEnd();
+        }
+
+        private static UnityWriteReceipt BuildFallbackWriteReceipt(
+            UnityActionExecutionResult executionResult,
+            Exception error)
+        {
+            return new UnityWriteReceipt
+            {
+                schema_version = "write_receipt.v1",
+                captured_at = DateTime.UtcNow.ToString("o"),
+                success = executionResult != null && executionResult.success,
+                error_code = executionResult == null ? string.Empty : executionResult.errorCode,
+                target_resolution = "fallback",
+                scene_diff = new UnityWriteSceneDiff
+                {
+                    dirty_scene_count_before = 0,
+                    dirty_scene_count_after = 0,
+                    added_dirty_scene_paths = new string[0],
+                    cleared_dirty_scene_paths = new string[0],
+                    dirty_scene_set_changed = false,
+                },
+                target_delta = new UnityWriteTargetDelta
+                {
+                    before = new UnityWriteTargetSnapshot
+                    {
+                        exists = false,
+                    },
+                    after = new UnityWriteTargetSnapshot
+                    {
+                        exists = false,
+                    },
+                    changed_fields = new string[0],
+                },
+                created_object_delta = new UnityWriteTargetDelta
+                {
+                    before = new UnityWriteTargetSnapshot
+                    {
+                        exists = false,
+                    },
+                    after = new UnityWriteTargetSnapshot
+                    {
+                        exists = false,
+                    },
+                    changed_fields = new string[0],
+                },
+                property_changes = error == null
+                    ? new[] { "receipt.capture_failed" }
+                    : new[] { "receipt.capture_failed:" + error.GetType().Name },
+                console_snapshot = new UnityWriteConsoleSnapshot
+                {
+                    captured_at = DateTime.UtcNow.ToString("o"),
+                    window_start_at = string.Empty,
+                    window_end_at = string.Empty,
+                    window_seconds = 0,
+                    max_entries = 0,
+                    total_errors = 0,
+                    truncated = false,
+                    errors = new UnityWriteConsoleEntry[0],
+                },
+            };
         }
 
         private static string ReadAnchorObjectId(UnityObjectAnchor anchor)

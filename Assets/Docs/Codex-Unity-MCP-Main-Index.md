@@ -34,6 +34,12 @@
 - `Assets/Docs/Phase7-Extensibility-Decoupling-Acceptance.md`
 12. R16 hybrid architecture acceptance:
 `docs/Phase16-Hybrid-Architecture-Acceptance.md`
+13. V1-POLISH implementation blueprint:
+`docs/V1-POLISH-泛化层打磨实施方案.md`
+14. V1-POLISH acceptance baseline:
+`docs/Phase17-V1-Polish-Acceptance.md`
+15. V1-POLISH metrics storage design:
+`docs/V1-POLISH-Metrics-Storage-Design.md`
 
 ## 3. Execution Order (New Contributor Path)
 1. Install and run sidecar:
@@ -47,6 +53,7 @@ npm start
 cd sidecar
 npm run test:r15:qa
 npm run test:r16:qa
+npm run test:r17:qa
 npm run test:r10:qa
 npm run gate:r10-responsibility
 npm run gate:r10-contract-snapshot
@@ -90,6 +97,7 @@ Active validation scripts:
 - `sidecar/scripts/diagnose-capture.js`
 - `sidecar/scripts/diagnose-ui.js`
 - `sidecar/scripts/diagnose-ui-specialist.js`
+- `sidecar/scripts/generate-v1-polish-primitive-report.js`
 - `sidecar/scripts/r10-responsibility-guard.js`
 - `sidecar/scripts/r10-contract-snapshot-guard.js`
 - `sidecar/scripts/r10-doc-index-guard.js`
@@ -99,6 +107,10 @@ Active validation scripts:
 - `sidecar/scripts/replay-failed-report.js`
 - `sidecar/scripts/setup-cursor-mcp.js`
 - `sidecar/scripts/verify-mcp-setup.js`
+
+Capture diagnose script note (R18-CAPTURE-B-01):
+- `sidecar/scripts/diagnose-capture.js` now emits a combined report for:
+  `capture_scene_screenshot(render_output) + get_ui_tree + get_ui_overlay_report + validate_ui_layout`.
 
 ## 5. Archive Policy
 - Superseded planning/index docs are moved to `Assets/Docs/archive/`.

@@ -69,6 +69,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.IsTrue(registry.Contains(UnityQueryTypes.FindObjectsByComponent));
             Assert.IsTrue(registry.Contains(UnityQueryTypes.QueryPrefabInfo));
             Assert.IsTrue(registry.Contains(UnityQueryTypes.CaptureSceneScreenshot));
+            Assert.IsTrue(registry.Contains(UnityQueryTypes.GetUiOverlayReport));
             Assert.IsTrue(registry.Contains(UnityQueryTypes.GetUiTree));
             Assert.IsTrue(registry.Contains(UnityQueryTypes.GetSerializedPropertyTree));
             Assert.IsTrue(registry.Contains(UnityQueryTypes.HitTestUiAtScreenPoint));

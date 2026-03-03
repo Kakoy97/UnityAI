@@ -152,6 +152,91 @@ namespace UnityAI.Editor.Codex.Domain
         public float preferred_height;
     }
 
+    [Serializable]
+    public sealed class UnityGetUiOverlayReportRequest
+    {
+        public string @event;
+        public string request_id;
+        public string thread_id;
+        public string turn_id;
+        public string timestamp;
+        public UnityGetUiOverlayReportPayload payload;
+    }
+
+
+    [Serializable]
+    public sealed class UnityGetUiOverlayReportPayload
+    {
+        public string root_path;
+        public UnityQueryScope scope;
+        public bool include_inactive;
+        public bool include_children_summary;
+        public int max_nodes;
+        public int max_children_per_canvas;
+        public int timeout_ms;
+    }
+
+
+    [Serializable]
+    public sealed class UnityGetUiOverlayReportResponse
+    {
+        public bool ok;
+        public string request_id;
+        public string captured_at;
+        public string error_code;
+        public string error_message;
+        public UnityReadToken read_token;
+        public UnityGetUiOverlayReportData data;
+    }
+
+
+    [Serializable]
+    public sealed class UnityGetUiOverlayReportData
+    {
+        public UnityQueryScope scope;
+        public bool include_inactive;
+        public bool include_children_summary;
+        public int max_nodes;
+        public int max_children_per_canvas;
+        public int returned_canvas_count;
+        public bool truncated;
+        public string truncated_reason;
+        public float overlay_total_coverage_percent;
+        public int non_overlay_canvases_count;
+        public string[] diagnosis_codes;
+        public string diagnosis;
+        public string recommended_capture_mode;
+        public UnityUiOverlayCanvasSummary[] overlay_canvases;
+    }
+
+
+    [Serializable]
+    public sealed class UnityUiOverlayCanvasSummary
+    {
+        public string object_id;
+        public string path;
+        public string name;
+        public bool active;
+        public string render_mode;
+        public int sorting_layer_id;
+        public int sorting_order;
+        public float screen_coverage_percent;
+        public int interactable_elements;
+        public UnityUiOverlayElementSummary[] children_summary;
+    }
+
+
+    [Serializable]
+    public sealed class UnityUiOverlayElementSummary
+    {
+        public string object_id;
+        public string path;
+        public string name;
+        public string type;
+        public bool interactable;
+        public UnityScreenshotRect rect_screen_px;
+    }
+
 
     [Serializable]
     public sealed class UnityCaptureSceneScreenshotRequest
@@ -175,6 +260,7 @@ namespace UnityAI.Editor.Codex.Domain
         public int width;
         public int height;
         public int jpeg_quality;
+        public int max_base64_bytes;
         public int timeout_ms;
         public bool include_ui;
     }
@@ -210,6 +296,7 @@ namespace UnityAI.Editor.Codex.Domain
         public int byte_size;
         public string artifact_uri;
         public string image_base64;
+        public UnityScreenshotVisualEvidence visual_evidence;
         public UnityScreenshotUnityState unity_state;
         public UnityScreenshotPixelSanity pixel_sanity;
         public UnityScreenshotCameraUsed camera_used;
@@ -220,6 +307,15 @@ namespace UnityAI.Editor.Codex.Domain
         public string read_timing;
         public UnityScreenshotRect editor_window_rect_screen_px;
         public bool include_gizmos_effective;
+    }
+
+
+    [Serializable]
+    public sealed class UnityScreenshotVisualEvidence
+    {
+        public string artifact_uri;
+        public string pixel_hash;
+        public string diff_summary;
     }
 
 

@@ -19,12 +19,20 @@ function getRequired(name) {
 
 test("get_serialized_property_tree schema required snapshot aligns with validator", () => {
   assert.deepEqual(getRequired("get_serialized_property_tree"), [
-    "component_selector",
     "target_anchor",
   ]);
 });
 
 test("get_serialized_property_tree validator rejects missing required fields", () => {
+  const missingSelectors = validateGetSerializedPropertyTree({
+    target_anchor: {
+      object_id: "go_img",
+      path: "Scene/Canvas/Image",
+    },
+  });
+  assert.equal(missingSelectors.ok, false);
+  assert.equal(missingSelectors.errorCode, "E_SCHEMA_INVALID");
+
   const missingTarget = validateGetSerializedPropertyTree({
     component_selector: {
       component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
@@ -33,15 +41,6 @@ test("get_serialized_property_tree validator rejects missing required fields", (
   });
   assert.equal(missingTarget.ok, false);
   assert.equal(missingTarget.errorCode, "E_SCHEMA_INVALID");
-
-  const missingSelector = validateGetSerializedPropertyTree({
-    target_anchor: {
-      object_id: "go_img",
-      path: "Scene/Canvas/Image",
-    },
-  });
-  assert.equal(missingSelector.ok, false);
-  assert.equal(missingSelector.errorCode, "E_SCHEMA_INVALID");
 });
 
 test("get_serialized_property_tree validator rejects unknown keys and accepts valid payload", () => {
@@ -78,4 +77,48 @@ test("get_serialized_property_tree validator rejects unknown keys and accepts va
     timeout_ms: 3000,
   });
   assert.equal(ok.ok, true);
+});
+
+test("get_serialized_property_tree validator accepts component_selectors-only payload", () => {
+  const ok = validateGetSerializedPropertyTree({
+    target_anchor: {
+      object_id: "go_img",
+      path: "Scene/Canvas/Image",
+    },
+    component_selectors: [
+      {
+        component_assembly_qualified_name: "UnityEngine.RectTransform, UnityEngine.CoreModule",
+        component_index: 0,
+      },
+      {
+        component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+        component_index: 0,
+      },
+    ],
+    depth: 1,
+    page_size: 64,
+  });
+  assert.equal(ok.ok, true);
+});
+
+test("get_serialized_property_tree validator rejects after_property_path in multi-component mode", () => {
+  const invalid = validateGetSerializedPropertyTree({
+    target_anchor: {
+      object_id: "go_img",
+      path: "Scene/Canvas/Image",
+    },
+    component_selectors: [
+      {
+        component_assembly_qualified_name: "UnityEngine.RectTransform, UnityEngine.CoreModule",
+        component_index: 0,
+      },
+      {
+        component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+        component_index: 0,
+      },
+    ],
+    after_property_path: "m_Color",
+  });
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.errorCode, "E_SCHEMA_INVALID");
 });

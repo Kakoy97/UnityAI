@@ -32,6 +32,7 @@ namespace UnityAI.Editor.Codex.Application
             {
                 await TryHandlePulledReadQueryAsync();
                 await TryBackgroundRuntimePingAsync(now);
+                await TryBackgroundCapabilityHeartbeatAsync(now);
                 await TryAutoReportCompileResultAsync();
                 TryTripTimeout(now);
             }
@@ -72,6 +73,31 @@ namespace UnityAI.Editor.Codex.Application
             finally
             {
                 _runtimePingProbeInFlight = false;
+            }
+        }
+
+        private async Task TryBackgroundCapabilityHeartbeatAsync(double now)
+        {
+            if (_capabilityHeartbeatInFlight)
+            {
+                return;
+            }
+
+            if (_lastCapabilityHeartbeatAt > 0d &&
+                now - _lastCapabilityHeartbeatAt < CapabilityHeartbeatIntervalSeconds)
+            {
+                return;
+            }
+
+            _capabilityHeartbeatInFlight = true;
+            _lastCapabilityHeartbeatAt = now;
+            try
+            {
+                await ReportCapabilitiesAsync("heartbeat", true);
+            }
+            finally
+            {
+                _capabilityHeartbeatInFlight = false;
             }
         }
 

@@ -1,0 +1,93 @@
+﻿{
+    "ok":  true,
+    "action_type":  "rename_object",
+    "not_modified":  false,
+    "etag":  "\"schema:sha256:15fe227360599c8420af1323148aac6ac9295a9f55f2ba834ae92bc23c8fb2f2:rename_object\"",
+    "unity_connection_state":  "ready",
+    "capability_version":  "sha256:15fe227360599c8420af1323148aac6ac9295a9f55f2ba834ae92bc23c8fb2f2",
+    "capability_updated_at":  "2026-03-03T12:44:19.367Z",
+    "action":  {
+                   "type":  "rename_object",
+                   "description":  "Rename target_anchor game object.",
+                   "anchor_policy":  "target_required",
+                   "action_data_schema":  {
+                                              "type":  "object",
+                                              "required":  [
+                                                               "name"
+                                                           ],
+                                              "properties":  [
+                                                                 {
+                                                                     "name":  "name",
+                                                                     "type":  "string",
+                                                                     "description":  "New object name."
+                                                                 }
+                                                             ]
+                                          }
+               },
+    "schema_hint":  {
+                        "type":  "object",
+                        "required":  [
+                                         "name"
+                                     ],
+                        "properties":  {
+                                           "name":  {
+                                                        "type":  "string",
+                                                        "description":  "New object name."
+                                                    }
+                                       }
+                    },
+    "schema_hint_chars":  110,
+    "schema_hint_truncated":  false,
+    "token_budget":  {
+                         "tools_list_max_action_hints":  12,
+                         "tools_list_max_description_chars":  900,
+                         "action_schema_max_properties":  40,
+                         "action_schema_max_depth":  6,
+                         "schema_hint_max_chars":  1200,
+                         "tools_list_truncated":  false,
+                         "schema_hint_truncated":  false,
+                         "tools_list_truncated_total":  7,
+                         "schema_hint_truncated_total":  0
+                     },
+    "write_envelope_contract":  {
+                                    "tool_name":  "apply_visual_actions",
+                                    "required_top_level":  [
+                                                               "based_on_read_token",
+                                                               "write_anchor",
+                                                               "actions"
+                                                           ],
+                                    "required_action_level":  [
+                                                                  "type",
+                                                                  "target_anchor",
+                                                                  "action_data"
+                                                              ],
+                                    "action_anchor_requirement":  "target_required",
+                                    "write_anchor_shape":  {
+                                                               "object_id":  "string(minLength=1)",
+                                                               "path":  "string(minLength=1)"
+                                                           },
+                                    "required_sequence":  [
+                                                              "get_current_selection",
+                                                              "apply_visual_actions"
+                                                          ]
+                                },
+    "minimal_valid_payload_template":  {
+                                           "based_on_read_token":  "\u003cfrom get_current_selection.read_token\u003e",
+                                           "write_anchor":  {
+                                                                "object_id":  "\u003cid\u003e",
+                                                                "path":  "Scene/Path"
+                                                            },
+                                           "actions":  [
+                                                           {
+                                                               "type":  "rename_object",
+                                                               "target_anchor":  {
+                                                                                     "object_id":  "\u003cid\u003e",
+                                                                                     "path":  "Scene/Path"
+                                                                                 },
+                                                               "action_data":  {
+
+                                                                               }
+                                                           }
+                                                       ]
+                                       }
+}

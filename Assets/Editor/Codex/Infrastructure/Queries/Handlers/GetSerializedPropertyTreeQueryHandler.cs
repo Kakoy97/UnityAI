@@ -35,6 +35,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries.Handlers
                 {
                     target_anchor = payload.target_anchor,
                     component_selector = payload.component_selector,
+                    component_selectors = payload.component_selectors,
                     root_property_path = context.NormalizeQueryField(payload.root_property_path),
                     depth = payload.depth,
                     after_property_path = context.NormalizeQueryField(payload.after_property_path),

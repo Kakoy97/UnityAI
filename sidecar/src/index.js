@@ -3,6 +3,13 @@
 const path = require("path");
 const { TurnStore } = require("./domain/turnStore");
 const { TurnService } = require("./application/turnService");
+const {
+  V1PolishMetricsCollector,
+} = require("./application/v1PolishMetricsCollector");
+const {
+  DEFAULT_FUSE_FAILURE_THRESHOLD,
+  DEFAULT_FUSE_COOLDOWN_MS,
+} = require("./application/captureCompositeRuntime");
 const { createServer } = require("./infrastructure/serverFactory");
 const { nowIso } = require("./adapters/clockAdapter");
 const { FileStateSnapshotStore } = require("./infrastructure/fileStateSnapshotStore");
@@ -126,6 +133,46 @@ function bootstrap(port, options) {
   const mcpJobSnapshotStore = new FileStateSnapshotStore({
     filePath: path.resolve(__dirname, "..", ".state", "mcp-job-state.json"),
   });
+  const v1PolishMetricsSnapshotStore = new FileStateSnapshotStore({
+    filePath: path.resolve(__dirname, "..", ".state", "v1-polish-metrics.json"),
+  });
+  const v1PolishMetricsEnabled = parseEnvBoolean(
+    "V1_POLISH_METRICS_ENABLED",
+    true
+  );
+  const v1PolishMetricsRetentionDays = parseEnvPositive(
+    "V1_POLISH_METRICS_RETENTION_DAYS",
+    7
+  );
+  const v1PolishMetricsTopN = parseEnvPositive("V1_POLISH_METRICS_TOP_N", 10);
+  const captureCompositeEnabled = parseEnvBoolean(
+    "CAPTURE_COMPOSITE_ENABLED",
+    false
+  );
+  const captureCompositeFuseFailureThreshold = parseEnvPositive(
+    "CAPTURE_COMPOSITE_FUSE_FAILURE_THRESHOLD",
+    DEFAULT_FUSE_FAILURE_THRESHOLD
+  );
+  const captureCompositeFuseCooldownMs = parseEnvPositive(
+    "CAPTURE_COMPOSITE_FUSE_COOLDOWN_MS",
+    DEFAULT_FUSE_COOLDOWN_MS
+  );
+  const retryFuseEnabled = parseEnvBoolean("UX_RETRY_FUSE_ENABLED", true);
+  const retryFuseWindowMs = parseEnvPositive("UX_RETRY_FUSE_WINDOW_MS", 30000);
+  const retryFuseMaxAttempts = parseEnvPositive(
+    "UX_RETRY_FUSE_MAX_ATTEMPTS",
+    2
+  );
+  const v1PolishMetricsCollector = new V1PolishMetricsCollector({
+    enabled: v1PolishMetricsEnabled,
+    retentionDays: v1PolishMetricsRetentionDays,
+    topN: v1PolishMetricsTopN,
+    snapshotStore: v1PolishMetricsSnapshotStore,
+    storagePath: path.relative(
+      path.resolve(__dirname, ".."),
+      path.resolve(__dirname, "..", ".state", "v1-polish-metrics.json")
+    ),
+  });
 
   const turnStore = new TurnStore({
     compileTimeoutMs,
@@ -168,6 +215,13 @@ function bootstrap(port, options) {
     legacyAnchorMode,
     legacyAnchorDenySignoff,
     mcpSnapshotStore: mcpJobSnapshotStore,
+    v1PolishMetricsCollector,
+    captureCompositeEnabled,
+    captureCompositeFuseFailureThreshold,
+    captureCompositeFuseCooldownMs,
+    retryFuseEnabled,
+    retryFuseWindowMs,
+    retryFuseMaxAttempts,
     enableTimeoutAbortCleanup,
     fileActionExecutor,
   });

@@ -47,6 +47,24 @@ test("/mcp/metrics snapshot includes error feedback counters", () => {
     "number"
   );
   assert.equal(typeof metricsOutcome.body.error_path_sanitized_total, "number");
+  assert.ok(metricsOutcome.body.v1_polish_metrics);
+  assert.equal(
+    metricsOutcome.body.v1_polish_metrics.schema_version,
+    "v1_polish_metrics.v1"
+  );
+  assert.equal(
+    typeof metricsOutcome.body.v1_polish_metrics.counters.tool_calls_total,
+    "number"
+  );
+  assert.ok(metricsOutcome.body.capture_composite);
+  assert.equal(
+    typeof metricsOutcome.body.capture_composite.fuse_failure_threshold,
+    "number"
+  );
+  assert.equal(
+    typeof metricsOutcome.body.capture_composite.fuse_cooldown_ms,
+    "number"
+  );
 });
 
 test("/mcp/metrics enforces legacy deny gate before switching mode", () => {

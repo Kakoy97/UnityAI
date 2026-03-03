@@ -1,0 +1,287 @@
+﻿{
+    "ok":  true,
+    "tool_name":  "apply_visual_actions",
+    "kind":  "write",
+    "lifecycle":  "stable",
+    "description":  "Apply structured Unity visual actions. Hard requirements: based_on_read_token + top-level write_anchor(object_id+path), and action_data object payloads. Recommended shortest sequence: get_current_selection -\u003e apply_visual_actions. Use get_action_catalog/get_action_schema for action DTO schema and get_tool_schema for the full tool envelope. On payload errors, fix envelope via get_tool_schema first, then use get_action_schema for action_data details. Prefer Phase-2 primitive action names; legacy aliases are deprecated.",
+    "transport":  {
+                      "method":  "POST",
+                      "path":  "/mcp/apply_visual_actions",
+                      "source":  "body",
+                      "query_key":  ""
+                  },
+    "input_schema":  {
+                         "type":  "object",
+                         "additionalProperties":  false,
+                         "properties":  {
+                                            "based_on_read_token":  {
+                                                                        "type":  "string",
+                                                                        "description":  "Read token from MCP eyes tools. Required for every write request."
+                                                                    },
+                                            "write_anchor":  {
+                                                                 "type":  "object",
+                                                                 "description":  "Top-level write anchor. Must contain both object_id and path.",
+                                                                 "additionalProperties":  false,
+                                                                 "properties":  {
+                                                                                    "object_id":  {
+                                                                                                      "type":  "string"
+                                                                                                  },
+                                                                                    "path":  {
+                                                                                                 "type":  "string"
+                                                                                             }
+                                                                                },
+                                                                 "required":  [
+                                                                                  "object_id",
+                                                                                  "path"
+                                                                              ]
+                                                             },
+                                            "actions":  {
+                                                            "type":  "array",
+                                                            "description":  "Visual actions. Unknown action types are allowed. Use action_data for typed parameters.",
+                                                            "items":  {
+                                                                          "type":  "object",
+                                                                          "additionalProperties":  false,
+                                                                          "properties":  {
+                                                                                             "type":  {
+                                                                                                          "type":  "string"
+                                                                                                      },
+                                                                                             "target_anchor":  {
+                                                                                                                   "type":  "object",
+                                                                                                                   "additionalProperties":  false,
+                                                                                                                   "properties":  {
+                                                                                                                                      "object_id":  {
+                                                                                                                                                        "type":  "string"
+                                                                                                                                                    },
+                                                                                                                                      "path":  {
+                                                                                                                                                   "type":  "string"
+                                                                                                                                               }
+                                                                                                                                  },
+                                                                                                                   "required":  [
+                                                                                                                                    "object_id",
+                                                                                                                                    "path"
+                                                                                                                                ]
+                                                                                                               },
+                                                                                             "parent_anchor":  {
+                                                                                                                   "type":  "object",
+                                                                                                                   "additionalProperties":  false,
+                                                                                                                   "properties":  {
+                                                                                                                                      "object_id":  {
+                                                                                                                                                        "type":  "string"
+                                                                                                                                                    },
+                                                                                                                                      "path":  {
+                                                                                                                                                   "type":  "string"
+                                                                                                                                               }
+                                                                                                                                  },
+                                                                                                                   "required":  [
+                                                                                                                                    "object_id",
+                                                                                                                                    "path"
+                                                                                                                                ]
+                                                                                                               },
+                                                                                             "action_data":  {
+                                                                                                                 "type":  "object",
+                                                                                                                 "description":  "Open payload object. Prefer this over legacy top-level action fields."
+                                                                                                             }
+                                                                                         },
+                                                                          "required":  [
+                                                                                           "type"
+                                                                                       ],
+                                                                          "anyOf":  [
+                                                                                        {
+                                                                                            "required":  [
+                                                                                                             "target_anchor"
+                                                                                                         ]
+                                                                                        },
+                                                                                        {
+                                                                                            "required":  [
+                                                                                                             "parent_anchor"
+                                                                                                         ]
+                                                                                        }
+                                                                                    ]
+                                                                      }
+                                                        },
+                                            "preconditions":  {
+                                                                  "type":  "array",
+                                                                  "description":  "Optional preconditions: object_exists/component_exists/compile_idle.",
+                                                                  "items":  {
+                                                                                "type":  "object"
+                                                                            }
+                                                              },
+                                            "dry_run":  {
+                                                            "type":  "boolean",
+                                                            "description":  "If true, only validate and report plan without executing."
+                                                        },
+                                            "thread_id":  {
+                                                              "type":  "string",
+                                                              "description":  "Optional thread id override."
+                                                          },
+                                            "idempotency_key":  {
+                                                                    "type":  "string",
+                                                                    "description":  "Optional idempotency key override."
+                                                                },
+                                            "user_intent":  {
+                                                                "type":  "string",
+                                                                "description":  "Optional user intent for async job traceability."
+                                                            },
+                                            "approval_mode":  {
+                                                                  "type":  "string",
+                                                                  "enum":  [
+                                                                               "auto",
+                                                                               "require_user"
+                                                                           ],
+                                                                  "description":  "Optional approval mode. Default auto."
+                                                              }
+                                        },
+                         "required":  [
+                                          "based_on_read_token",
+                                          "write_anchor",
+                                          "actions"
+                                      ]
+                     },
+    "tools_list_input_schema":  {
+                                    "type":  "object",
+                                    "additionalProperties":  false,
+                                    "required":  [
+                                                     "based_on_read_token",
+                                                     "write_anchor",
+                                                     "actions"
+                                                 ],
+                                    "properties":  {
+                                                       "based_on_read_token":  {
+                                                                                   "type":  "string"
+                                                                               },
+                                                       "write_anchor":  {
+                                                                            "type":  "object",
+                                                                            "additionalProperties":  false,
+                                                                            "required":  [
+                                                                                             "object_id",
+                                                                                             "path"
+                                                                                         ],
+                                                                            "properties":  {
+                                                                                               "object_id":  {
+                                                                                                                 "type":  "string"
+                                                                                                             },
+                                                                                               "path":  {
+                                                                                                            "type":  "string"
+                                                                                                        }
+                                                                                           }
+                                                                        },
+                                                       "actions":  {
+                                                                       "type":  "array",
+                                                                       "items":  {
+                                                                                     "type":  "object",
+                                                                                     "additionalProperties":  false,
+                                                                                     "required":  [
+                                                                                                      "type"
+                                                                                                  ],
+                                                                                     "properties":  {
+                                                                                                        "type":  {
+                                                                                                                     "type":  "string"
+                                                                                                                 },
+                                                                                                        "target_anchor":  {
+                                                                                                                              "type":  "object",
+                                                                                                                              "additionalProperties":  false,
+                                                                                                                              "required":  [
+                                                                                                                                               "object_id",
+                                                                                                                                               "path"
+                                                                                                                                           ]
+                                                                                                                          },
+                                                                                                        "parent_anchor":  {
+                                                                                                                              "type":  "object",
+                                                                                                                              "additionalProperties":  false,
+                                                                                                                              "required":  [
+                                                                                                                                               "object_id",
+                                                                                                                                               "path"
+                                                                                                                                           ]
+                                                                                                                          },
+                                                                                                        "action_data":  {
+                                                                                                                            "type":  "object"
+                                                                                                                        }
+                                                                                                    },
+                                                                                     "anyOf":  [
+                                                                                                   {
+                                                                                                       "required":  [
+                                                                                                                        "target_anchor"
+                                                                                                                    ]
+                                                                                                   },
+                                                                                                   {
+                                                                                                       "required":  [
+                                                                                                                        "parent_anchor"
+                                                                                                                    ]
+                                                                                                   }
+                                                                                               ]
+                                                                                 }
+                                                                   },
+                                                       "preconditions":  {
+                                                                             "type":  "array",
+                                                                             "items":  {
+                                                                                           "type":  "object"
+                                                                                       }
+                                                                         },
+                                                       "dry_run":  {
+                                                                       "type":  "boolean"
+                                                                   },
+                                                       "thread_id":  {
+                                                                         "type":  "string"
+                                                                     },
+                                                       "idempotency_key":  {
+                                                                               "type":  "string"
+                                                                           },
+                                                       "user_intent":  {
+                                                                           "type":  "string"
+                                                                       }
+                                                   }
+                                },
+    "required_sequence":  [
+                              "get_current_selection",
+                              "apply_visual_actions"
+                          ],
+    "write_envelope_contract":  {
+                                    "tool_name":  "apply_visual_actions",
+                                    "required_top_level":  [
+                                                               "based_on_read_token",
+                                                               "write_anchor",
+                                                               "actions"
+                                                           ],
+                                    "required_action_level":  [
+                                                                  "type",
+                                                                  "target_anchor",
+                                                                  "action_data"
+                                                              ],
+                                    "action_anchor_requirement":  "target_required",
+                                    "write_anchor_shape":  {
+                                                               "object_id":  "string(minLength=1)",
+                                                               "path":  "string(minLength=1)"
+                                                           },
+                                    "required_sequence":  [
+                                                              "get_current_selection",
+                                                              "apply_visual_actions"
+                                                          ]
+                                },
+    "canonical_examples":  [
+                               {
+                                   "name":  "minimal_valid_payload",
+                                   "summary":  "Smallest valid payload with OCC/read token + anchors.",
+                                   "payload":  {
+                                                   "based_on_read_token":  "\u003cfrom get_current_selection.read_token\u003e",
+                                                   "write_anchor":  {
+                                                                        "object_id":  "\u003cid\u003e",
+                                                                        "path":  "Scene/Path"
+                                                                    },
+                                                   "actions":  [
+                                                                   {
+                                                                       "type":  "rename_object",
+                                                                       "target_anchor":  {
+                                                                                             "object_id":  "\u003cid\u003e",
+                                                                                             "path":  "Scene/Path"
+                                                                                         },
+                                                                       "action_data":  {
+
+                                                                                       }
+                                                                   }
+                                                               ]
+                                               }
+                               }
+                           ],
+    "schema_source":  "registry_full",
+    "guidance":  "tools/list exposes compact schema; use get_tool_schema for full contract details."
+}

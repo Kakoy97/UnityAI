@@ -10,6 +10,7 @@ const {
 const ALLOWED_TOP_LEVEL_KEYS = new Set([
   "target_anchor",
   "component_selector",
+  "component_selectors",
   "root_property_path",
   "depth",
   "after_property_path",
@@ -26,6 +27,7 @@ const ALLOWED_COMPONENT_SELECTOR_KEYS = new Set([
   "component_assembly_qualified_name",
   "component_index",
 ]);
+const MAX_COMPONENT_SELECTORS = 8;
 
 function fail(message, errorCode = "E_SCHEMA_INVALID", statusCode = 400) {
   return {
@@ -88,6 +90,41 @@ function validateComponentSelector(selector, fieldPath) {
   return { ok: true };
 }
 
+function validateComponentSelectorArray(selectors, fieldPath) {
+  if (!Array.isArray(selectors)) {
+    return fail(`${fieldPath} must be an array when provided`);
+  }
+  if (selectors.length === 0) {
+    return fail(`${fieldPath} must contain at least one selector`);
+  }
+  if (selectors.length > MAX_COMPONENT_SELECTORS) {
+    return fail(`${fieldPath} supports at most ${MAX_COMPONENT_SELECTORS} selectors`);
+  }
+  for (let i = 0; i < selectors.length; i += 1) {
+    const itemValidation = validateComponentSelector(
+      selectors[i],
+      `${fieldPath}[${i}]`
+    );
+    if (!itemValidation.ok) {
+      return itemValidation;
+    }
+  }
+  return { ok: true };
+}
+
+function buildSelectorKey(selector) {
+  const source = selector && typeof selector === "object" ? selector : {};
+  const typeName =
+    typeof source.component_assembly_qualified_name === "string"
+      ? source.component_assembly_qualified_name.trim()
+      : "";
+  const index =
+    Number.isFinite(Number(source.component_index)) && Number(source.component_index) >= 0
+      ? Math.floor(Number(source.component_index))
+      : 0;
+  return `${typeName}#${index}`;
+}
+
 function validateOptionalString(value, fieldName) {
   if (value === undefined || value === null) {
     return { ok: true };
@@ -123,13 +160,39 @@ function validateGetSerializedPropertyTree(body) {
     return anchorValidation;
   }
 
-  const selectorValidation = validateComponentSelector(
-    body.component_selector,
-    "component_selector"
-  );
-  if (!selectorValidation.ok) {
-    return selectorValidation;
+  const hasSingleSelector = body.component_selector !== undefined;
+  const hasManySelectors = body.component_selectors !== undefined;
+  if (!hasSingleSelector && !hasManySelectors) {
+    return fail("component_selector or component_selectors is required");
   }
+
+  if (hasSingleSelector) {
+    const selectorValidation = validateComponentSelector(
+      body.component_selector,
+      "component_selector"
+    );
+    if (!selectorValidation.ok) {
+      return selectorValidation;
+    }
+  }
+
+  const selectorKeys = new Set();
+  if (hasSingleSelector) {
+    selectorKeys.add(buildSelectorKey(body.component_selector));
+  }
+  if (hasManySelectors) {
+    const manyValidation = validateComponentSelectorArray(
+      body.component_selectors,
+      "component_selectors"
+    );
+    if (!manyValidation.ok) {
+      return manyValidation;
+    }
+    for (let i = 0; i < body.component_selectors.length; i += 1) {
+      selectorKeys.add(buildSelectorKey(body.component_selectors[i]));
+    }
+  }
+  const selectorCount = selectorKeys.size;
 
   const rootPathValidation = validateOptionalString(
     body.root_property_path,
@@ -145,6 +208,11 @@ function validateGetSerializedPropertyTree(body) {
   );
   if (!afterPathValidation.ok) {
     return afterPathValidation;
+  }
+  if (selectorCount > 1 && isNonEmptyString(body.after_property_path)) {
+    return fail(
+      "after_property_path is only supported when querying a single component"
+    );
   }
 
   if (body.depth !== undefined) {

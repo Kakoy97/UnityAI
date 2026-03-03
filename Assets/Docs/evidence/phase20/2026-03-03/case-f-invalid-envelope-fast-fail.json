@@ -1,0 +1,11 @@
+﻿{
+  "status": "PASS",
+  "task_id": "R20-UX-HF-01",
+  "capture_date": "2026-03-03",
+  "description": "Invalid unity_action_request should fail deterministically without pending->max_runtime timeout.",
+  "required_assertions": [
+    "terminal status is failed with actionable schema error",
+    "error_code is not E_JOB_MAX_RUNTIME_EXCEEDED"
+  ],
+  "source": "manual runtime reproduction"
+}

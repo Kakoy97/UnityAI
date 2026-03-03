@@ -150,6 +150,43 @@ test("phase6 deprecated HTTP routes are hard rejected with E_GONE", async () => 
   }
 });
 
+test("selection snapshot callback route stays available for selection MCP bridge", async () => {
+  const calls = [];
+  const route = createRouter({
+    turnService: {
+      getHealthPayload: () => ({ ok: true }),
+      getStateSnapshotPayload: () => ({ ok: true }),
+      reportUnitySelectionSnapshot(body) {
+        calls.push(body);
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            event: "unity.selection.snapshot.accepted",
+          },
+        };
+      },
+    },
+    port: 46321,
+  });
+
+  const resp = await invokeJsonRoute(route, "POST", "/unity/selection/snapshot", {
+    event: "unity.selection.snapshot",
+    request_id: "req_phase6_selection_snapshot_1",
+    thread_id: "t_default",
+    turn_id: "u_phase6_selection_snapshot_1",
+    timestamp: "2026-03-03T00:00:00.000Z",
+    payload: {
+      reason: "selection_changed",
+      selection_empty: true,
+    },
+  });
+
+  assert.equal(resp.statusCode, 200);
+  assert.equal(resp.body.ok, true);
+  assert.equal(calls.length, 1);
+});
+
 test("phase6 MCP tools list excludes deprecated names and follows visibility policy", async () => {
   const server = Object.create(UnityMcpServer.prototype);
   const definitions = await server.getToolDefinitions();

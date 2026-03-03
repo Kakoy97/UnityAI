@@ -84,6 +84,52 @@ test("validateUnityActionResult rejects non-object result_data when provided", (
   assert.equal(result.message, "payload.result_data must be an object when provided");
 });
 
+test("validateUnityActionResult accepts object write_receipt when provided", () => {
+  const body = buildBody({
+    action_type: "set_ui_image_color",
+    target: undefined,
+    target_object_path: "",
+    target_object_id: "",
+    object_id: "",
+    component_assembly_qualified_name: undefined,
+    source_component_assembly_qualified_name: undefined,
+    component_name: undefined,
+    result_data: {
+      applied: true,
+    },
+    write_receipt: {
+      schema_version: "write_receipt.v1",
+      success: true,
+    },
+  });
+  const result = validateUnityActionResult(body);
+  assert.equal(result.ok, true);
+});
+
+test("validateUnityActionResult rejects non-object write_receipt when provided", () => {
+  const body = buildBody({
+    action_type: "set_ui_image_color",
+    target: undefined,
+    target_object_path: "",
+    target_object_id: "",
+    object_id: "",
+    component_assembly_qualified_name: undefined,
+    source_component_assembly_qualified_name: undefined,
+    component_name: undefined,
+    result_data: {
+      applied: true,
+    },
+    write_receipt: "bad_receipt",
+  });
+  const result = validateUnityActionResult(body);
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(
+    result.message,
+    "payload.write_receipt must be an object when provided"
+  );
+});
+
 test("validateUnityActionResult rejects legacy payload.action.type fallback", () => {
   const body = buildBody({
     action_type: undefined,

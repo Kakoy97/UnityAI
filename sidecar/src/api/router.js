@@ -120,6 +120,13 @@ function createRouter(deps) {
       return;
     }
 
+    if (method === "POST" && url.pathname === "/unity/selection/snapshot") {
+      const body = await readJsonBody(req);
+      const outcome = turnService.reportUnitySelectionSnapshot(body);
+      sendJson(res, outcome.statusCode, outcome.body);
+      return;
+    }
+
     if (method === "POST" && url.pathname === "/unity/capabilities/report") {
       const body = await readJsonBody(req);
       const outcome = turnService.reportUnityCapabilities(body);

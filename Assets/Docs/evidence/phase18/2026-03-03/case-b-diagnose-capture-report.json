@@ -1,0 +1,1369 @@
+{
+  "timestamp": "2026-03-03T05:00:06.075Z",
+  "base_url": "http://127.0.0.1:46321",
+  "requests": {
+    "capture_scene_screenshot": {
+      "view_mode": "game",
+      "capture_mode": "render_output",
+      "output_mode": "artifact_uri",
+      "include_ui": true,
+      "width": 1280,
+      "height": 720
+    },
+    "get_ui_tree": {
+      "ui_system": "ugui",
+      "include_inactive": true,
+      "include_components": true,
+      "include_layout": true,
+      "include_interaction": true,
+      "include_text_metrics": true,
+      "max_depth": 6,
+      "node_budget": 1000,
+      "char_budget": 120000,
+      "resolution": {
+        "width": 1280,
+        "height": 720
+      }
+    },
+    "get_ui_overlay_report": {
+      "include_inactive": true,
+      "include_children_summary": true,
+      "max_nodes": 256,
+      "max_children_per_canvas": 12
+    },
+    "validate_ui_layout": {
+      "resolutions": [
+        {
+          "name": "primary",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "checks": [
+        "OUT_OF_BOUNDS",
+        "OVERLAP",
+        "NOT_CLICKABLE",
+        "TEXT_OVERFLOW"
+      ],
+      "max_issues": 200,
+      "time_budget_ms": 1200,
+      "layout_refresh_mode": "scoped_roots_only"
+    }
+  },
+  "responses": {
+    "capture_scene_screenshot": {
+      "ok": true,
+      "data": {
+        "requested_mode": "render_output",
+        "view_mode": "game",
+        "effective_mode": "render_output",
+        "capture_mode_effective": "render_output",
+        "fallback_reason": "",
+        "diagnosis_tags": [],
+        "output_mode": "artifact_uri",
+        "image_format": "png",
+        "mime_type": "image/png",
+        "width": 1280,
+        "height": 720,
+        "byte_size": 156521,
+        "artifact_uri": "file:///D:/csgo/csgoToolV02/UnityAI/Library/Codex/McpArtifacts/scene_capture_20260303_050006_876.png",
+        "image_base64": "",
+        "visual_evidence": {
+          "artifact_uri": "file:///D:/csgo/csgoToolV02/UnityAI/Library/Codex/McpArtifacts/scene_capture_20260303_050006_876.png",
+          "pixel_hash": "bd7e27bce9015a8ba9356edd9eb66947d0d354235aa3d1d8f4e5f1eb4004f245",
+          "diff_summary": "mode:render_output; pixel_sanity:ok"
+        },
+        "unity_state": {
+          "is_playing": false,
+          "is_paused": false,
+          "focused_view": "Other"
+        },
+        "pixel_sanity": {
+          "is_all_black": false,
+          "avg_luma": 0.5364128351211548,
+          "std_luma": 0.17559656500816345,
+          "unique_color_estimate": 3228
+        },
+        "camera_used": {
+          "path": "Scene/Main Camera",
+          "instance_id": 27320,
+          "target_display": 0,
+          "culling_mask": -1,
+          "clear_flags": "Skybox",
+          "background_color": "#314D7900"
+        },
+        "game_view_rect_screen_px": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "read_rect_screen_px": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "pixels_per_point": 0,
+        "display_index": 0,
+        "read_timing": "immediate",
+        "editor_window_rect_screen_px": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "include_gizmos_effective": false
+      },
+      "read_token": {
+        "token": "rt_mma52ov7_s09sv3blcf000000",
+        "issued_at": "2026-03-03T05:00:06.883Z",
+        "hard_max_age_ms": 180000,
+        "revision_vector": {
+          "scene_revision": "rev_1772513572762",
+          "asset_revision": "asset_rev_1772514006880",
+          "compile_epoch": 0
+        },
+        "scope": {
+          "kind": "scene",
+          "object_id": "",
+          "path": "Scene/Main Camera"
+        }
+      },
+      "captured_at": "2026-03-03T05:00:06.8808409Z"
+    },
+    "get_ui_tree": {
+      "ok": true,
+      "data": {
+        "ui_system": "ugui",
+        "root_path": "",
+        "include_inactive": true,
+        "include_components": true,
+        "include_layout": true,
+        "include_interaction": true,
+        "include_text_metrics": true,
+        "max_depth": 6,
+        "node_budget": 1000,
+        "char_budget": 120000,
+        "returned_node_count": 9,
+        "truncated": false,
+        "truncated_reason": "",
+        "runtime_resolution": {
+          "width": 1003,
+          "height": 444
+        },
+        "runtime_source": "largest_canvas_pixel_rect",
+        "canvases": [
+          {
+            "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+            "path": "Scene/Canvas",
+            "name": "Canvas",
+            "active": true,
+            "render_mode": "ScreenSpaceOverlay",
+            "sorting_layer_id": 0,
+            "sorting_order": 0,
+            "is_root_canvas": true,
+            "reference_resolution": {
+              "width": 1003,
+              "height": 444
+            }
+          }
+        ],
+        "roots": [
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+              "path": "Scene/Canvas"
+            },
+            "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+            "path": "Scene/Canvas",
+            "name": "Canvas",
+            "depth": 0,
+            "active_self": true,
+            "active_in_hierarchy": true,
+            "sibling_index": 6,
+            "rect_transform": {
+              "anchor_min_x": 0,
+              "anchor_min_y": 0,
+              "anchor_max_x": 0,
+              "anchor_max_y": 0,
+              "pivot_x": 0.5,
+              "pivot_y": 0.5,
+              "anchored_position_x": 501.5,
+              "anchored_position_y": 222,
+              "size_delta_x": 1003,
+              "size_delta_y": 444,
+              "offset_min_x": 0,
+              "offset_min_y": 0,
+              "offset_max_x": 1003,
+              "offset_max_y": 444
+            },
+            "rect_screen_px": {
+              "x": 0,
+              "y": 0,
+              "width": 1003,
+              "height": 444
+            },
+            "interaction": {
+              "raycast_target": false,
+              "interactable": false,
+              "blocks_raycast": false,
+              "has_graphic_raycaster": true
+            },
+            "text_metrics": {
+              "overflowing": false,
+              "preferred_width": 0,
+              "preferred_height": 0
+            },
+            "components": [
+              {
+                "type": "Canvas",
+                "assembly_qualified_name": "UnityEngine.Canvas, UnityEngine.UIModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              },
+              {
+                "type": "CanvasScaler",
+                "assembly_qualified_name": "UnityEngine.UI.CanvasScaler, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              },
+              {
+                "type": "GraphicRaycaster",
+                "assembly_qualified_name": "UnityEngine.UI.GraphicRaycaster, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              }
+            ],
+            "components_summary": [
+              {
+                "type": "Canvas",
+                "assembly_qualified_name": "UnityEngine.Canvas, UnityEngine.UIModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              },
+              {
+                "type": "CanvasScaler",
+                "assembly_qualified_name": "UnityEngine.UI.CanvasScaler, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              },
+              {
+                "type": "GraphicRaycaster",
+                "assembly_qualified_name": "UnityEngine.UI.GraphicRaycaster, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                "enabled": true
+              }
+            ],
+            "children": [
+              {
+                "anchor": {
+                  "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1127317666-0",
+                  "path": "Scene/Canvas/Image"
+                },
+                "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1127317666-0",
+                "path": "Scene/Canvas/Image",
+                "name": "Image",
+                "depth": 1,
+                "active_self": true,
+                "active_in_hierarchy": true,
+                "sibling_index": 0,
+                "rect_transform": {
+                  "anchor_min_x": 0.5,
+                  "anchor_min_y": 0.5,
+                  "anchor_max_x": 0.5,
+                  "anchor_max_y": 0.5,
+                  "pivot_x": 0.5,
+                  "pivot_y": 0.5,
+                  "anchored_position_x": -456.09674072265625,
+                  "anchored_position_y": -166.527099609375,
+                  "size_delta_x": 100,
+                  "size_delta_y": 100,
+                  "offset_min_x": -506.09674072265625,
+                  "offset_min_y": -216.527099609375,
+                  "offset_max_x": -406.09674072265625,
+                  "offset_max_y": -116.527099609375
+                },
+                "rect_screen_px": {
+                  "x": -5,
+                  "y": 5,
+                  "width": 100,
+                  "height": 100
+                },
+                "interaction": {
+                  "raycast_target": true,
+                  "interactable": true,
+                  "blocks_raycast": true,
+                  "has_graphic_raycaster": true
+                },
+                "text_metrics": {
+                  "overflowing": false,
+                  "preferred_width": 0,
+                  "preferred_height": 0
+                },
+                "components": [
+                  {
+                    "type": "Image",
+                    "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                    "enabled": true
+                  }
+                ],
+                "components_summary": [
+                  {
+                    "type": "Image",
+                    "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                    "enabled": true
+                  }
+                ],
+                "children": [],
+                "children_truncated_count": 0
+              },
+              {
+                "anchor": {
+                  "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+                  "path": "Scene/Canvas/Panel"
+                },
+                "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+                "path": "Scene/Canvas/Panel",
+                "name": "Panel",
+                "depth": 1,
+                "active_self": true,
+                "active_in_hierarchy": true,
+                "sibling_index": 1,
+                "rect_transform": {
+                  "anchor_min_x": 0,
+                  "anchor_min_y": 0,
+                  "anchor_max_x": 1,
+                  "anchor_max_y": 1,
+                  "pivot_x": 0.5,
+                  "pivot_y": 0.5,
+                  "anchored_position_x": 0,
+                  "anchored_position_y": 0,
+                  "size_delta_x": 0,
+                  "size_delta_y": 0,
+                  "offset_min_x": 0,
+                  "offset_min_y": 0,
+                  "offset_max_x": 0,
+                  "offset_max_y": 0
+                },
+                "rect_screen_px": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 1003,
+                  "height": 444
+                },
+                "interaction": {
+                  "raycast_target": true,
+                  "interactable": true,
+                  "blocks_raycast": true,
+                  "has_graphic_raycaster": true
+                },
+                "text_metrics": {
+                  "overflowing": false,
+                  "preferred_width": 0,
+                  "preferred_height": 0
+                },
+                "components": [
+                  {
+                    "type": "Image",
+                    "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                    "enabled": true
+                  }
+                ],
+                "components_summary": [
+                  {
+                    "type": "Image",
+                    "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                    "enabled": true
+                  }
+                ],
+                "children": [],
+                "children_truncated_count": 0
+              },
+              {
+                "anchor": {
+                  "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+                  "path": "Scene/Canvas/Slider"
+                },
+                "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+                "path": "Scene/Canvas/Slider",
+                "name": "Slider",
+                "depth": 1,
+                "active_self": true,
+                "active_in_hierarchy": true,
+                "sibling_index": 2,
+                "rect_transform": {
+                  "anchor_min_x": 0.5,
+                  "anchor_min_y": 0.5,
+                  "anchor_max_x": 0.5,
+                  "anchor_max_y": 0.5,
+                  "pivot_x": 0.5,
+                  "pivot_y": 0.5,
+                  "anchored_position_x": 0,
+                  "anchored_position_y": 0,
+                  "size_delta_x": 160,
+                  "size_delta_y": 20,
+                  "offset_min_x": -80,
+                  "offset_min_y": -10,
+                  "offset_max_x": 80,
+                  "offset_max_y": 10
+                },
+                "rect_screen_px": {
+                  "x": 422,
+                  "y": 212,
+                  "width": 160,
+                  "height": 20
+                },
+                "interaction": {
+                  "raycast_target": false,
+                  "interactable": true,
+                  "blocks_raycast": false,
+                  "has_graphic_raycaster": true
+                },
+                "text_metrics": {
+                  "overflowing": false,
+                  "preferred_width": 0,
+                  "preferred_height": 0
+                },
+                "components": [
+                  {
+                    "type": "Slider",
+                    "assembly_qualified_name": "UnityEngine.UI.Slider, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                    "enabled": true
+                  }
+                ],
+                "components_summary": [
+                  {
+                    "type": "Slider",
+                    "assembly_qualified_name": "UnityEngine.UI.Slider, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                    "enabled": true
+                  }
+                ],
+                "children": [
+                  {
+                    "anchor": {
+                      "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1369237896-0",
+                      "path": "Scene/Canvas/Slider/Background"
+                    },
+                    "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1369237896-0",
+                    "path": "Scene/Canvas/Slider/Background",
+                    "name": "Background",
+                    "depth": 2,
+                    "active_self": true,
+                    "active_in_hierarchy": true,
+                    "sibling_index": 0,
+                    "rect_transform": {
+                      "anchor_min_x": 0,
+                      "anchor_min_y": 0.25,
+                      "anchor_max_x": 1,
+                      "anchor_max_y": 0.75,
+                      "pivot_x": 0.5,
+                      "pivot_y": 0.5,
+                      "anchored_position_x": 0,
+                      "anchored_position_y": 0,
+                      "size_delta_x": 0,
+                      "size_delta_y": 0,
+                      "offset_min_x": 0,
+                      "offset_min_y": 0,
+                      "offset_max_x": 0,
+                      "offset_max_y": 0
+                    },
+                    "rect_screen_px": {
+                      "x": 422,
+                      "y": 217,
+                      "width": 160,
+                      "height": 10
+                    },
+                    "interaction": {
+                      "raycast_target": true,
+                      "interactable": true,
+                      "blocks_raycast": true,
+                      "has_graphic_raycaster": true
+                    },
+                    "text_metrics": {
+                      "overflowing": false,
+                      "preferred_width": 0,
+                      "preferred_height": 0
+                    },
+                    "components": [
+                      {
+                        "type": "Image",
+                        "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                        "enabled": true
+                      }
+                    ],
+                    "components_summary": [
+                      {
+                        "type": "Image",
+                        "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                        "enabled": true
+                      }
+                    ],
+                    "children": [],
+                    "children_truncated_count": 0
+                  },
+                  {
+                    "anchor": {
+                      "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1295590551-0",
+                      "path": "Scene/Canvas/Slider/Fill Area"
+                    },
+                    "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1295590551-0",
+                    "path": "Scene/Canvas/Slider/Fill Area",
+                    "name": "Fill Area",
+                    "depth": 2,
+                    "active_self": true,
+                    "active_in_hierarchy": true,
+                    "sibling_index": 1,
+                    "rect_transform": {
+                      "anchor_min_x": 0,
+                      "anchor_min_y": 0.25,
+                      "anchor_max_x": 1,
+                      "anchor_max_y": 0.75,
+                      "pivot_x": 0.5,
+                      "pivot_y": 0.5,
+                      "anchored_position_x": -5,
+                      "anchored_position_y": 0,
+                      "size_delta_x": -20,
+                      "size_delta_y": 0,
+                      "offset_min_x": 5,
+                      "offset_min_y": 0,
+                      "offset_max_x": -15,
+                      "offset_max_y": 0
+                    },
+                    "rect_screen_px": {
+                      "x": 426,
+                      "y": 217,
+                      "width": 140,
+                      "height": 10
+                    },
+                    "interaction": {
+                      "raycast_target": false,
+                      "interactable": false,
+                      "blocks_raycast": false,
+                      "has_graphic_raycaster": true
+                    },
+                    "text_metrics": {
+                      "overflowing": false,
+                      "preferred_width": 0,
+                      "preferred_height": 0
+                    },
+                    "components": [],
+                    "components_summary": [],
+                    "children": [
+                      {
+                        "anchor": {
+                          "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-618371812-0",
+                          "path": "Scene/Canvas/Slider/Fill Area/Fill"
+                        },
+                        "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-618371812-0",
+                        "path": "Scene/Canvas/Slider/Fill Area/Fill",
+                        "name": "Fill",
+                        "depth": 3,
+                        "active_self": true,
+                        "active_in_hierarchy": true,
+                        "sibling_index": 0,
+                        "rect_transform": {
+                          "anchor_min_x": 0,
+                          "anchor_min_y": 0,
+                          "anchor_max_x": 0,
+                          "anchor_max_y": 1,
+                          "pivot_x": 0.5,
+                          "pivot_y": 0.5,
+                          "anchored_position_x": 0,
+                          "anchored_position_y": 0,
+                          "size_delta_x": 10,
+                          "size_delta_y": 0,
+                          "offset_min_x": -5,
+                          "offset_min_y": 0,
+                          "offset_max_x": 5,
+                          "offset_max_y": 0
+                        },
+                        "rect_screen_px": {
+                          "x": 422,
+                          "y": 217,
+                          "width": 10,
+                          "height": 10
+                        },
+                        "interaction": {
+                          "raycast_target": true,
+                          "interactable": true,
+                          "blocks_raycast": true,
+                          "has_graphic_raycaster": true
+                        },
+                        "text_metrics": {
+                          "overflowing": false,
+                          "preferred_width": 0,
+                          "preferred_height": 0
+                        },
+                        "components": [
+                          {
+                            "type": "Image",
+                            "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                            "enabled": true
+                          }
+                        ],
+                        "components_summary": [
+                          {
+                            "type": "Image",
+                            "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                            "enabled": true
+                          }
+                        ],
+                        "children": [],
+                        "children_truncated_count": 0
+                      }
+                    ],
+                    "children_truncated_count": 0
+                  },
+                  {
+                    "anchor": {
+                      "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-9427629-0",
+                      "path": "Scene/Canvas/Slider/Handle Slide Area"
+                    },
+                    "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-9427629-0",
+                    "path": "Scene/Canvas/Slider/Handle Slide Area",
+                    "name": "Handle Slide Area",
+                    "depth": 2,
+                    "active_self": true,
+                    "active_in_hierarchy": true,
+                    "sibling_index": 2,
+                    "rect_transform": {
+                      "anchor_min_x": 0,
+                      "anchor_min_y": 0,
+                      "anchor_max_x": 1,
+                      "anchor_max_y": 1,
+                      "pivot_x": 0.5,
+                      "pivot_y": 0.5,
+                      "anchored_position_x": 0,
+                      "anchored_position_y": 0,
+                      "size_delta_x": -20,
+                      "size_delta_y": 0,
+                      "offset_min_x": 10,
+                      "offset_min_y": 0,
+                      "offset_max_x": -10,
+                      "offset_max_y": 0
+                    },
+                    "rect_screen_px": {
+                      "x": 432,
+                      "y": 212,
+                      "width": 140,
+                      "height": 20
+                    },
+                    "interaction": {
+                      "raycast_target": false,
+                      "interactable": false,
+                      "blocks_raycast": false,
+                      "has_graphic_raycaster": true
+                    },
+                    "text_metrics": {
+                      "overflowing": false,
+                      "preferred_width": 0,
+                      "preferred_height": 0
+                    },
+                    "components": [],
+                    "components_summary": [],
+                    "children": [
+                      {
+                        "anchor": {
+                          "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-43242821-0",
+                          "path": "Scene/Canvas/Slider/Handle Slide Area/Handle"
+                        },
+                        "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-43242821-0",
+                        "path": "Scene/Canvas/Slider/Handle Slide Area/Handle",
+                        "name": "Handle",
+                        "depth": 3,
+                        "active_self": true,
+                        "active_in_hierarchy": true,
+                        "sibling_index": 0,
+                        "rect_transform": {
+                          "anchor_min_x": 0,
+                          "anchor_min_y": 0,
+                          "anchor_max_x": 0,
+                          "anchor_max_y": 1,
+                          "pivot_x": 0.5,
+                          "pivot_y": 0.5,
+                          "anchored_position_x": 0,
+                          "anchored_position_y": 0,
+                          "size_delta_x": 20,
+                          "size_delta_y": 0,
+                          "offset_min_x": -10,
+                          "offset_min_y": 0,
+                          "offset_max_x": 10,
+                          "offset_max_y": 0
+                        },
+                        "rect_screen_px": {
+                          "x": 422,
+                          "y": 212,
+                          "width": 20,
+                          "height": 20
+                        },
+                        "interaction": {
+                          "raycast_target": true,
+                          "interactable": true,
+                          "blocks_raycast": true,
+                          "has_graphic_raycaster": true
+                        },
+                        "text_metrics": {
+                          "overflowing": false,
+                          "preferred_width": 0,
+                          "preferred_height": 0
+                        },
+                        "components": [
+                          {
+                            "type": "Image",
+                            "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                            "enabled": true
+                          }
+                        ],
+                        "components_summary": [
+                          {
+                            "type": "Image",
+                            "assembly_qualified_name": "UnityEngine.UI.Image, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                            "enabled": true
+                          }
+                        ],
+                        "children": [],
+                        "children_truncated_count": 0
+                      }
+                    ],
+                    "children_truncated_count": 0
+                  }
+                ],
+                "children_truncated_count": 0
+              }
+            ],
+            "children_truncated_count": 0
+          }
+        ]
+      },
+      "read_token": {
+        "token": "rt_mma52p4i_gbzkqsrpkd000000",
+        "issued_at": "2026-03-03T05:00:07.218Z",
+        "hard_max_age_ms": 180000,
+        "revision_vector": {
+          "scene_revision": "rev_1772513572762",
+          "asset_revision": "asset_rev_1772514007207",
+          "compile_epoch": 0
+        },
+        "scope": {
+          "kind": "scene",
+          "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+          "path": "Scene/Canvas"
+        }
+      },
+      "captured_at": "2026-03-03T05:00:07.2076864Z"
+    },
+    "get_ui_overlay_report": {
+      "ok": true,
+      "data": {
+        "scope": {
+          "root_path": ""
+        },
+        "include_inactive": true,
+        "include_children_summary": true,
+        "max_nodes": 256,
+        "max_children_per_canvas": 12,
+        "returned_canvas_count": 1,
+        "truncated": false,
+        "truncated_reason": "",
+        "overlay_total_coverage_percent": 100,
+        "non_overlay_canvases_count": 0,
+        "diagnosis_codes": [
+          "OVERLAY_PRESENT",
+          "OVERLAY_COVERAGE_HIGH"
+        ],
+        "diagnosis": "Overlay UI covers about 100% of the runtime area. Prefer composite capture when enabled.",
+        "recommended_capture_mode": "composite",
+        "overlay_canvases": [
+          {
+            "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+            "path": "Scene/Canvas",
+            "name": "Canvas",
+            "active": true,
+            "render_mode": "ScreenSpaceOverlay",
+            "sorting_layer_id": 0,
+            "sorting_order": 0,
+            "screen_coverage_percent": 100,
+            "interactable_elements": 6,
+            "children_summary": [
+              {
+                "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1127317666-0",
+                "path": "Scene/Canvas/Image",
+                "name": "Image",
+                "type": "Image",
+                "interactable": true,
+                "rect_screen_px": {
+                  "x": -5,
+                  "y": 5,
+                  "width": 100,
+                  "height": 100
+                }
+              },
+              {
+                "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+                "path": "Scene/Canvas/Panel",
+                "name": "Panel",
+                "type": "Image",
+                "interactable": true,
+                "rect_screen_px": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 1003,
+                  "height": 444
+                }
+              },
+              {
+                "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+                "path": "Scene/Canvas/Slider",
+                "name": "Slider",
+                "type": "UIElement",
+                "interactable": true,
+                "rect_screen_px": {
+                  "x": 422,
+                  "y": 212,
+                  "width": 160,
+                  "height": 20
+                }
+              },
+              {
+                "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1369237896-0",
+                "path": "Scene/Canvas/Slider/Background",
+                "name": "Background",
+                "type": "Image",
+                "interactable": true,
+                "rect_screen_px": {
+                  "x": 422,
+                  "y": 217,
+                  "width": 160,
+                  "height": 10
+                }
+              },
+              {
+                "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-618371812-0",
+                "path": "Scene/Canvas/Slider/Fill Area/Fill",
+                "name": "Fill",
+                "type": "Image",
+                "interactable": true,
+                "rect_screen_px": {
+                  "x": 422,
+                  "y": 217,
+                  "width": 10,
+                  "height": 10
+                }
+              },
+              {
+                "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-43242821-0",
+                "path": "Scene/Canvas/Slider/Handle Slide Area/Handle",
+                "name": "Handle",
+                "type": "Image",
+                "interactable": true,
+                "rect_screen_px": {
+                  "x": 422,
+                  "y": 212,
+                  "width": 20,
+                  "height": 20
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "read_token": {
+        "token": "rt_mma52pmi_6zk30etwij500000",
+        "issued_at": "2026-03-03T05:00:07.866Z",
+        "hard_max_age_ms": 180000,
+        "revision_vector": {
+          "scene_revision": "rev_1772513572762",
+          "asset_revision": "asset_rev_1772514007860",
+          "compile_epoch": 0
+        },
+        "scope": {
+          "kind": "scene",
+          "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+          "path": "Scene/Canvas"
+        }
+      },
+      "captured_at": "2026-03-03T05:00:07.8609163Z"
+    },
+    "validate_ui_layout": {
+      "ok": true,
+      "data": {
+        "scope": {
+          "root_path": "Scene/Canvas"
+        },
+        "resolutions": [
+          {
+            "name": "1003x444",
+            "width": 1003,
+            "height": 444
+          },
+          {
+            "name": "primary",
+            "width": 1280,
+            "height": 720
+          }
+        ],
+        "time_budget_ms": 1200,
+        "runtime_resolution": {
+          "width": 1003,
+          "height": 444
+        },
+        "runtime_source": "largest_canvas_pixel_rect",
+        "partial": false,
+        "truncated_reason": null,
+        "issue_count": 25,
+        "runtime_resolution_name": "1003x444",
+        "issues": [
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1127317666-0",
+              "path": "Scene/Canvas/Image"
+            },
+            "issue_type": "OUT_OF_BOUNDS",
+            "severity": "error",
+            "resolution": "1003x444",
+            "details": "Rect exceeds viewport bounds.",
+            "suggestion": "Adjust anchors or size to keep element inside viewport.",
+            "mode": "direct_runtime",
+            "confidence": "high",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1127317666-0",
+              "path": "Scene/Canvas/Image"
+            },
+            "issue_type": "OUT_OF_BOUNDS",
+            "severity": "error",
+            "resolution": "primary",
+            "details": "Rect exceeds viewport bounds.",
+            "suggestion": "Adjust anchors or size to keep element inside viewport.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1127317666-0",
+              "path": "Scene/Canvas/Image"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+              "path": "Scene/Canvas/Panel"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+              "path": "Scene/Canvas/Panel"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+              "path": "Scene/Canvas/Panel"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+              "path": "Scene/Canvas/Panel"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+              "path": "Scene/Canvas/Slider"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+              "path": "Scene/Canvas/Slider"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+              "path": "Scene/Canvas/Slider"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1369237896-0",
+              "path": "Scene/Canvas/Slider/Background"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1369237896-0",
+              "path": "Scene/Canvas/Slider/Background"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-618371812-0",
+              "path": "Scene/Canvas/Slider/Fill Area/Fill"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "direct_runtime",
+            "confidence": "medium",
+            "approximate": false,
+            "approx_reason": ""
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1127317666-0",
+              "path": "Scene/Canvas/Image"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+              "path": "Scene/Canvas/Panel"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+              "path": "Scene/Canvas/Panel"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+              "path": "Scene/Canvas/Panel"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+              "path": "Scene/Canvas/Panel"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+              "path": "Scene/Canvas/Slider"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+              "path": "Scene/Canvas/Slider"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+              "path": "Scene/Canvas/Slider"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1369237896-0",
+              "path": "Scene/Canvas/Slider/Background"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1369237896-0",
+              "path": "Scene/Canvas/Slider/Background"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-618371812-0",
+              "path": "Scene/Canvas/Slider/Fill Area/Fill"
+            },
+            "issue_type": "OVERLAP",
+            "severity": "warning",
+            "resolution": "primary",
+            "details": "AABB overlap detected with another UI element.",
+            "suggestion": "Adjust layout constraints or sibling order.",
+            "mode": "derived_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "DERIVED_ONLY_MODEL"
+          },
+          {
+            "anchor": {
+              "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+              "path": "Scene/Canvas/Slider"
+            },
+            "issue_type": "NOT_CLICKABLE",
+            "severity": "warning",
+            "resolution": "1003x444",
+            "details": "Potentially not clickable: NO_RAYCAST_SOURCE",
+            "suggestion": "Enable interactable state and ensure raycast path is available.",
+            "mode": "static_only",
+            "confidence": "low",
+            "approximate": true,
+            "approx_reason": "NO_RAYCAST_SOURCE"
+          }
+        ],
+        "specialist_summary": {
+          "out_of_bounds_count": 2,
+          "overlap_count": 22,
+          "not_clickable_count": 1,
+          "text_overflow_count": 0,
+          "high_severity_count": 2,
+          "low_confidence_count": 13,
+          "has_repair_plan": false,
+          "repair_style": ""
+        }
+      },
+      "read_token": {
+        "token": "rt_mma52q53_31ijxzyk5k800000",
+        "issued_at": "2026-03-03T05:00:08.535Z",
+        "hard_max_age_ms": 180000,
+        "revision_vector": {
+          "scene_revision": "rev_1772513572762",
+          "asset_revision": "asset_rev_1772514008518",
+          "compile_epoch": 0
+        },
+        "scope": {
+          "kind": "scene",
+          "object_id": "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+          "path": "Scene/Canvas"
+        }
+      },
+      "captured_at": "2026-03-03T05:00:08.5188098Z"
+    }
+  },
+  "status_codes": {
+    "capture_scene_screenshot": 200,
+    "get_ui_tree": 200,
+    "get_ui_overlay_report": 200,
+    "validate_ui_layout": 200
+  },
+  "checks": {
+    "capture_http_ok": true,
+    "ui_tree_http_ok": true,
+    "overlay_http_ok": true,
+    "validate_http_ok": true,
+    "capture_ok": true,
+    "ui_tree_ok": true,
+    "overlay_ok": true,
+    "validate_ok": true,
+    "capture_mode_render_output_only": true,
+    "capture_not_all_black": true,
+    "diagnosis_tags": [],
+    "ui_tree_has_roots": true,
+    "ui_tree_has_canvases": true,
+    "overlay_has_canvases_array": true,
+    "overlay_total_coverage_known": true,
+    "overlay_recommendation_present": true,
+    "validate_issues_present": true,
+    "capture_read_token_present": true,
+    "ui_tree_read_token_present": true,
+    "overlay_read_token_present": true,
+    "validate_read_token_present": true,
+    "combined_diagnosis_ready": true,
+    "effective_mode": "render_output",
+    "overlay_canvas_count": 1,
+    "overlay_total_coverage_percent": 100,
+    "overlay_recommended_capture_mode": "composite",
+    "capture_error_code": "",
+    "ui_tree_error_code": "",
+    "overlay_error_code": "",
+    "validate_error_code": ""
+  },
+  "summary": {
+    "capture_mode_effective": "render_output",
+    "capture_diagnosis_tags": [],
+    "ui_tree_returned_node_count": 9,
+    "overlay_canvas_count": 1,
+    "overlay_total_coverage_percent": 100,
+    "overlay_recommended_capture_mode": "composite",
+    "validate_issue_count": 25,
+    "error_codes": {
+      "capture_scene_screenshot": "",
+      "get_ui_tree": "",
+      "get_ui_overlay_report": "",
+      "validate_ui_layout": ""
+    }
+  }
+}

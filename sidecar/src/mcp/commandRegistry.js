@@ -456,6 +456,19 @@ class McpCommandRegistry {
       payload = await readJsonBody(p.req);
     }
 
+    if (typeof turnService.recordMcpToolInvocation === "function") {
+      turnService.recordMcpToolInvocation({
+        command_name: command.name,
+        command_kind: command.kind,
+        command_lifecycle: command.lifecycle,
+        payload,
+        request_meta: {
+          method: normalizeMethod(p.method),
+          path: normalizePath(p.path),
+        },
+      });
+    }
+
     if (typeof command.validate === "function") {
       const validation = command.validate(payload);
       if (!validation || validation.ok !== true) {
@@ -521,6 +534,12 @@ class McpCommandRegistry {
           ? turnService.nowIso.bind(turnService)
           : () => new Date().toISOString(),
       logger: p.logger && typeof p.logger === "object" ? p.logger : console,
+      captureCompositeEnabled: turnService.captureCompositeEnabled === true,
+      captureCompositeRuntime:
+        turnService.captureCompositeRuntime &&
+        typeof turnService.captureCompositeRuntime === "object"
+          ? turnService.captureCompositeRuntime
+          : null,
       requestMeta: {
         method: normalizeMethod(p.method),
         path: normalizePath(p.path),

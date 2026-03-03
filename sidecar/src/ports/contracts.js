@@ -119,6 +119,9 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
     "/mcp/set_serialized_property",
   ]),
   mcp_read_http_routes: Object.freeze([
+    "/mcp/get_current_selection",
+    "/mcp/get_gameobject_components",
+    "/mcp/get_hierarchy_subtree",
     "/mcp/list_assets_in_folder",
     "/mcp/get_scene_roots",
     "/mcp/find_objects_by_component",
@@ -126,7 +129,12 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
     "/mcp/get_action_catalog",
     "/mcp/get_action_schema",
     "/mcp/get_tool_schema",
+    "/mcp/get_write_contract_bundle",
+    "/mcp/preflight_validate_write_payload",
+    "/mcp/setup_cursor_mcp",
+    "/mcp/verify_mcp_setup",
     "/mcp/capture_scene_screenshot",
+    "/mcp/get_ui_overlay_report",
     "/mcp/get_ui_tree",
     "/mcp/get_serialized_property_tree",
     "/mcp/hit_test_ui_at_viewport_point",
@@ -144,6 +152,7 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
   unity_callback_http_routes: Object.freeze([
     "/unity/compile/result",
     "/unity/action/result",
+    "/unity/selection/snapshot",
     "/unity/runtime/ping",
     "/unity/capabilities/report",
     "/unity/query/pull",
@@ -152,11 +161,7 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
   deprecated_http_routes: Object.freeze([
     "/file-actions/apply",
     "/unity/query/components/result",
-    "/unity/selection/snapshot",
     "/unity/console/snapshot",
-    "/mcp/get_current_selection",
-    "/mcp/get_gameobject_components",
-    "/mcp/get_hierarchy_subtree",
     "/mcp/get_prefab_info",
     "/mcp/get_compile_state",
     "/mcp/get_console_errors",
@@ -171,6 +176,9 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
     "apply_visual_actions",
     "set_ui_properties",
     "set_serialized_property",
+    "get_current_selection",
+    "get_gameobject_components",
+    "get_hierarchy_subtree",
     "list_assets_in_folder",
     "get_scene_roots",
     "find_objects_by_component",
@@ -178,7 +186,12 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
     "get_action_catalog",
     "get_action_schema",
     "get_tool_schema",
+    "get_write_contract_bundle",
+    "preflight_validate_write_payload",
+    "setup_cursor_mcp",
+    "verify_mcp_setup",
     "capture_scene_screenshot",
+    "get_ui_overlay_report",
     "get_ui_tree",
     "get_serialized_property_tree",
     "hit_test_ui_at_viewport_point",
@@ -186,9 +199,6 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
     "hit_test_ui_at_screen_point",
   ]),
   deprecated_mcp_tool_names: Object.freeze([
-    "get_current_selection",
-    "get_gameobject_components",
-    "get_hierarchy_subtree",
     "get_prefab_info",
     "get_compile_state",
     "get_console_errors",
@@ -210,7 +220,23 @@ const MCP_TOOL_VISIBILITY_FREEZE_CONTRACT = Object.freeze({
       "hidden_from_tools_list_and_blocked_in_tools_call; HTTP route returns E_COMMAND_DISABLED",
   }),
   capture_mode_notes: Object.freeze({
-    capture_scene_screenshot: "render_output_only",
+    capture_scene_screenshot: "render_output_stable_composite_flagged",
+  }),
+});
+
+const MCP_PROTOCOL_USABILITY_CONTRACT = Object.freeze({
+  shortest_write_sequence: Object.freeze([
+    "get_current_selection",
+    "apply_visual_actions",
+  ]),
+  schema_recovery_sequence: Object.freeze([
+    "get_tool_schema",
+    "get_action_schema",
+  ]),
+  deprecated_alias_noise_policy: Object.freeze({
+    hide_deprecated_tools_from_tools_list: true,
+    disabled_tools_hidden_by_default: true,
+    prefer_phase2_primitive_action_names: true,
   }),
 });
 
@@ -281,6 +307,7 @@ const OBSERVABILITY_FREEZE_CONTRACT = Object.freeze({
     "legacy_anchor_last_hit_at",
     "legacy_anchor_requested_deny_blocked_total",
     "action_error_code_missing_total",
+    "capture_composite",
   ]),
   frozen_stream_event_fields: Object.freeze([
     "stream_event_contract_version",
@@ -330,6 +357,7 @@ module.exports = {
   JOB_LEASE_CONTRACT,
   ROUTER_PROTOCOL_FREEZE_CONTRACT,
   MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
+  MCP_PROTOCOL_USABILITY_CONTRACT,
   RUNTIME_MODE_FREEZE_CONTRACT,
   OBSERVABILITY_FREEZE_CONTRACT,
 };

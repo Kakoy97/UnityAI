@@ -1,0 +1,84 @@
+﻿{
+    "ok":  true,
+    "data":  {
+                 "requested_mode":  "render_output",
+                 "view_mode":  "game",
+                 "effective_mode":  "render_output",
+                 "capture_mode_effective":  "render_output",
+                 "fallback_reason":  "max_base64_bytes_exceeded",
+                 "diagnosis_tags":  [
+                                        "FALLBACK",
+                                        "BASE64_SIZE_EXCEEDED"
+                                    ],
+                 "output_mode":  "artifact_uri",
+                 "image_format":  "png",
+                 "mime_type":  "image/png",
+                 "width":  1920,
+                 "height":  1080,
+                 "byte_size":  272265,
+                 "artifact_uri":  "file:///D:/csgo/csgoToolV02/UnityAI/Library/Codex/McpArtifacts/scene_capture_20260303_050010_367.png",
+                 "image_base64":  "",
+                 "visual_evidence":  {
+                                         "artifact_uri":  "file:///D:/csgo/csgoToolV02/UnityAI/Library/Codex/McpArtifacts/scene_capture_20260303_050010_367.png",
+                                         "pixel_hash":  "b5fc2db406a18c766fa9c462752a412ec90204b100dccab380401ebff547d303",
+                                         "diff_summary":  "mode:render_output; fallback:max_base64_bytes_exceeded; pixel_sanity:ok"
+                                     },
+                 "unity_state":  {
+                                     "is_playing":  false,
+                                     "is_paused":  false,
+                                     "focused_view":  "Other"
+                                 },
+                 "pixel_sanity":  {
+                                      "is_all_black":  false,
+                                      "avg_luma":  0.5364133715629578,
+                                      "std_luma":  0.17559589445590973,
+                                      "unique_color_estimate":  3328
+                                  },
+                 "camera_used":  {
+                                     "path":  "Scene/Main Camera",
+                                     "instance_id":  27320,
+                                     "target_display":  0,
+                                     "culling_mask":  -1,
+                                     "clear_flags":  "Skybox",
+                                     "background_color":  "#314D7900"
+                                 },
+                 "game_view_rect_screen_px":  {
+                                                  "x":  0,
+                                                  "y":  0,
+                                                  "width":  0,
+                                                  "height":  0
+                                              },
+                 "read_rect_screen_px":  {
+                                             "x":  0,
+                                             "y":  0,
+                                             "width":  0,
+                                             "height":  0
+                                         },
+                 "pixels_per_point":  0,
+                 "display_index":  0,
+                 "read_timing":  "immediate",
+                 "editor_window_rect_screen_px":  {
+                                                      "x":  0,
+                                                      "y":  0,
+                                                      "width":  0,
+                                                      "height":  0
+                                                  },
+                 "include_gizmos_effective":  false
+             },
+    "read_token":  {
+                       "token":  "rt_mma52rk6_j7v2c3apu7000000",
+                       "issued_at":  "2026-03-03T05:00:10.374Z",
+                       "hard_max_age_ms":  180000,
+                       "revision_vector":  {
+                                               "scene_revision":  "rev_1772513572762",
+                                               "asset_revision":  "asset_rev_1772514010373",
+                                               "compile_epoch":  0
+                                           },
+                       "scope":  {
+                                     "kind":  "scene",
+                                     "object_id":  "",
+                                     "path":  "Scene/Main Camera"
+                                 }
+                   },
+    "captured_at":  "2026-03-03T05:00:10.3733340Z"
+}

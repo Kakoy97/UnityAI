@@ -589,7 +589,27 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 new SchemaProperty(
                     "patches[].value_kind",
                     "string",
-                    "One of integer/float/string/enum/vector2/vector3/color/array/object_reference."));
+                    "One of integer/float/string/bool/enum/quaternion/vector4/vector2/vector3/rect/color/array/animation_curve/object_reference."),
+                new SchemaProperty(
+                    "patches[].op",
+                    "string",
+                    "Array op when value_kind=array: set/insert/remove/clear."),
+                new SchemaProperty(
+                    "patches[].index",
+                    "integer",
+                    "Array index for op=insert/remove."),
+                new SchemaProperty(
+                    "patches[].indices",
+                    "array",
+                    "Batch remove indices for op=remove (applied high index to low index)."),
+                new SchemaProperty(
+                    "dry_run",
+                    "boolean",
+                    "When true, validates patches without persisting SerializedObject changes."),
+                new SchemaProperty(
+                    "restricted_types",
+                    "string",
+                    "ManagedReference and AnimationCurve are write-restricted in this phase."));
         }
 
         private static string SchemaObject(string[] required, params SchemaProperty[] properties)

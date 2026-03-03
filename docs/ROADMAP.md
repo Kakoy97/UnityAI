@@ -1,7 +1,7 @@
 # UnityAI 产品路线图
 
-版本：v1.0  
-更新时间：2026-03-02  
+版本：v1.1  
+更新时间：2026-03-03  
 定位：全局视角的阶段规划与优先级排序，后续每个阶段单独产出详细设计文档
 
 ---
@@ -18,9 +18,9 @@
 |------|------|------|------|
 | V1-BASE | 三层混合底座 | 原语 + 泛化 + 专科三层能力栈，覆盖场景编辑核心操作 | ⚠️ 主体完成，有缺口 |
 | V1-VISION | 结构化视觉 | UI 树/命中/验证/写入闭环，不依赖截图 | ✅ 已完成主体 |
-| V1-POLISH | 泛化层打磨 | 补齐缺失类型、效率优化、LLM 友好度提升 | 🔜 下一阶段 |
-| V1-CAPTURE | 截图诊断能力 | 离屏截图 + 操作回执，辅助运行时问题定位 | 🔜 下一阶段 |
-| V2-SELFUPGRADE | Cursor 自升级 | Cursor 自主生成/注册 Action Handler 补全缺失能力 | 📋 规划中 |
+| V1-POLISH | 泛化层打磨 | 补齐缺失类型、效率优化、LLM 友好度提升 | ✅ 已完成（R17 收口） |
+| V1-CAPTURE | 截图诊断能力 | 离屏截图 + 操作回执，辅助运行时问题定位 | ✅ 已完成（R18 收口） |
+| V2-SELFUPGRADE | Cursor 自升级 | Cursor 自主生成/注册 Action Handler 补全缺失能力 | 🟡 开发中（Phase A 已落地） |
 | V2-PLUGIN | 第三方工具接入 SDK | 项目方通过极简 API 注册 Editor 工具为 MCP Action | 📋 规划中 |
 | V2-KNOWLEDGE | 项目知识库 | 项目级配置/组件目录/LLM Hint，减少运行时查询 | 📋 规划中 |
 
@@ -37,11 +37,11 @@
 - ✅ L2→L3 线缆升级：`action_data_marshaled`（base64url）主链路 + `action_data_json` 回退双栈
 - ✅ 原子测试基座：`AtomicActionTestBase` 覆盖成功/回滚/fail-closed 三类断言
 - ✅ 门禁脚本：`r16-wire-guard.js` 可检查线缆外泄 + 原子覆盖缺口
-- ⚠️ 原子覆盖缺口：`gate:r16-wire` 当前报告 atomic coverage ≈ 24/41，需在 V1-POLISH 中补齐
+- ⚠️ 原子覆盖仍需持续提升：`gate:r16-wire` 报告的历史缺口已在 V1-POLISH 完成高优先级补齐，后续在 V1-CAPTURE/V2 阶段持续收敛
 
-**Phase 1 — 泛化层** ⚠️ 主体完成，缺失 `bool` 类型与数组操作增强
+**Phase 1 — 泛化层** ✅ 已完成 V1-POLISH 收口
 - ✅ 泛化写 `set_serialized_property`：支持 integer/float/string/enum/vector2/vector3/color/array/object_reference
-- ❌ 缺失 `bool` kind 写入分支（`SerializedPropertyActionHandler.TryApplyPatch` 无 boolean 分支）
+- ✅ `bool` kind 写入分支已补齐（`SerializedPropertyActionHandler.TryApplyPatch`）
 - ✅ 泛化读 `get_serialized_property_tree`：支持 depth/page/budget 懒加载 + truncated/next_cursor 分页
 - ✅ ObjectReference 双路径解析：scene_anchor + asset_guid/asset_path/sub_asset_name
 
@@ -78,13 +78,13 @@
 
 ## 2. 🚨 立即修复清单（Release Blocker）
 
-以下问题为**发布阻断条件**，必须在开始任何新功能开发之前修复。
+以下问题为**发布阻断条件**，已在 R17-POLISH 阶段完成收口。
 
 | # | 问题 | 影响 | 定位文件 | 状态 |
 |---|------|------|---------|------|
-| HOT-001 | `bool` kind 缺失 | `set_serialized_property` 无法写入 boolean 字段（如 `enabled`、`raycastTarget` 等高频属性） | `SerializedPropertyActionHandler.cs` L146-L347 + `sidecar validator ALLOWED_VALUE_KINDS` | ❌ 待修复 |
-| HOT-002 | `CloneAction` 遗漏 `action_data_marshaled` | `composite_visual_action` 步骤克隆时丢失 marshaled 数据，导致 L3 回退到 `action_data_json` 解析路径，线缆升级形同虚设 | `BuiltInVisualActionHandlers.cs` L15-L28 | ❌ 待修复 |
-| HOT-003 | `max_patches_per_action` 无硬限制 | 恶意或失控的 LLM 可发送超大 patch 数组，导致 L3 长时间阻塞 | `SerializedPropertyActionHandler.cs` + `sidecar validator` | ❌ 待修复 |
+| HOT-001 | `bool` kind 缺失 | `set_serialized_property` 无法写入 boolean 字段（如 `enabled`、`raycastTarget` 等高频属性） | `SerializedPropertyActionHandler.cs` L146-L347 + `sidecar validator ALLOWED_VALUE_KINDS` | ✅ 已关闭（R17-POLISH-P0-01） |
+| HOT-002 | `CloneAction` 遗漏 `action_data_marshaled` | `composite_visual_action` 步骤克隆时丢失 marshaled 数据，导致 L3 回退到 `action_data_json` 解析路径，线缆升级形同虚设 | `BuiltInVisualActionHandlers.cs` L15-L28 | ✅ 已关闭（R17-POLISH-P0-02） |
+| HOT-003 | `max_patches_per_action` 无硬限制 | 恶意或失控的 LLM 可发送超大 patch 数组，导致 L3 长时间阻塞 | `SerializedPropertyActionHandler.cs` + `sidecar validator` | ✅ 已关闭（R17-POLISH-P0-03） |
 
 ---
 
@@ -94,23 +94,27 @@
 
 **优先级**：🔴 高（直接影响 LLM 操作效率，是后续所有能力的根基）
 
-### 3.1 补齐缺失类型支持（Release Blocker 级别）
+**当前状态**：✅ 已完成（`R17-POLISH-QA-01` / `R17-POLISH-QA-02` / `R17-POLISH-E2E-01` 收口）
 
-| 缺失项 | 说明 | 优先级 |
+**执行蓝图文档**：`docs/V1-POLISH-泛化层打磨实施方案.md`
+
+### 3.1 补齐缺失类型支持（已完成）
+
+| 项目 | 说明 | 状态 |
 |--------|------|--------|
-| `bool` kind | `SerializedPropertyActionHandler` 中缺少 boolean 写入分支（见 HOT-001） | 🚨 Release Blocker |
-| `Quaternion` / `Vector4` | Unity 常用类型，rotation 底层为 Quaternion | P1 |
-| `Rect` | RectOffset 等 Unity 内建结构体 | P2 |
-| `AnimationCurve` | 受限只读策略，至少返回 `E_PROPERTY_TYPE_UNSUPPORTED` | P2 |
+| `bool` kind | `SerializedPropertyActionHandler` boolean 写入分支已补齐（对应 HOT-001） | ✅ 已完成 |
+| `Quaternion` / `Vector4` | Unity 常用类型，rotation 底层为 Quaternion | ✅ 已完成 |
+| `Rect` | RectOffset 等 Unity 内建结构体 | ✅ 已完成 |
+| `AnimationCurve` | 受限只读策略，返回受限错误语义 | ✅ 已完成（只读受限） |
 
-### 3.2 数组操作增强
+### 3.2 数组操作增强（已完成）
 
 当前数组只支持 `arraySize` 设置。需要补齐：
 - `insert`：在指定 index 插入元素
 - `remove`：删除指定 index 元素（先高索引后低索引策略）
 - `clear`：清空数组
 
-### 3.3 dry_run 能力升级
+### 3.3 dry_run 能力升级（已完成）
 
 **当前行为**：`dry_run` 仅在 Sidecar 层（L2）做短路式跳过——若 `dry_run=true`，Sidecar 不向 Unity 提交 task，仅返回 `planned_actions_count + mapped_actions`。L3 侧 `SerializedPropertyActionHandler` 无任何 dry_run 感知。
 
@@ -119,21 +123,39 @@
 - 返回每个 patch 的验证结果摘要（`patch_index` / `status` / `error_code`）
 - LLM 可用此机制在正式写入前"试探"操作是否可行，减少回滚概率
 
-### 3.4 Patch 数量与安全限制
+### 3.4 Patch 数量与安全限制（已完成）
 
 - 增加 `max_patches_per_action` 限制（建议 64）（见 HOT-003）
 - 高风险类型受限策略：`ManagedReference` 只读不写
 
-### 3.5 原子覆盖补齐
+### 3.5 原子覆盖补齐（已完成高优先级收口）
 
 当前 `gate:r16-wire` 报告 atomic coverage ≈ 24/41，需补齐缺失的 ~17 个 action 的 `AtomicActionTestBase` 子类。
 
-### 3.6 LLM 友好度提升（property tree hint）
+### 3.6 LLM 友好度提升（property tree hint，已完成）
 
 在 `get_serialized_property_tree` 返回中增加 hint 字段：
 - `common_use`：标记常用字段（如 m_Color / m_FontSize / m_Text）
 - `llm_hint`：根据组件类型和字段路径自动生成的自然语言提示
 - 减少 LLM 查看 property tree 后的理解成本和试错次数
+
+### 3.7 阶段映射与状态跟踪（R17-POLISH）
+
+| 阶段 | 阶段ID | 目标 | 当前状态 |
+|---|---|---|---|
+| Phase A | R17-POLISH-E2E-00 + P0-01 ~ P0-03 | 先冻结验收大纲，再完成 Blocker 收口（bool / CloneAction / patch 限制） | ✅ 已完成 |
+| Phase B | R17-POLISH-W-00 ~ W-04 | 泛化写增强（数组 schema 先行 / array op / L3 dry_run / 高风险类型策略 / P1-P2 类型补齐） | ✅ 已完成 |
+| Phase C | R17-POLISH-R-01 ~ R-02 | 泛化读增强（hint / 同对象多组件批量读取） | ✅ 已完成 |
+| Phase D | R17-POLISH-O11Y-01 ~ O11Y-02 | 指标与效率闭环（观测 + 原语候选报表） | ✅ 已完成 |
+| Phase E | R17-POLISH-QA-01 ~ E2E-01 | QA 与验收收口 | ✅ 已完成 |
+
+**阶段结论**：`R17-POLISH` 已完成，下一阶段进入 `V1-CAPTURE`。
+
+### 3.8 实施约束（评审基线）
+
+- 每个新增 `value_kind` 或 `op` 的开发顺序固定为：`L2 validator` → `L3 handler` → `双端测试`。  
+- `R17-POLISH-R-02` 仅覆盖“同一 GameObject 多组件批量读取”；跨对象批量读取后置。  
+- `R17-POLISH-O11Y` 必须明确指标存储位置、保留策略与报表触发方式（手动 + CI）。  
 
 ---
 
@@ -141,7 +163,9 @@
 
 **目标**：让 Cursor 能通过截图理解运行时状态，辅助问题定位和操作验证。明确定位：**不是让 Cursor 设计 UI**，而是结合运行时的报错、状态来诊断问题。
 
-**优先级**：🟡 中（V1-POLISH 之后，或可与 V1-POLISH 并行）
+**优先级**：🟡 中（当前推进阶段）
+
+**执行蓝图文档**：`docs/V1-CAPTURE-截图诊断增强实施方案.md`
 
 ### 4.1 截图能力稳定化
 
@@ -157,11 +181,25 @@
 - Console 错误日志快照
 - 可选：操作前后截图对比
 
+执行映射：`R18-CAPTURE-B-03`、`R18-CAPTURE-B-04`、`R18-CAPTURE-B-05`
+
 ### 4.3 截图 + 结构化数据融合
 
 - 截图标注：在截图上叠加 anchor / bounding box 信息
 - `visual_evidence` 字段：artifact_uri / pixel_hash / diff_summary
 - 组合策略：先结构化定位（get_ui_tree / hit_test / validate）→ 再截图确认
+
+执行映射：`R18-CAPTURE-B-01`、`R18-CAPTURE-B-02`、`R18-CAPTURE-B-06`
+
+### 4.4 阶段映射与状态跟踪（R18-CAPTURE）
+
+| 阶段 | 阶段ID | 目标 | 当前状态 |
+|---|---|---|---|
+| Phase A | R18-CAPTURE-E2E-00 + A-01 ~ A-03 | Overlay 结构化诊断基线（新 Query + 读链路收口） | ✅ 已完成 |
+| Phase B | R18-CAPTURE-B-01 ~ B-07 | 组合诊断 + 操作回执 + visual_evidence + 体积控制 | ✅ 已完成 |
+| Phase C | R18-CAPTURE-C-00 ~ C-04 | composite 低风险路径（Play Mode + 双开关 + 熔断 + 互斥） | ✅ 已完成 |
+| Phase D | R18-CAPTURE-D-01 ~ D-03 | composite 高风险路径（EditMode TempScene clone） | ✅ 已完成 |
+| Phase E | R18-CAPTURE-QA-01 ~ E2E-01 | QA 与验收收口 | ✅ 已完成（Phase18 验收文档收口） |
 
 ---
 
@@ -171,22 +209,26 @@
 
 **优先级**：🟢 中（V1 稳定后启动）
 
+**执行蓝图文档**：`docs/V2-SELFUPGRADE-Cursor自升级实施方案.md`
+
 ### 5.1 设计原则
 
 - **代码生成 + 人工确认**，而非全自动：安全第一
 - 新 Handler 代码写入待审区 → 用户确认 → 编译注册 → 域重载 → 可用
 - 生成的代码必须继承标准基类，遵循现有 Action Handler 模式
+- 域重载后必须自动重注册生成能力：`BuildDefaultRegistry` 末尾执行 generated action 扫描注册，扫描异常不得阻断内建能力
 
 ### 5.2 核心能力
 
 | 能力 | 说明 |
 |------|------|
 | 缺失检测 | Cursor 调用 `get_action_catalog` 发现目标操作不在已注册列表中 |
-| 模板生成 | 基于标准 Handler 模板 + 目标 API 签名，自动生成 C# Handler 代码 |
+| 草案预检与模板守卫 | 接收 L1/LLM 草案并执行结构校验/boilerplate 补全，确保符合生成代码规范 |
 | 沙箱验证 | 生成的代码在写入正式目录前，先做语法检查和基本测试生成 |
 | 审批流程 | 弹窗或日志提示用户确认，用户可修改后再接受 |
 | 编译监控 | 监控域重载过程，编译失败则自动回退（删除生成的文件） |
 | 能力缓存 | 成功注册的 Handler 持久化到项目中，下次打开项目自动可用 |
+| 动态能力同步 | 生成 action 复用既有 `apply_visual_actions/submit_unity_task`；L3 上报 capability 后 L2 capabilityStore 自动感知 |
 
 ### 5.3 关键风险与对策
 
@@ -202,6 +244,17 @@
 - 生成的 Handler 代码放在哪个目录？（`Assets/Editor/Codex/Generated/` vs 用户可配置）
 - 是否需要一个"临时能力"机制（不持久化，仅本次会话有效）？
 - Sidecar 侧是否也需要自动生成 validator/handler？
+- 已激活生成 action 的禁用/卸载机制（C-04）如何定义审计与回滚策略？
+
+### 5.5 阶段映射与状态跟踪（R19-SELFUPGRADE）
+
+| 阶段 | 阶段ID | 目标 | 当前状态 |
+|---|---|---|---|
+| Phase A | R19-SU-E2E-00 + A-01 ~ A-03 | 接入体验与底座护航（Window + doctor tools + history ledger） | 🟡 已完成开发，待实机验收 |
+| Phase B | R19-SU-B-00 ~ B-03 | 自升级协议与沙箱（提案/生成/编译守卫） | ⏸ 依赖 Phase A |
+| Phase C | R19-SU-C-01 ~ C-04 | 审批与注册闭环（人工确认 + 能力生效 + 失效回收） | ⏸ 依赖 Phase B |
+| Phase D | R19-SU-D-01 ~ D-02 | 历史回放与可观测（query + replay） | ⏸ 依赖 Phase C |
+| Phase E | R19-SU-QA-01 ~ E2E-01 | QA 与验收收口 | ⏸ 依赖 Phase D |
 
 ---
 
@@ -250,6 +303,21 @@ public static CodexActionResult BakeLightmap(CodexActionContext ctx)
 - 如何处理版本兼容？（项目升级 Unity 版本后第三方 Action 可能失效）
 - 是否需要提供一个测试框架让项目方验证自己的 Action？
 
+### 6.5 接入体验优化（竞品洞察驱动）
+
+竞品分析（CoderGamester/mcp-unity、zabaglione/mcp-server-unity）表明 **"傻瓜式接入"是最显著的体验差距**。以下两项可独立于 V2-PLUGIN 核心提前交付：
+
+| 项目 | 说明 | 预计工作量 | 可提前至 |
+|------|------|-----------|---------|
+| **Unity Editor Window** | 在 Unity 菜单栏提供一键启动 Sidecar + 连接状态面板 + 自动配置 MCP 的可视化面板，用户无需接触命令行 | 2-3 天 | V1 阶段即可独立完成 |
+| **AI 自举安装** | 将现有 `setup-cursor-mcp.js` / `verify-mcp-setup.js` 包装为 MCP tool，支持 LLM 对话式引导安装（如 "帮我配置 Unity MCP"） | 0.5-1 天 | V1 阶段即可独立完成 |
+
+**关键设计约束**：
+- Editor Window 必须在"无 Node.js 环境"时提供清晰的安装引导提示
+- AI 自举工具仅做配置文件读写，不允许执行任意文件操作
+- 状态面板需实时显示：Sidecar 进程状态 / Unity 连接状态 / 最近错误 / MCP 配置路径
+- Editor Window 不引入对 Sidecar 的编译期依赖（通过 HTTP 健康检查探测即可）
+
 ---
 
 ## 7. 远期阶段：V2-KNOWLEDGE（项目知识库）
@@ -286,6 +354,23 @@ public static CodexActionResult BakeLightmap(CodexActionContext ctx)
 - 对话开始时加载一次项目知识库 → 作为 System Prompt 或 MCP Resource 注入
 - 减少 Cursor 在每次操作前的 `get_scene_roots` / `get_serialized_property_tree` 调用次数
 - 知识库可以是简单的 JSON 配置文件，放在项目根目录
+
+### 7.4 会话级操作历史（竞品洞察驱动）
+
+竞品（TSavo/Unity-MCP 的 AILogger）提供了跨操作的持久化历史追溯能力。我们的 `WriteReceiptService` 在单次操作粒度上已超越竞品（结构化 scene_diff + target_delta + console_snapshot），但缺乏**会话级的持久化与回放**。
+
+| 能力 | 说明 | 依赖 |
+|------|------|------|
+| 操作历史持久化 | 每次写操作的 `WriteReceipt` 持久化到本地文件（JSON Lines），支持按时间/对象/操作类型检索 | 无（可独立推进） |
+| 会话回放 | Cursor 可调用 `get_operation_history` Query 查看当前会话或历史会话的操作链 | 操作历史持久化 |
+| 上下文注入 | 对话开始时自动加载最近操作历史摘要，减少 Cursor 重复探查 | Knowledge-A |
+| 操作模式识别 | 从历史操作中识别高频模式（如"创建按钮 → 设置文本 → 调整锚点"），生成快捷工作流建议 | Knowledge-A + 统计分析 |
+
+**存储策略**：
+- 默认保留最近 7 天 / 1000 条操作记录
+- 文件位置：`Library/Codex/operation_history/`（不纳入版本控制）
+- 格式：JSON Lines（一行一条 receipt），支持增量写入和尾部读取
+- 会话隔离：每次 Sidecar 启动为一个新 session_id，支持按 session 筛选
 
 ---
 
@@ -336,10 +421,15 @@ V1-VISION     ✅ ──┤
                    │                              │    (Cursor 自升级)    │
                    └──▶ V1-CAPTURE ───────────────┤                      ├──▶ Knowledge-B
                         (截图诊断)                │                      │    (第三方能力索引)
-                                                  └──▶ V2-PLUGIN ────────┘
+                                                  ├──▶ V2-PLUGIN ────────┘
                                                   │    (第三方接入 SDK)
-                                                  └──▶ Knowledge-A
-                                                       (内建能力知识)
+                                                  ├──▶ Knowledge-A
+                                                  │    (内建能力知识)
+                                                  │
+  ★ 可提前至 V1 阶段独立交付 ──────────────────────┤
+  · Editor Window（一键启动面板）                   │
+  · AI 自举安装（对话式配置引导）                   │
+  · 操作历史持久化（WriteReceipt 落盘）             │
 ```
 
 ### 阶段依赖关系
@@ -351,6 +441,8 @@ V1-VISION     ✅ ──┤
 - **Knowledge-A 不依赖 V2-PLUGIN**，可与 V2-PLUGIN 并行推进
 - **Knowledge-B 依赖 V2-PLUGIN**（需要第三方 Action 目录）
 - V1-CAPTURE 可在任何时候独立推进
+- **接入体验优化（Editor Window / AI 自举安装）不依赖 V2 任何模块**，可在 V1 阶段即独立交付
+- **操作历史持久化不依赖 Knowledge-A**，仅需 `WriteReceiptService` 已有基础即可落地
 
 ### 里程碑与验收门禁
 
@@ -358,9 +450,17 @@ V1-VISION     ✅ ──┤
 |--------|-----------|---------|---------------------|
 | M0: 缺口清零 | HOT-001/002/003 修复 + 原子覆盖补齐 | V1-BASE 真正完成，无链路正确性问题 | `node sidecar/scripts/r16-wire-guard.js --strict-atomic` 全绿（coverage = 41/41） |
 | M1: V1 稳定版 | V1-POLISH 完成 + V1-CAPTURE 基础可用 | Cursor 可高效地完成 80% 的 Unity 场景编辑任务 | `npm --prefix sidecar run test:r16:qa` 全绿 + Unity EditMode 全绿 + SLO 指标达标 |
+| M1.5: 接入体验 | Editor Window + AI 自举安装 + 操作历史持久化 | 非技术用户可零命令行完成接入；LLM 可回溯历史操作 | Editor Window 一键启动 Sidecar 成功 + `get_operation_history` 返回最近操作链 |
 | M2: 自升级 MVP | V2-SELFUPGRADE 核心流程跑通 | Cursor 遇到缺失能力时可自助补全 | 端到端演示：Cursor 生成 Handler → 编译通过 → Action 可调用 |
 | M3: 平台化 MVP | V2-PLUGIN SDK 发布 | 第三方项目可接入自己的 Editor 工具 | 示例项目：3 个 `[CodexAction]` 注册 → `get_action_catalog` 可见 → 可执行 |
 | M4: 智能化 | Knowledge-A/B + 意图推理 | Cursor 理解项目上下文，减少冗余探查 | `avg_tool_calls_per_task` ≤ 3（简单任务） |
+
+当前进度注记（2026-03-03）：
+- M1 进行中：`V1-POLISH` 与 `V1-CAPTURE` 均已完成收口（R17 + R18）。
+- `V1-CAPTURE` 进度：`R18-CAPTURE-E2E-01` 已完成（`docs/Phase18-V1-Capture-Acceptance.md` 已勾选 sign-off）。
+- `V2-SELFUPGRADE` 执行蓝图已创建：`docs/V2-SELFUPGRADE-Cursor自升级实施方案.md`。
+- `R19-SU-E2E-00`、`R19-SU-A-01`、`R19-SU-A-02`、`R19-SU-A-03` 已完成开发，待实机验收证据收口。
+- 下一步：进入 `Phase B`（`R19-SU-B-00 ~ B-03`）自升级协议与沙箱实现。
 
 ---
 
@@ -374,6 +474,9 @@ V1-VISION     ✅ ──┤
 | D-004 | 第三方接入走 Attribute 极简注册 | 降低项目方接入成本，不要求理解内部架构 | 2026-03 |
 | D-005 | 频率驱动的原语提升策略 | 热路径用原语（1 次调用），长尾走泛化（2-3 次调用） | 2026-03 |
 | D-006 | V1 结构化视觉不依赖截图 | 确定性数据链路优先，截图作为 V2 增强 | 2026-03 |
+| D-007 | 接入体验优化独立于 V2-PLUGIN 提前交付 | 竞品分析显示 onboarding 是最显著差距，且 Editor Window + AI 自举安装工作量小、独立性强 | 2026-03 |
+| D-008 | 会话级操作历史基于 WriteReceipt 扩展而非重建 | 已有结构化回执能力（scene_diff + target_delta + console_snapshot）优于竞品文本日志，只需补持久化层 | 2026-03 |
+| D-009 | 不采用竞品 `execute_code` 任意代码执行模式 | 安全性和可控性优先；通过 V2-SELFUPGRADE 的"代码生成 + 人工确认"路径实现等价灵活性 | 2026-03 |
 
 ---
 
@@ -387,6 +490,8 @@ V1-VISION     ✅ ──┤
 | read_token TTL 对复杂多步操作不够用 | 中 | 低 | 支持 token 续期 / 自动重新获取 |
 | 大场景下 property tree 查询性能瓶颈 | 中 | 低 | 已有 budget/pagination 机制，持续监控 |
 | Unity 版本升级导致 SerializedProperty 行为变化 | 低 | 低 | 版本兼容测试 + 受限类型白名单 |
+| 接入体验差导致用户流失（竞品洞察） | 高 | 高 | Editor Window 一键启动 + AI 自举安装 + Node.js 环境引导提示 |
+| 操作历史文件膨胀占用磁盘 | 低 | 低 | 7 天/1000 条自动清理 + JSON Lines 增量格式 + Library/ 不入版本控制 |
 
 ---
 

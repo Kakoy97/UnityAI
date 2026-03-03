@@ -67,11 +67,13 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.NotNull(scriptNode, "m_Script should be present for MonoBehaviour.");
             Assert.IsFalse(scriptNode.writable);
             Assert.AreEqual("script_reference_read_only", scriptNode.read_only_reason);
+            Assert.IsTrue(scriptNode.llm_hint.Contains("Read-only"));
 
             var intNode = FindNode(response.data.nodes, "intValue");
             Assert.NotNull(intNode);
             Assert.IsTrue(intNode.writable);
             Assert.AreEqual("42", intNode.value_summary);
+            Assert.AreEqual("Use value_kind=integer with int_value.", intNode.llm_hint);
         }
 
         [Test]
@@ -201,6 +203,52 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.AreEqual("E_CURSOR_NOT_FOUND", response.error_code);
         }
 
+        [Test]
+        public void GetSerializedPropertyTree_ComponentSelectors_ReturnsGroupedComponentResults()
+        {
+            var target = new GameObject(NamePrefix + "Target_Multi");
+            target.AddComponent<SerializedPropertyTreeFixtureComponent>();
+            target.AddComponent<SerializedPropertyTreeSecondaryFixtureComponent>();
+
+            var payload = BuildPayload(target);
+            payload.component_selector = null;
+            payload.component_selectors = new[]
+            {
+                new SerializedPropertyComponentSelector
+                {
+                    component_assembly_qualified_name =
+                        typeof(SerializedPropertyTreeFixtureComponent).AssemblyQualifiedName,
+                    component_index = 0,
+                },
+                new SerializedPropertyComponentSelector
+                {
+                    component_assembly_qualified_name =
+                        typeof(SerializedPropertyTreeSecondaryFixtureComponent).AssemblyQualifiedName,
+                    component_index = 0,
+                },
+            };
+            payload.page_size = 8;
+            payload.node_budget = 16;
+            payload.char_budget = 6000;
+
+            var response = _service.GetSerializedPropertyTree(
+                new UnityGetSerializedPropertyTreeRequest
+                {
+                    request_id = "req_sp_tree_multi",
+                    payload = payload,
+                });
+
+            Assert.NotNull(response);
+            Assert.IsTrue(response.ok, response == null ? string.Empty : response.error_message);
+            Assert.NotNull(response.data);
+            Assert.NotNull(response.data.components);
+            Assert.AreEqual(2, response.data.components.Length);
+            Assert.Greater(response.data.components[0].returned_count, 0);
+            Assert.Greater(response.data.components[1].returned_count, 0);
+            Assert.IsNotEmpty(response.data.components[0].nodes[0].llm_hint);
+            Assert.AreEqual(response.data.components[0].component.type, response.data.component.type);
+        }
+
         private static UnityGetSerializedPropertyTreePayload BuildPayload(GameObject target)
         {
             return new UnityGetSerializedPropertyTreePayload
@@ -277,6 +325,12 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             public Vector3 vectorValue = new Vector3(1f, 2f, 3f);
             public int[] intArray = new[] { 1, 2, 3, 4, 5 };
             [SerializeField] private string hiddenValue = "hidden";
+        }
+
+        private sealed class SerializedPropertyTreeSecondaryFixtureComponent : MonoBehaviour
+        {
+            public bool enabledFlag = true;
+            public Color tint = new Color(0.2f, 0.4f, 0.6f, 1f);
         }
     }
 }

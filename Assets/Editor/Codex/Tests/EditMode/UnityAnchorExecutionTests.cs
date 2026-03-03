@@ -122,6 +122,76 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         }
 
         [Test]
+        public void ConversationController_ValidateActionRequestPayload_CreateObjectAlias_AcceptsParentAnchorOnly()
+        {
+            var payload = new UnityActionRequestPayload
+            {
+                based_on_read_token = "tok_anchor_123456789012345678901234",
+                write_anchor = new UnityObjectAnchor
+                {
+                    object_id = "go_canvas",
+                    path = "Scene/Canvas",
+                },
+                action = new VisualLayerActionItem
+                {
+                    type = "create_object",
+                    parent_anchor = new UnityObjectAnchor
+                    {
+                        object_id = "go_canvas",
+                        path = "Scene/Canvas",
+                    },
+                    action_data_json = "{\"name\":\"Button\",\"ui_type\":\"Button\"}",
+                },
+            };
+
+            var args = new object[] { payload, null, null };
+            var method = typeof(ConversationController).GetMethod(
+                "TryValidateActionRequestPayload",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+            var ok = (bool)method.Invoke(null, args);
+
+            Assert.IsTrue(ok);
+            Assert.IsTrue(string.IsNullOrEmpty(args[1] as string));
+            Assert.IsTrue(string.IsNullOrEmpty(args[2] as string));
+        }
+
+        [Test]
+        public void ConversationController_ValidateActionRequestPayload_CreateObjectAlias_RequiresParentAnchor()
+        {
+            var payload = new UnityActionRequestPayload
+            {
+                based_on_read_token = "tok_anchor_123456789012345678901234",
+                write_anchor = new UnityObjectAnchor
+                {
+                    object_id = "go_canvas",
+                    path = "Scene/Canvas",
+                },
+                action = new VisualLayerActionItem
+                {
+                    type = "create_object",
+                    target_anchor = new UnityObjectAnchor
+                    {
+                        object_id = "go_canvas",
+                        path = "Scene/Canvas",
+                    },
+                    action_data_json = "{\"name\":\"Button\",\"ui_type\":\"Button\"}",
+                },
+            };
+
+            var args = new object[] { payload, null, null };
+            var method = typeof(ConversationController).GetMethod(
+                "TryValidateActionRequestPayload",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+            var ok = (bool)method.Invoke(null, args);
+
+            Assert.IsFalse(ok);
+            Assert.AreEqual("E_ACTION_SCHEMA_INVALID", args[1] as string);
+            StringAssert.Contains("parent_anchor", args[2] as string);
+        }
+
+        [Test]
         public void ConversationController_ValidateActionRequestPayload_Fails_WhenWriteAnchorConflicts()
         {
             var payload = new UnityActionRequestPayload
@@ -182,6 +252,46 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             var ok = (bool)method.Invoke(null, args);
             Assert.IsFalse(ok);
             Assert.AreEqual("E_ACTION_SCHEMA_INVALID", args[1] as string);
+        }
+
+        [Test]
+        public void ConversationController_ValidateActionRequestPayload_AllowsMalformedOptionalParentAnchor_ForMutationAction()
+        {
+            var payload = new UnityActionRequestPayload
+            {
+                based_on_read_token = "tok_anchor_123456789012345678901234",
+                write_anchor = new UnityObjectAnchor
+                {
+                    object_id = "go_target",
+                    path = "Scene/Canvas/Image",
+                },
+                action = new VisualLayerActionItem
+                {
+                    type = "rename_gameobject",
+                    target_anchor = new UnityObjectAnchor
+                    {
+                        object_id = "go_target",
+                        path = "Scene/Canvas/Image",
+                    },
+                    parent_anchor = new UnityObjectAnchor
+                    {
+                        object_id = "go_parent",
+                        path = string.Empty,
+                    },
+                    action_data_json = "{\"name\":\"A\"}",
+                },
+            };
+
+            var args = new object[] { payload, null, null };
+            var method = typeof(ConversationController).GetMethod(
+                "TryValidateActionRequestPayload",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+            var ok = (bool)method.Invoke(null, args);
+
+            Assert.IsTrue(ok);
+            Assert.IsTrue(string.IsNullOrEmpty(args[1] as string));
+            Assert.IsNull(payload.action.parent_anchor);
         }
 
         private static string BuildObjectId(GameObject go)

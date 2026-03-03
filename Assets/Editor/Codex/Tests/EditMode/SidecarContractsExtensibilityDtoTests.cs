@@ -132,7 +132,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         public void UnityPulledQueryPayload_Deserializes_CaptureSceneScreenshotFields()
         {
             const string queryPayloadJson =
-                "{\"view_mode\":\"scene\",\"capture_mode\":\"final_pixels\",\"output_mode\":\"artifact_uri\",\"image_format\":\"png\",\"width\":1280,\"height\":720,\"jpeg_quality\":90,\"timeout_ms\":3000,\"include_ui\":true}";
+                "{\"view_mode\":\"scene\",\"capture_mode\":\"final_pixels\",\"output_mode\":\"artifact_uri\",\"image_format\":\"png\",\"width\":1280,\"height\":720,\"jpeg_quality\":90,\"max_base64_bytes\":512000,\"timeout_ms\":3000,\"include_ui\":true}";
             var json =
                 "{" +
                 "\"query_id\":\"q_1\"," +
@@ -148,6 +148,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "\"width\":1280," +
                 "\"height\":720," +
                 "\"jpeg_quality\":90," +
+                "\"max_base64_bytes\":512000," +
                 "\"timeout_ms\":3000," +
                 "\"include_ui\":true" +
                 "}" +
@@ -166,6 +167,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.AreEqual(1280, query.payload.width);
             Assert.AreEqual(720, query.payload.height);
             Assert.AreEqual(90, query.payload.jpeg_quality);
+            Assert.AreEqual(512000, query.payload.max_base64_bytes);
             Assert.AreEqual(3000, query.payload.timeout_ms);
             Assert.IsTrue(query.payload.include_ui);
         }
@@ -212,6 +214,39 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.AreEqual(1920, query.payload.resolution.width);
             Assert.AreEqual(1080, query.payload.resolution.height);
             Assert.AreEqual(4000, query.payload.timeout_ms);
+        }
+
+        [Test]
+        public void UnityPulledQueryPayload_Deserializes_GetUiOverlayReportFields()
+        {
+            const string json =
+                "{" +
+                "\"query_id\":\"q_overlay_1\"," +
+                "\"query_type\":\"get_ui_overlay_report\"," +
+                "\"request_id\":\"req_overlay_1\"," +
+                "\"payload\":{" +
+                "\"root_path\":\"Scene/Canvas\"," +
+                "\"scope\":{\"root_path\":\"Scene/Canvas\"}," +
+                "\"include_inactive\":true," +
+                "\"include_children_summary\":true," +
+                "\"max_nodes\":256," +
+                "\"max_children_per_canvas\":12," +
+                "\"timeout_ms\":4500" +
+                "}" +
+                "}";
+
+            var query = JsonUtility.FromJson<UnityPulledQuery>(json);
+
+            Assert.NotNull(query);
+            Assert.NotNull(query.payload);
+            Assert.AreEqual("Scene/Canvas", query.payload.root_path);
+            Assert.NotNull(query.payload.scope);
+            Assert.AreEqual("Scene/Canvas", query.payload.scope.root_path);
+            Assert.IsTrue(query.payload.include_inactive);
+            Assert.IsTrue(query.payload.include_children_summary);
+            Assert.AreEqual(256, query.payload.max_nodes);
+            Assert.AreEqual(12, query.payload.max_children_per_canvas);
+            Assert.AreEqual(4500, query.payload.timeout_ms);
         }
 
         [Test]
@@ -375,6 +410,49 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.IsTrue(query.payload.include_value_summary);
             Assert.IsFalse(query.payload.include_non_visible);
             Assert.AreEqual(4000, query.payload.timeout_ms);
+        }
+
+        [Test]
+        public void UnityPulledQueryPayload_Deserializes_GetSerializedPropertyTreeComponentSelectors()
+        {
+            const string json =
+                "{" +
+                "\"query_id\":\"q_sp_tree_2\"," +
+                "\"query_type\":\"get_serialized_property_tree\"," +
+                "\"request_id\":\"req_sp_tree_2\"," +
+                "\"payload\":{" +
+                "\"target_anchor\":{\"object_id\":\"go_btn\",\"path\":\"Scene/Canvas/Button\"}," +
+                "\"component_selectors\":[" +
+                "{" +
+                "\"component_assembly_qualified_name\":\"UnityEngine.RectTransform, UnityEngine.CoreModule\"," +
+                "\"component_index\":0" +
+                "}," +
+                "{" +
+                "\"component_assembly_qualified_name\":\"UnityEngine.UI.Image, UnityEngine.UI\"," +
+                "\"component_index\":0" +
+                "}" +
+                "]," +
+                "\"depth\":1," +
+                "\"page_size\":32," +
+                "\"node_budget\":128," +
+                "\"char_budget\":8000" +
+                "}" +
+                "}";
+
+            var query = JsonUtility.FromJson<UnityPulledQuery>(json);
+
+            Assert.NotNull(query);
+            Assert.NotNull(query.payload);
+            Assert.NotNull(query.payload.component_selectors);
+            Assert.AreEqual(2, query.payload.component_selectors.Length);
+            Assert.AreEqual(
+                "UnityEngine.RectTransform, UnityEngine.CoreModule",
+                query.payload.component_selectors[0].component_assembly_qualified_name);
+            Assert.AreEqual(0, query.payload.component_selectors[0].component_index);
+            Assert.AreEqual(
+                "UnityEngine.UI.Image, UnityEngine.UI",
+                query.payload.component_selectors[1].component_assembly_qualified_name);
+            Assert.AreEqual(0, query.payload.component_selectors[1].component_index);
         }
 
         private static string Escape(string value)

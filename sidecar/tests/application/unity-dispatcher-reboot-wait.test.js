@@ -74,11 +74,19 @@ test("dispatcher stamps reboot_wait_started_at and clears it on runtime recovery
       error_code: "WAITING_FOR_UNITY_REBOOT",
       error_message: "Domain reload in progress",
       duration_ms: 12,
+      write_receipt: {
+        schema_version: "write_receipt.v1",
+        success: false,
+      },
     },
   });
   assert.equal(suspended.kind, "suspended");
   assert.equal(suspended.runtime.phase, "waiting_for_unity_reboot");
   assert.equal(suspended.runtime.reboot_wait_started_at, Date.parse(suspendedAt));
+  assert.equal(
+    suspended.runtime.last_action_result.write_receipt.schema_version,
+    "write_receipt.v1"
+  );
 
   const recovered = dispatcher.handleRuntimePing({
     ...jobInAction,

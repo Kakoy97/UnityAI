@@ -57,6 +57,7 @@ namespace UnityAI.Editor.Codex.Domain
     {
         public SerializedPropertyComponentSelector component_selector;
         public SerializedPropertyPatchItem[] patches;
+        public bool dry_run;
     }
 
 
@@ -73,15 +74,22 @@ namespace UnityAI.Editor.Codex.Domain
     {
         public string property_path;
         public string value_kind;
+        public string op;
+        public int index;
+        public int[] indices;
         public int int_value;
         public float float_value;
         public string string_value;
         public bool bool_value;
         public int enum_value;
         public string enum_name;
+        public SerializedPropertyQuaternionDto quaternion_value;
+        public SerializedPropertyVector4Dto vector4_value;
         public SerializedPropertyVector2Dto vector2_value;
         public SerializedPropertyVector3Dto vector3_value;
+        public SerializedPropertyRectDto rect_value;
         public SerializedPropertyColorDto color_value;
+        public SerializedPropertyAnimationCurveDto animation_curve_value;
         public int array_size;
         public SerializedPropertyObjectReferenceDto object_ref;
     }
@@ -105,6 +113,26 @@ namespace UnityAI.Editor.Codex.Domain
 
 
     [Serializable]
+    public sealed class SerializedPropertyVector4Dto
+    {
+        public float x;
+        public float y;
+        public float z;
+        public float w;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyQuaternionDto
+    {
+        public float x;
+        public float y;
+        public float z;
+        public float w;
+    }
+
+
+    [Serializable]
     public sealed class SerializedPropertyColorDto
     {
         public float r;
@@ -115,12 +143,61 @@ namespace UnityAI.Editor.Codex.Domain
 
 
     [Serializable]
+    public sealed class SerializedPropertyRectDto
+    {
+        public float x;
+        public float y;
+        public float width;
+        public float height;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyAnimationCurveDto
+    {
+        public SerializedPropertyAnimationCurveKeyDto[] keys;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyAnimationCurveKeyDto
+    {
+        public float time;
+        public float value;
+        public float in_tangent;
+        public float out_tangent;
+    }
+
+
+    [Serializable]
     public sealed class SerializedPropertyObjectReferenceDto
     {
         public UnityObjectAnchor scene_anchor;
         public string asset_guid;
         public string asset_path;
         public string sub_asset_name;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyPatchResultItem
+    {
+        public int patch_index;
+        public string property_path;
+        public string value_kind;
+        public string status;
+        public string error_code;
+        public string error_message;
+    }
+
+
+    [Serializable]
+    public sealed class SerializedPropertyActionResultData
+    {
+        public bool dry_run;
+        public bool validation_passed;
+        public int patch_count;
+        public SerializedPropertyPatchResultItem[] patch_results;
     }
 
 
@@ -309,6 +386,84 @@ namespace UnityAI.Editor.Codex.Domain
         public string error_code;
         public string error_message;
         public int duration_ms;
+        public SerializedPropertyActionResultData result_data;
+        public UnityWriteReceipt write_receipt;
+    }
+
+
+    [Serializable]
+    public sealed class UnityWriteReceipt
+    {
+        public string schema_version;
+        public string captured_at;
+        public bool success;
+        public string error_code;
+        public string target_resolution;
+        public UnityWriteSceneDiff scene_diff;
+        public UnityWriteTargetDelta target_delta;
+        public UnityWriteTargetDelta created_object_delta;
+        public string[] property_changes;
+        public UnityWriteConsoleSnapshot console_snapshot;
+    }
+
+
+    [Serializable]
+    public sealed class UnityWriteSceneDiff
+    {
+        public int dirty_scene_count_before;
+        public int dirty_scene_count_after;
+        public string[] added_dirty_scene_paths;
+        public string[] cleared_dirty_scene_paths;
+        public bool dirty_scene_set_changed;
+    }
+
+
+    [Serializable]
+    public sealed class UnityWriteTargetDelta
+    {
+        public UnityWriteTargetSnapshot before;
+        public UnityWriteTargetSnapshot after;
+        public string[] changed_fields;
+    }
+
+
+    [Serializable]
+    public sealed class UnityWriteTargetSnapshot
+    {
+        public bool exists;
+        public string object_id;
+        public string path;
+        public string name;
+        public bool active;
+        public string parent_path;
+        public int component_count;
+        public int child_count;
+    }
+
+
+    [Serializable]
+    public sealed class UnityWriteConsoleSnapshot
+    {
+        public string captured_at;
+        public string window_start_at;
+        public string window_end_at;
+        public int window_seconds;
+        public int max_entries;
+        public int total_errors;
+        public bool truncated;
+        public UnityWriteConsoleEntry[] errors;
+    }
+
+
+    [Serializable]
+    public sealed class UnityWriteConsoleEntry
+    {
+        public string timestamp;
+        public string log_type;
+        public string error_code;
+        public string condition;
+        public string file;
+        public int line;
     }
 
 
@@ -362,5 +517,7 @@ namespace UnityAI.Editor.Codex.Domain
         public string errorCode;
         public string errorMessage;
         public int durationMs;
+        public SerializedPropertyActionResultData resultData;
+        public UnityWriteReceipt writeReceipt;
     }
 }

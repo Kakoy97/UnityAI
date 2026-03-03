@@ -120,3 +120,64 @@ test("get_serialized_property_tree handler maps query throw cursor-miss to 404",
   assert.equal(outcome.body.error_code, "E_CURSOR_NOT_FOUND");
   assert.equal(typeof outcome.body.recoverable, "boolean");
 });
+
+test("get_serialized_property_tree handler forwards component_selectors and normalizes grouped components", async () => {
+  let capturedRequest = null;
+  const outcome = await executeGetSerializedPropertyTree(
+    {
+      queryCoordinator: {
+        async enqueueAndWaitForUnityQuery(request) {
+          capturedRequest = request;
+          return {
+            ok: true,
+            data: {
+              returned_count: 1,
+              truncated: false,
+              nodes: [{ property_path: "m_Color", llm_hint: "hint-a", common_use: true }],
+              components: [
+                {
+                  selector_index: 0,
+                  component: { type: "UnityEngine.RectTransform, UnityEngine.CoreModule" },
+                  returned_count: 1,
+                  truncated: false,
+                  nodes: [{ property_path: "m_AnchoredPosition", llm_hint: "hint-b", common_use: true }],
+                },
+                {
+                  selector_index: 1,
+                  component: { type: "UnityEngine.UI.Image, UnityEngine.UI" },
+                  nodes: [{ property_path: "m_Color", llm_hint: "hint-c", common_use: true }],
+                },
+              ],
+            },
+          };
+        },
+      },
+    },
+    {
+      target_anchor: {
+        object_id: "go_button",
+        path: "Scene/Canvas/Button",
+      },
+      component_selectors: [
+        {
+          component_assembly_qualified_name: "UnityEngine.RectTransform, UnityEngine.CoreModule",
+          component_index: 0,
+        },
+        {
+          component_assembly_qualified_name: "UnityEngine.UI.Image, UnityEngine.UI",
+          component_index: 0,
+        },
+      ],
+    }
+  );
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.ok(capturedRequest);
+  assert.equal(capturedRequest.queryType, "get_serialized_property_tree");
+  assert.equal(Array.isArray(capturedRequest.payload.component_selectors), true);
+  assert.equal(capturedRequest.payload.component_selectors.length, 2);
+  assert.equal(Array.isArray(outcome.body.data.components), true);
+  assert.equal(outcome.body.data.components.length, 2);
+  assert.equal(outcome.body.data.components[1].returned_count, 1);
+});

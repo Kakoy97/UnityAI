@@ -1,0 +1,11 @@
+﻿{
+  "status": "PASS",
+  "task_id": "R20-UX-HF-02",
+  "capture_date": "2026-03-03",
+  "description": "Mutation action with valid target_anchor and malformed optional parent_anchor should not be blocked by schema gate.",
+  "required_assertions": [
+    "terminal status is reached without silent pending loop",
+    "mutation action does not fail solely due to malformed optional parent_anchor"
+  ],
+  "source": "manual runtime reproduction"
+}

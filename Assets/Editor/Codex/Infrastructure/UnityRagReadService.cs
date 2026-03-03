@@ -24,6 +24,10 @@ namespace UnityAI.Editor.Codex.Infrastructure
         private const int DefaultScreenshotWidth = 1280;
         private const int DefaultScreenshotHeight = 720;
         private const int DefaultScreenshotJpegQuality = 85;
+        private const int DefaultInlineBase64JpegQuality = 75;
+        private const int DefaultScreenshotMaxBase64Bytes = 2 * 1024 * 1024;
+        private const int MinScreenshotMaxBase64Bytes = 1;
+        private const int MaxScreenshotMaxBase64Bytes = 10 * 1024 * 1024;
         private const int MinScreenshotDimension = 64;
         private const int MaxScreenshotDimension = 4096;
         private const int ScreenshotArtifactMaxAgeHours = 24;
@@ -36,8 +40,15 @@ namespace UnityAI.Editor.Codex.Infrastructure
         private const int DefaultValidateTimeBudgetMs = 1200;
         private const int DefaultValidateMaxIssues = 200;
         private const string CaptureModeRenderOutput = "render_output";
+        private const string CaptureModeComposite = "composite";
         private const string CaptureModeFinalPixels = "final_pixels";
         private const string CaptureModeEditorView = "editor_view";
+        private const string CompositeCaptureEnabledEnvName = "UNITY_CAPTURE_COMPOSITE_ENABLED";
+
+        internal static bool? CompositeCaptureEnabledOverrideForTests;
+        internal static bool? CompositeCaptureIsPlayingOverrideForTests;
+        internal static bool? CompositeCaptureBusyOverrideForTests;
+        internal static Func<Texture2D> CompositeCaptureTextureProviderForTests;
 
         private static readonly HashSet<string> UiComponentTypeAllowList =
             new HashSet<string>(StringComparer.Ordinal)
@@ -92,6 +103,11 @@ namespace UnityAI.Editor.Codex.Infrastructure
         private static UnityGetUiTreeResponse BuildGetUiTreeFailure(string requestId, string errorCode, string errorMessage)
         {
             return Read.ReadErrorMapper.BuildGetUiTreeFailure(requestId, errorCode, errorMessage);
+        }
+
+        private static UnityGetUiOverlayReportResponse BuildGetUiOverlayReportFailure(string requestId, string errorCode, string errorMessage)
+        {
+            return Read.ReadErrorMapper.BuildGetUiOverlayReportFailure(requestId, errorCode, errorMessage);
         }
 
         private static UnityGetSerializedPropertyTreeResponse BuildGetSerializedPropertyTreeFailure(

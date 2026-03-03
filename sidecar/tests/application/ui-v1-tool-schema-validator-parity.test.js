@@ -5,6 +5,9 @@ const assert = require("node:assert/strict");
 
 const { getMcpCommandRegistry } = require("../../src/mcp/commandRegistry");
 const {
+  validateGetUiOverlayReport,
+} = require("../../src/mcp/commands/get_ui_overlay_report/validator");
+const {
   validateGetUiTree,
 } = require("../../src/mcp/commands/get_ui_tree/validator");
 const {
@@ -29,6 +32,7 @@ function getRequired(name) {
 }
 
 test("UI-V1 schema required snapshot aligns with validators", () => {
+  assert.deepEqual(getRequired("get_ui_overlay_report"), []);
   assert.deepEqual(getRequired("get_ui_tree"), []);
   assert.deepEqual(getRequired("hit_test_ui_at_viewport_point"), ["x", "y"]);
   assert.deepEqual(getRequired("validate_ui_layout"), []);
@@ -44,6 +48,17 @@ test("get_ui_tree validator parity: no required fields, rejects unknown keys", (
   assert.equal(ok.ok, true);
 
   const bad = validateGetUiTree({
+    unknown_key: true,
+  });
+  assert.equal(bad.ok, false);
+  assert.equal(bad.errorCode, "E_SCHEMA_INVALID");
+});
+
+test("get_ui_overlay_report validator parity: no required fields, rejects unknown keys", () => {
+  const ok = validateGetUiOverlayReport({});
+  assert.equal(ok.ok, true);
+
+  const bad = validateGetUiOverlayReport({
     unknown_key: true,
   });
   assert.equal(bad.ok, false);

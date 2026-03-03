@@ -16,6 +16,9 @@ const {
 const {
   validateGetToolSchema,
 } = require("../../src/mcp/commands/get_tool_schema/validator");
+const {
+  validateGetWriteContractBundle,
+} = require("../../src/mcp/commands/get_write_contract_bundle/validator");
 
 function buildCapabilitiesReport(extraPayload) {
   return {
@@ -100,6 +103,28 @@ test("validateMcpGetToolSchema validates required tool_name", () => {
   assert.equal(bad.ok, false);
   assert.equal(bad.errorCode, "E_SCHEMA_INVALID");
   assert.equal(bad.message, "tool_name is required");
+});
+
+test("validateGetWriteContractBundle validates optional fields and rejects invalid payload", () => {
+  const ok = validateGetWriteContractBundle({
+    tool_name: "apply_visual_actions",
+    action_type: "rename_object",
+    catalog_version: "sha256:capability_v1",
+    budget_chars: 3600,
+    include_error_fix_map: true,
+    include_canonical_examples: false,
+  });
+  assert.equal(ok.ok, true);
+
+  const bad = validateGetWriteContractBundle({
+    budget_chars: 0,
+  });
+  assert.equal(bad.ok, false);
+  assert.equal(bad.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(
+    bad.message,
+    "budget_chars must be an integer >= 1 when provided"
+  );
 });
 
 test("apply_script_actions rejects legacy component_name precondition alias", () => {

@@ -96,6 +96,161 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         }
 
         [Test]
+        public void SendRuntimePingAsync_InvalidCapturedActionEnvelope_ReportsDeterministicSchemaFailureWithoutTimeout()
+        {
+            var stateStore = new InMemoryConversationStateStore(null);
+            var gateway = new FakeSidecarGateway
+            {
+                RuntimePingResponseFactory = () =>
+                    GatewayOk(
+                        new UnityRuntimePingResponse
+                        {
+                            ok = true,
+                            @event = "job.progress",
+                            request_id = "req_hf01",
+                            status = "pending",
+                            state = "running",
+                            stage = "action_confirm_pending",
+                            unity_action_request = new UnityActionRequestEnvelope
+                            {
+                                request_id = "req_hf01",
+                                turn_id = "turn_hf01",
+                                payload = new UnityActionRequestPayload
+                                {
+                                    based_on_read_token = "tok_anchor_hf_12345678901234567890",
+                                    write_anchor = new UnityObjectAnchor
+                                    {
+                                        object_id = "go_target",
+                                        path = "Scene/Canvas/Panel",
+                                    },
+                                    requires_confirmation = false,
+                                    action = new VisualLayerActionItem
+                                    {
+                                        type = "rename_object",
+                                        target_anchor = new UnityObjectAnchor
+                                        {
+                                            object_id = "go_target",
+                                            path = string.Empty,
+                                        },
+                                        action_data_json = "{\"name\":\"A\"}",
+                                    }
+                                }
+                            }
+                        }),
+                ActionResponseFactory = request =>
+                    GatewayOk(
+                        new UnityActionReportResponse
+                        {
+                            ok = true,
+                            @event = "job.failed",
+                            request_id = request == null ? string.Empty : request.request_id,
+                            status = "failed",
+                            state = "error",
+                            stage = "error",
+                            error_code = request == null || request.payload == null
+                                ? "E_ACTION_SCHEMA_INVALID"
+                                : request.payload.error_code,
+                            error_message = request == null || request.payload == null
+                                ? "Visual action execution failed."
+                                : request.payload.error_message,
+                            message = request == null || request.payload == null
+                                ? "Visual action execution failed."
+                                : request.payload.error_message,
+                        }),
+            };
+            var controller = CreateController(gateway, stateStore);
+
+            controller.SendRuntimePingAsync().GetAwaiter().GetResult();
+
+            Assert.NotNull(gateway.LastActionResultRequest);
+            Assert.NotNull(gateway.LastActionResultRequest.payload);
+            Assert.IsFalse(gateway.LastActionResultRequest.payload.success);
+            Assert.AreEqual("E_ACTION_SCHEMA_INVALID", gateway.LastActionResultRequest.payload.error_code);
+            Assert.IsTrue(
+                (gateway.LastActionResultRequest.payload.error_message ?? string.Empty)
+                    .Contains("target_anchor/parent_anchor"));
+            Assert.IsFalse(controller.IsBusy);
+            Assert.NotNull(stateStore.LastSaved);
+            Assert.AreEqual("E_ACTION_SCHEMA_INVALID", stateStore.LastSaved.last_error_code);
+            Assert.AreNotEqual("E_JOB_MAX_RUNTIME_EXCEEDED", stateStore.LastSaved.last_error_code);
+        }
+
+        [Test]
+        public void SendRuntimePingAsync_MutationWithMalformedOptionalParentAnchor_AllowsExecutionAndReportsSuccess()
+        {
+            var stateStore = new InMemoryConversationStateStore(null);
+            var gateway = new FakeSidecarGateway
+            {
+                RuntimePingResponseFactory = () =>
+                    GatewayOk(
+                        new UnityRuntimePingResponse
+                        {
+                            ok = true,
+                            @event = "job.progress",
+                            request_id = "req_hf02",
+                            status = "pending",
+                            state = "running",
+                            stage = "action_confirm_pending",
+                            unity_action_request = new UnityActionRequestEnvelope
+                            {
+                                request_id = "req_hf02",
+                                turn_id = "turn_hf02",
+                                payload = new UnityActionRequestPayload
+                                {
+                                    based_on_read_token = "tok_anchor_hf_22345678901234567890",
+                                    write_anchor = new UnityObjectAnchor
+                                    {
+                                        object_id = "go_target",
+                                        path = "Scene/Canvas/Panel",
+                                    },
+                                    requires_confirmation = false,
+                                    action = new VisualLayerActionItem
+                                    {
+                                        type = "rename_object",
+                                        target_anchor = new UnityObjectAnchor
+                                        {
+                                            object_id = "go_target",
+                                            path = "Scene/Canvas/Panel",
+                                        },
+                                        parent_anchor = new UnityObjectAnchor
+                                        {
+                                            object_id = "go_parent",
+                                            path = string.Empty,
+                                        },
+                                        action_data_json = "{\"name\":\"A\"}",
+                                    }
+                                }
+                            }
+                        }),
+                ActionResponseFactory = request =>
+                    GatewayOk(
+                        new UnityActionReportResponse
+                        {
+                            ok = true,
+                            @event = "job.completed",
+                            request_id = request == null ? string.Empty : request.request_id,
+                            status = "succeeded",
+                            state = "completed",
+                            stage = "completed",
+                            message = "Action completed.",
+                        }),
+            };
+            var executor = new FakeUnityVisualActionExecutor();
+            var controller = CreateController(gateway, stateStore, executor);
+
+            controller.SendRuntimePingAsync().GetAwaiter().GetResult();
+
+            Assert.AreEqual(1, executor.ExecuteCount);
+            Assert.NotNull(executor.LastAction);
+            Assert.IsNull(executor.LastAction.parent_anchor);
+            Assert.NotNull(gateway.LastActionResultRequest);
+            Assert.NotNull(gateway.LastActionResultRequest.payload);
+            Assert.IsTrue(gateway.LastActionResultRequest.payload.success);
+            Assert.IsTrue(string.IsNullOrEmpty(gateway.LastActionResultRequest.payload.error_code));
+            Assert.IsFalse(controller.IsBusy);
+        }
+
+        [Test]
         public void UnityRuntimeReloadPingBootstrap_NormalizeGatewayState_AutoCancelCodeMapsToCancelled()
         {
             var method = typeof(UnityRuntimeReloadPingBootstrap).GetMethod(
@@ -157,14 +312,15 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
 
         private static ConversationController CreateController(
             ISidecarGateway gateway,
-            IConversationStateStore stateStore)
+            IConversationStateStore stateStore,
+            IUnityVisualActionExecutor visualActionExecutor = null)
         {
             return new ConversationController(
                 gateway,
                 new FakeSidecarProcessManager(),
                 new FakeSelectionContextBuilder(),
                 stateStore,
-                new FakeUnityVisualActionExecutor());
+                visualActionExecutor ?? new FakeUnityVisualActionExecutor());
         }
 
         private static GatewayResponse<T> GatewayOk<T>(T data) where T : class
@@ -211,7 +367,9 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         {
             public System.Func<GatewayResponse<UnityRuntimePingResponse>> RuntimePingResponseFactory;
             public System.Func<GatewayResponse<UnityCapabilitiesReportResponse>> CapabilityResponseFactory;
+            public System.Func<UnityActionResultRequest, GatewayResponse<UnityActionReportResponse>> ActionResponseFactory;
             public UnityCapabilitiesReportRequest LastCapabilitiesRequest;
+            public UnityActionResultRequest LastActionResultRequest;
 
             public Task<GatewayResponse<HealthResponse>> GetHealthAsync(string baseUrl)
             {
@@ -291,7 +449,21 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 string baseUrl,
                 UnityActionResultRequest request)
             {
-                return Task.FromResult(GatewayOk(new UnityActionReportResponse { ok = true }));
+                LastActionResultRequest = request;
+                var response = ActionResponseFactory != null
+                    ? ActionResponseFactory(request)
+                    : GatewayOk(
+                        new UnityActionReportResponse
+                        {
+                            ok = true,
+                            @event = "job.completed",
+                            request_id = request == null ? string.Empty : request.request_id,
+                            status = "succeeded",
+                            state = "completed",
+                            stage = "completed",
+                            message = "Action completed.",
+                        });
+                return Task.FromResult(response);
             }
 
             public Task<GatewayResponse<UnityQueryComponentsReportResponse>> ReportUnityComponentsQueryResultAsync(
@@ -361,11 +533,19 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
 
         private sealed class FakeUnityVisualActionExecutor : IUnityVisualActionExecutor
         {
+            public int ExecuteCount { get; private set; }
+            public VisualLayerActionItem LastAction { get; private set; }
+
             public UnityActionExecutionResult Execute(VisualLayerActionItem action, GameObject selected)
             {
+                ExecuteCount++;
+                LastAction = action;
                 return new UnityActionExecutionResult
                 {
                     success = true,
+                    actionType = action == null ? string.Empty : action.type,
+                    targetObjectPath = action == null || action.target_anchor == null ? string.Empty : action.target_anchor.path,
+                    targetObjectId = action == null || action.target_anchor == null ? string.Empty : action.target_anchor.object_id,
                     errorCode = string.Empty,
                     errorMessage = string.Empty,
                 };
