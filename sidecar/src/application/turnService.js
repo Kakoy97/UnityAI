@@ -24,19 +24,21 @@ const { McpEyesService } = require("./mcpGateway/mcpEyesService");
 const { QueryStore } = require("./queryRuntime/queryStore");
 const { QueryCoordinator } = require("./queryCoordinator");
 const { CapabilityStore } = require("./capabilityStore");
-const { normalizeWriteToolOutcome } = require("./writeReceiptFormatter");
+const {
+  normalizeRequestId,
+  normalizeString,
+  isObject,
+  buildUnityActionRequestEnvelopeWithIds:
+    buildUnityActionRequestEnvelopeWithIdsHelper,
+  buildValidationErrorResponse: buildValidationErrorResponseHelper,
+  normalizeWriteOutcome: normalizeWriteOutcomeHelper,
+  mapFileErrorToStatus: mapFileErrorToStatusHelper,
+} = require("./turnServiceWriteSupport");
 const {
   createCaptureCompositeRuntime,
 } = require("./captureCompositeRuntime");
 
 const SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
-
-function normalizeRequestId(value) {
-  if (!value || typeof value !== "string") {
-    return "";
-  }
-  return value.trim();
-}
 
 class TurnService {
   constructor(deps) {
@@ -98,6 +100,12 @@ class TurnService {
       v1PolishMetricsCollector: this.v1PolishMetricsCollector,
       getCaptureCompositeMetricsSnapshot: () =>
         this.captureCompositeRuntime.getMetricsSnapshot(Date.now()),
+      getProtocolGovernanceMetricsSnapshot: () =>
+        this.mcpEyesService &&
+        typeof this.mcpEyesService.getProtocolGovernanceMetricsSnapshot ===
+          "function"
+          ? this.mcpEyesService.getProtocolGovernanceMetricsSnapshot()
+          : null,
     });
     this.preconditionService = new PreconditionService({
       turnStore: this.turnStore,
@@ -654,87 +662,48 @@ class TurnService {
   }
 
   buildUnityActionRequestEnvelopeWithIds(requestId, threadId, turnId, action) {
-    const item = action && typeof action === "object" ? action : {};
-    const normalizedRequestId = normalizeRequestId(requestId);
-    const approvalMode = this.resolveTurnApprovalMode(normalizedRequestId);
-    return {
-      event: "unity.action.request",
-      request_id: normalizedRequestId,
-      thread_id: typeof threadId === "string" ? threadId : "",
-      turn_id: typeof turnId === "string" ? turnId : "",
-      timestamp: this.nowIso(),
-      payload: {
-        action_type: typeof item.type === "string" ? item.type : "",
-        target: typeof item.target === "string" ? item.target : "",
-        target_object_path:
-          typeof item.target_object_path === "string" ? item.target_object_path : "",
-        target_object_id:
-          typeof item.target_object_id === "string" ? item.target_object_id : "",
-        component_assembly_qualified_name:
-          typeof item.component_assembly_qualified_name === "string"
-            ? item.component_assembly_qualified_name
-            : "",
-        component_name:
-          typeof item.component_name === "string" ? item.component_name : "",
-        remove_mode:
-          typeof item.remove_mode === "string" ? item.remove_mode : "single",
-        expected_count:
-          Number.isFinite(Number(item.expected_count)) &&
-          Number(item.expected_count) >= 0
-            ? Math.floor(Number(item.expected_count))
-            : 1,
-        requires_confirmation: approvalMode === "require_user",
-      },
-    };
+    return buildUnityActionRequestEnvelopeWithIdsHelper({
+      requestId,
+      threadId,
+      turnId,
+      action,
+      nowIso: this.nowIso,
+      resolveApprovalMode: (normalizedRequestId) =>
+        this.resolveTurnApprovalMode(normalizedRequestId),
+    });
   }
 
   validationError(validation) {
-    const expected =
-      validation && validation.expected && typeof validation.expected === "object"
-        ? validation.expected
-        : null;
-    const actual =
-      validation && validation.actual && typeof validation.actual === "object"
-        ? validation.actual
-        : null;
-    const diff =
-      validation && Array.isArray(validation.diff) ? validation.diff : null;
-    return {
-      statusCode: validation.statusCode,
-      body: {
-        error_code: validation.errorCode,
-        message: validation.message,
-        ...(expected ? { expected } : {}),
-        ...(actual ? { actual } : {}),
-        ...(diff ? { diff } : {}),
-      },
-    };
+    return buildValidationErrorResponseHelper(validation);
   }
 
   normalizeWriteOutcome(outcome) {
-    if (outcome && typeof outcome.then === "function") {
-      return outcome.then((resolved) => normalizeWriteToolOutcome(resolved));
+    return normalizeWriteOutcomeHelper(outcome, {
+      resolveRequestIdFromFailureBody: (failureBody) =>
+        this.resolveRequestIdFromFailureBody(failureBody),
+    });
+  }
+
+  resolveRequestIdFromFailureBody(body) {
+    if (!isObject(body)) {
+      return "";
     }
-    return normalizeWriteToolOutcome(outcome);
+    const jobId = normalizeString(body.job_id);
+    if (!jobId || !this.mcpGateway || !this.mcpGateway.jobStore) {
+      return "";
+    }
+    const job =
+      typeof this.mcpGateway.jobStore.getJob === "function"
+        ? this.mcpGateway.jobStore.getJob(jobId)
+        : null;
+    if (!job || typeof job !== "object") {
+      return "";
+    }
+    return normalizeString(job.request_id);
   }
 
   mapFileErrorToStatus(errorCode) {
-    if (errorCode === "E_FILE_EXISTS_BLOCKED") {
-      return 409;
-    }
-    if (errorCode === "E_FILE_PATH_FORBIDDEN") {
-      return 403;
-    }
-    if (errorCode === "E_FILE_SIZE_EXCEEDED") {
-      return 413;
-    }
-    if (errorCode === "E_FILE_NOT_FOUND") {
-      return 404;
-    }
-    if (errorCode === "E_SCHEMA_INVALID") {
-      return 400;
-    }
-    return 500;
+    return mapFileErrorToStatusHelper(errorCode);
   }
 }
 

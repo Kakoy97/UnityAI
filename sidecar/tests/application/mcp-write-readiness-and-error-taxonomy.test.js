@@ -160,12 +160,90 @@ test("write submit path accepts jobs after Unity becomes ready", () => {
   assert.ok(typeof outcome.body.job_id === "string" && outcome.body.job_id.length > 0);
 });
 
+test("R20-UX-GOV-11 write tools fail-fast with E_CONTRACT_VERSION_MISMATCH on catalog_version mismatch", () => {
+  const service = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_gov11_write_mismatch_1");
+  const token = issueReadToken(service);
+
+  const outcome = service.applyVisualActionsForMcp({
+    based_on_read_token: token,
+    catalog_version: "test_write_readiness_v0",
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    actions: [
+      {
+        type: "set_ui_image_color",
+        target_anchor: {
+          object_id: "go_root",
+          path: "Scene/Root",
+        },
+        action_data: {
+          r: 1,
+          g: 0,
+          b: 0,
+          a: 1,
+        },
+      },
+    ],
+  });
+
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(outcome.body.error_code, "E_CONTRACT_VERSION_MISMATCH");
+  assert.equal(outcome.body.recoverable, true);
+  assert.equal(outcome.body.capability_version, "test_write_readiness_v1");
+  assert.equal(outcome.body.requested_catalog_version, "test_write_readiness_v0");
+  assert.equal(outcome.body.unity_connection_state, "ready");
+  assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
+  assert.equal(service.mcpGateway.jobQueue.size(), 0);
+});
+
+test("R20-UX-GOV-11 write tools fail-fast with E_CONTRACT_VERSION_MISMATCH when capability state is stale", () => {
+  const service = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_gov11_write_stale_1");
+  const token = issueReadToken(service);
+  service.capabilityStore.setConnectionState("stale");
+
+  const outcome = service.applyVisualActionsForMcp({
+    based_on_read_token: token,
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    actions: [
+      {
+        type: "set_ui_image_color",
+        target_anchor: {
+          object_id: "go_root",
+          path: "Scene/Root",
+        },
+        action_data: {
+          r: 1,
+          g: 0,
+          b: 0,
+          a: 1,
+        },
+      },
+    ],
+  });
+
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(outcome.body.error_code, "E_CONTRACT_VERSION_MISMATCH");
+  assert.equal(outcome.body.unity_connection_state, "stale");
+  assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
+  assert.equal(service.mcpGateway.jobQueue.size(), 0);
+});
+
 test("extended action error taxonomy returns recoverable suggestions", () => {
   const expectedCodes = [
     "E_ACTION_HANDLER_NOT_FOUND",
     "E_ACTION_DESERIALIZE_FAILED",
     "E_ACTION_PAYLOAD_INVALID",
     "E_ACTION_CAPABILITY_MISMATCH",
+    "E_CONTRACT_VERSION_MISMATCH",
   ];
 
   for (const errorCode of expectedCodes) {

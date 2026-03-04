@@ -144,7 +144,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
     {
         private string _createdName;
 
-        protected override string ActionType { get { return "create_gameobject"; } }
+        protected override string ActionType { get { return "create_object"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -180,7 +180,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private string _originalName;
         private string _renamedName;
 
-        protected override string ActionType { get { return "rename_gameobject"; } }
+        protected override string ActionType { get { return "rename_object"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -216,7 +216,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private readonly Vector3 _appliedValue = new Vector3(3f, 5f, 7f);
         private Vector3 _originalValue;
 
-        protected override string ActionType { get { return "set_transform_local_position"; } }
+        protected override string ActionType { get { return "set_local_position"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -250,7 +250,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
     {
         private string _targetName;
 
-        protected override string ActionType { get { return "destroy_gameobject"; } }
+        protected override string ActionType { get { return "destroy_object"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -285,7 +285,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private readonly Vector3 _appliedEuler = new Vector3(10f, 25f, 40f);
         private Quaternion _originalValue;
 
-        protected override string ActionType { get { return "set_transform_local_rotation"; } }
+        protected override string ActionType { get { return "set_local_rotation"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -322,7 +322,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private readonly Vector3 _appliedValue = new Vector3(1.5f, 2f, 0.75f);
         private Vector3 _originalValue;
 
-        protected override string ActionType { get { return "set_transform_local_scale"; } }
+        protected override string ActionType { get { return "set_local_scale"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -357,7 +357,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private readonly Vector3 _appliedValue = new Vector3(8f, 6f, 4f);
         private Vector3 _originalValue;
 
-        protected override string ActionType { get { return "set_transform_world_position"; } }
+        protected override string ActionType { get { return "set_world_position"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -392,7 +392,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private readonly Vector3 _appliedEuler = new Vector3(15f, 45f, 75f);
         private Quaternion _originalValue;
 
-        protected override string ActionType { get { return "set_transform_world_rotation"; } }
+        protected override string ActionType { get { return "set_world_rotation"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -427,7 +427,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private readonly Vector2 _appliedValue = new Vector2(30f, -40f);
         private Vector2 _originalValue;
 
-        protected override string ActionType { get { return "set_rect_transform_anchored_position"; } }
+        protected override string ActionType { get { return "set_rect_anchored_position"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -466,7 +466,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private readonly Vector2 _appliedValue = new Vector2(240f, 96f);
         private Vector2 _originalValue;
 
-        protected override string ActionType { get { return "set_rect_transform_size_delta"; } }
+        protected override string ActionType { get { return "set_rect_size_delta"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -505,7 +505,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private readonly Vector2 _appliedValue = new Vector2(0.2f, 0.8f);
         private Vector2 _originalValue;
 
-        protected override string ActionType { get { return "set_rect_transform_pivot"; } }
+        protected override string ActionType { get { return "set_rect_pivot"; } }
 
         protected override GameObject CreateTarget()
         {
@@ -546,7 +546,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         private Vector2 _originalMin;
         private Vector2 _originalMax;
 
-        protected override string ActionType { get { return "set_rect_transform_anchors"; } }
+        protected override string ActionType { get { return "set_rect_anchors"; } }
 
         protected override GameObject CreateTarget()
         {

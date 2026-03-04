@@ -197,6 +197,15 @@ class UnityDispatcher {
             error_message: summary,
             action_type: payload.action_type || "",
             target_object_path: payload.target_object_path || payload.target || "",
+            field_path:
+              typeof payload.field_path === "string" ? payload.field_path : "",
+            anchor_snapshot:
+              payload.anchor_snapshot &&
+              typeof payload.anchor_snapshot === "object"
+                ? cloneJson(payload.anchor_snapshot)
+                : null,
+            request_id:
+              body && typeof body.request_id === "string" ? body.request_id.trim() : "",
           },
         },
         this.nowIso
@@ -353,6 +362,9 @@ class UnityDispatcher {
               error_message: error.message,
               action_type: actionType,
               target_object_path: "",
+              field_path: "",
+              anchor_snapshot: null,
+              request_id: "",
             },
           },
           this.nowIso

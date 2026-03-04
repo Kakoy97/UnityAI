@@ -3,6 +3,9 @@
 const {
   buildActionSchemaUsabilityPack,
 } = require("../../../application/writeContractBundle");
+const {
+  createCapabilityActionContractRegistry,
+} = require("../../../domain/actionContractRegistry");
 
 function executeGetActionSchema(context, requestBody) {
   const ctx = context && typeof context === "object" ? context : {};
@@ -74,9 +77,13 @@ function executeGetActionSchema(context, requestBody) {
       actionCapability = uncached.action;
     }
   }
+  const actionContractRegistry = createCapabilityActionContractRegistry(
+    capabilityStore
+  );
   const usabilityPack = buildActionSchemaUsabilityPack({
     actionType,
     action: actionCapability || {},
+    actionContractRegistry,
   });
 
   return {

@@ -42,6 +42,9 @@ namespace UnityAI.Editor.Codex.Infrastructure
             public string action_type;
             public bool success;
             public string error_code;
+            public string error_message;
+            public string field_path;
+            public UnityActionAnchorSnapshot anchor_snapshot;
             public string target_object_path;
             public string target_object_id;
             public string created_object_path;
@@ -120,6 +123,9 @@ namespace UnityAI.Editor.Codex.Infrastructure
                 action_type = Safe(payload.action_type),
                 success = payload.success,
                 error_code = Safe(payload.error_code),
+                error_message = Safe(payload.error_message),
+                field_path = Safe(payload.field_path),
+                anchor_snapshot = payload.anchor_snapshot,
                 target_object_path = Safe(payload.target_object_path),
                 target_object_id = Safe(payload.target_object_id),
                 created_object_path = Safe(payload.created_object_path),

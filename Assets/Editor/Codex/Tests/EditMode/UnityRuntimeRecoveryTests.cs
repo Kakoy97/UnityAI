@@ -240,14 +240,19 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
 
             controller.SendRuntimePingAsync().GetAwaiter().GetResult();
 
-            Assert.AreEqual(1, executor.ExecuteCount);
-            Assert.NotNull(executor.LastAction);
-            Assert.IsNull(executor.LastAction.parent_anchor);
+            Assert.AreEqual(0, executor.ExecuteCount);
+            Assert.IsNull(executor.LastAction);
             Assert.NotNull(gateway.LastActionResultRequest);
             Assert.NotNull(gateway.LastActionResultRequest.payload);
-            Assert.IsTrue(gateway.LastActionResultRequest.payload.success);
-            Assert.IsTrue(string.IsNullOrEmpty(gateway.LastActionResultRequest.payload.error_code));
+            Assert.IsFalse(gateway.LastActionResultRequest.payload.success);
+            Assert.AreEqual("E_ACTION_SCHEMA_INVALID", gateway.LastActionResultRequest.payload.error_code);
+            Assert.IsTrue(
+                (gateway.LastActionResultRequest.payload.error_message ?? string.Empty)
+                    .Contains("target_anchor/parent_anchor"));
             Assert.IsFalse(controller.IsBusy);
+            Assert.NotNull(stateStore.LastSaved);
+            Assert.AreEqual("E_ACTION_SCHEMA_INVALID", stateStore.LastSaved.last_error_code);
+            Assert.AreNotEqual("E_JOB_MAX_RUNTIME_EXCEEDED", stateStore.LastSaved.last_error_code);
         }
 
         [Test]

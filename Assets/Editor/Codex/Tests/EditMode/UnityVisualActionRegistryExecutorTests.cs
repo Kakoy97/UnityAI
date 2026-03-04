@@ -60,7 +60,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             var result = executor.Execute(
                 new VisualLayerActionItem
                 {
-                    type = "create_gameobject",
+                    type = "create_object",
                     parent_anchor = new UnityObjectAnchor
                     {
                         object_id = "go_parent",

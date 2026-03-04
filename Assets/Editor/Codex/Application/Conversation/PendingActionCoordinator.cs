@@ -51,6 +51,7 @@ namespace UnityAI.Editor.Codex.Application
             var actionEnvelope = _pendingUnityActionRequest;
             var actionPayload = actionEnvelope.payload;
             var action = actionPayload == null ? null : actionPayload.action;
+            var actionAnchorSnapshot = BuildActionAnchorSnapshot(actionPayload, action);
 
             UnityActionExecutionResult execution;
             string actionValidationErrorCode;
@@ -105,18 +106,36 @@ namespace UnityAI.Editor.Codex.Application
                     errorMessage = string.IsNullOrWhiteSpace(actionValidationErrorMessage)
                         ? "Visual action payload failed L3 pre-execution schema validation."
                         : actionValidationErrorMessage,
+                    fieldPath = InferFieldPathFromError(
+                        actionValidationErrorCode,
+                        actionValidationErrorMessage),
+                    anchorSnapshot = actionAnchorSnapshot,
                     durationMs = 0
                 };
             }
             else if (approved)
             {
                 execution = _visualActionExecutor.Execute(action, selected);
+                execution.anchorSnapshot = actionAnchorSnapshot;
+                if (!execution.success && string.IsNullOrWhiteSpace(execution.fieldPath))
+                {
+                    execution.fieldPath = InferFieldPathFromError(
+                        execution.errorCode,
+                        execution.errorMessage);
+                }
                 if (!execution.success && execution.errorCode == "E_ACTION_COMPONENT_RESOLVE_FAILED")
                 {
                     AddLog(UiLogLevel.Warning, "Component unresolved on first try. Refreshing assets and retrying once.");
                     AssetDatabase.Refresh();
                     await Task.Delay(300);
                     execution = _visualActionExecutor.Execute(action, selected);
+                    execution.anchorSnapshot = actionAnchorSnapshot;
+                    if (!execution.success && string.IsNullOrWhiteSpace(execution.fieldPath))
+                    {
+                        execution.fieldPath = InferFieldPathFromError(
+                            execution.errorCode,
+                            execution.errorMessage);
+                    }
                     if (!execution.success && execution.errorCode == "E_ACTION_COMPONENT_RESOLVE_FAILED")
                     {
                         AddLog(
@@ -148,6 +167,8 @@ namespace UnityAI.Editor.Codex.Application
                     success = false,
                     errorCode = "E_ACTION_CONFIRM_REJECTED",
                     errorMessage = "User rejected visual action confirmation.",
+                    fieldPath = string.Empty,
+                    anchorSnapshot = actionAnchorSnapshot,
                     durationMs = 0
                 };
             }
@@ -201,6 +222,13 @@ namespace UnityAI.Editor.Codex.Application
                     success = execution.success,
                     error_code = normalizedActionErrorCode,
                     error_message = normalizedActionErrorMessage,
+                    field_path = execution.success
+                        ? string.Empty
+                        : NormalizeFieldPathForTransport(
+                            execution.fieldPath,
+                            normalizedActionErrorCode,
+                            normalizedActionErrorMessage),
+                    anchor_snapshot = execution.anchorSnapshot ?? actionAnchorSnapshot,
                     duration_ms = execution.durationMs,
                     result_data = execution.resultData,
                     write_receipt = execution.writeReceipt
@@ -362,6 +390,145 @@ namespace UnityAI.Editor.Codex.Application
         }
 
 
+        private static UnityObjectAnchor CloneAnchor(UnityObjectAnchor anchor)
+        {
+            if (anchor == null)
+            {
+                return null;
+            }
+
+            var objectId = ReadAnchorObjectId(anchor);
+            var path = ReadAnchorPath(anchor);
+            if (string.IsNullOrEmpty(objectId) && string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+
+            return new UnityObjectAnchor
+            {
+                object_id = objectId,
+                path = path
+            };
+        }
+
+
+        private static UnityActionAnchorSnapshot BuildActionAnchorSnapshot(
+            UnityActionRequestPayload payload,
+            VisualLayerActionItem action)
+        {
+            var snapshot = new UnityActionAnchorSnapshot
+            {
+                write_anchor = CloneAnchor(payload == null ? null : payload.write_anchor),
+                target_anchor = CloneAnchor(action == null ? null : action.target_anchor),
+                parent_anchor = CloneAnchor(action == null ? null : action.parent_anchor)
+            };
+            if (snapshot.write_anchor == null &&
+                snapshot.target_anchor == null &&
+                snapshot.parent_anchor == null)
+            {
+                return null;
+            }
+
+            return snapshot;
+        }
+
+
+        private static string NormalizeFieldPathForTransport(
+            string explicitFieldPath,
+            string errorCode,
+            string errorMessage)
+        {
+            if (!string.IsNullOrWhiteSpace(explicitFieldPath))
+            {
+                return explicitFieldPath.Trim();
+            }
+
+            return InferFieldPathFromError(errorCode, errorMessage);
+        }
+
+
+        private static string InferFieldPathFromError(string errorCode, string errorMessage)
+        {
+            var message = string.IsNullOrWhiteSpace(errorMessage)
+                ? string.Empty
+                : errorMessage.Trim();
+            if (string.IsNullOrEmpty(message))
+            {
+                return string.Empty;
+            }
+
+            if (message.IndexOf("write_anchor", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var writeSuffix = InferAnchorLeafSuffix(message);
+                return string.IsNullOrEmpty(writeSuffix)
+                    ? "write_anchor"
+                    : "write_anchor." + writeSuffix;
+            }
+
+            if (message.IndexOf("target_anchor", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var targetSuffix = InferAnchorLeafSuffix(message);
+                return string.IsNullOrEmpty(targetSuffix)
+                    ? "actions[0].target_anchor"
+                    : "actions[0].target_anchor." + targetSuffix;
+            }
+
+            if (message.IndexOf("parent_anchor", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var parentSuffix = InferAnchorLeafSuffix(message);
+                return string.IsNullOrEmpty(parentSuffix)
+                    ? "actions[0].parent_anchor"
+                    : "actions[0].parent_anchor." + parentSuffix;
+            }
+
+            if (message.IndexOf("based_on_read_token", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "based_on_read_token";
+            }
+
+            if (message.IndexOf("payload.action.type", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "actions[0].type";
+            }
+
+            if (message.IndexOf("action_data", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "actions[0].action_data";
+            }
+
+            if (string.Equals(
+                    NormalizeErrorCodeForTransport(errorCode, string.Empty),
+                    "E_TARGET_ANCHOR_CONFLICT",
+                    StringComparison.Ordinal))
+            {
+                return "actions[0].target_anchor";
+            }
+
+            return string.Empty;
+        }
+
+
+        private static string InferAnchorLeafSuffix(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return string.Empty;
+            }
+
+            if (message.IndexOf("object_id", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "object_id";
+            }
+
+            if (message.IndexOf("path", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "path";
+            }
+
+            return string.Empty;
+        }
+
+
         private static bool TryValidateActionRequestPayload(
             UnityActionRequestPayload payload,
             out string errorCode,
@@ -407,82 +574,11 @@ namespace UnityAI.Editor.Codex.Application
             out string errorCode,
             out string errorMessage)
         {
-            errorCode = string.Empty;
-            errorMessage = string.Empty;
-
-            if (action == null)
-            {
-                errorCode = "E_ACTION_SCHEMA_INVALID";
-                errorMessage = "payload.action is required.";
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(action.type))
-            {
-                errorCode = "E_ACTION_SCHEMA_INVALID";
-                errorMessage = "payload.action.type is required.";
-                return false;
-            }
-
-            var hasTargetAnchor = HasCompleteAnchor(action.target_anchor);
-            var hasParentAnchor = HasCompleteAnchor(action.parent_anchor);
-            var hasInvalidTargetAnchor = action.target_anchor != null && !hasTargetAnchor;
-            var hasInvalidParentAnchor = action.parent_anchor != null && !hasParentAnchor;
-            // Compatibility hardening:
-            // Some upstream payloads may carry a malformed optional parent_anchor
-            // alongside a valid target_anchor. For non-create actions, parent_anchor
-            // is optional; drop malformed parent_anchor instead of hard-failing.
-            if (!IsCreateGameObjectAction(action) &&
-                hasTargetAnchor &&
-                hasInvalidParentAnchor &&
-                !hasInvalidTargetAnchor)
-            {
-                action.parent_anchor = null;
-                hasParentAnchor = false;
-                hasInvalidParentAnchor = false;
-            }
-
-            if (hasInvalidTargetAnchor || hasInvalidParentAnchor)
-            {
-                errorCode = "E_ACTION_SCHEMA_INVALID";
-                errorMessage = "payload.action target_anchor/parent_anchor must include object_id and path.";
-                return false;
-            }
-
-            if (IsCreateGameObjectAction(action) && !hasParentAnchor)
-            {
-                errorCode = "E_ACTION_SCHEMA_INVALID";
-                errorMessage = "payload.action.parent_anchor is required for create action.";
-                return false;
-            }
-
-            if (!hasTargetAnchor && !hasParentAnchor)
-            {
-                errorCode = "E_ACTION_SCHEMA_INVALID";
-                errorMessage = "payload.action requires target_anchor or parent_anchor.";
-                return false;
-            }
-
-            return true;
-        }
-
-
-        private static bool IsCreateGameObjectAction(VisualLayerActionItem action)
-        {
-            if (action == null || string.IsNullOrWhiteSpace(action.type))
-            {
-                return false;
-            }
-
-            var normalized = action.type.Trim();
-            return string.Equals(
-                       normalized,
-                       "create_gameobject",
-                       StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(
-                       normalized,
-                       "create_object",
-                       StringComparison.OrdinalIgnoreCase);
+            return VisualActionContractValidator.TryValidateActionPayload(
+                action,
+                McpActionRegistryBootstrap.Registry,
+                out errorCode,
+                out errorMessage);
         }
 
 

@@ -19,7 +19,8 @@ const REQUIRED_WIRE_MARKERS = Object.freeze([
     ],
   },
   {
-    file: "sidecar/src/domain/validators/legacyValidators.js",
+    // Validator implementation moved from legacyValidators.js to split module.
+    file: "sidecar/src/domain/validators/_mcpWriteValidatorsImpl.js",
     markers: [
       "action_data_json is not allowed in external payload",
       "action_data_marshaled is not allowed in external payload",
@@ -58,6 +59,7 @@ const WIRE_TOKEN_SCAN = Object.freeze({
     "sidecar/src/application/turnPayloadBuilders.js",
     "sidecar/src/application/unityDispatcher/runtimeUtils.js",
     "sidecar/src/domain/validators/legacyValidators.js",
+    "sidecar/src/domain/validators/_mcpWriteValidatorsImpl.js",
     "sidecar/src/ports/contracts.js",
     "sidecar/src/mcp/commands/set_serialized_property/validator.js",
   ]),

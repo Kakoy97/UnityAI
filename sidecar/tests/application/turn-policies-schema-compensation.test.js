@@ -85,7 +85,9 @@ test("R20-UX-A-02 classifier marks target_anchor field path as anchor", () => {
   assert.equal(classification.fix_kind, "anchor_missing_or_invalid");
 });
 
-test("R20-UX-C-03 anchor error includes suggested_patch + corrected_payload", () => {
+// R21-detox: suggested_patch/corrected_payload removed with schemaCompensationFixes.
+// Compensation still returns schema_ref + fix_kind + field_path.
+test("R20-UX-C-03 anchor error returns schema_ref without corrected_payload", () => {
   const compensation = buildValidationSchemaCompensation(
     {
       errorCode: "E_ACTION_SCHEMA_INVALID",
@@ -113,25 +115,13 @@ test("R20-UX-C-03 anchor error includes suggested_patch + corrected_payload", ()
   );
 
   assert.ok(compensation && typeof compensation === "object");
-  assert.equal(Array.isArray(compensation.suggested_patch), true);
-  assert.equal(compensation.suggested_patch.length, 1);
-  assert.equal(compensation.suggested_patch[0].path, "/actions/0/target_anchor");
-  assert.equal(
-    compensation.suggested_patch[0].value.object_id,
-    "go_panel"
-  );
-  assert.ok(compensation.corrected_payload);
-  assert.equal(
-    compensation.corrected_payload.actions[0].target_anchor.path,
-    "Scene/Canvas/Panel"
-  );
-  assert.equal(compensation.normalization_applied, true);
-  assert.equal(compensation.next_step, "retry_with_corrected_payload");
-  assert.equal(
-    typeof compensation.original_payload_hash === "string" &&
-      compensation.original_payload_hash.startsWith("sha256:"),
-    true
-  );
+  assert.equal(compensation.retryable, true);
+  assert.equal(compensation.schema_issue_category, "anchor");
+  assert.equal(compensation.field_path, "actions[0].target_anchor.object_id");
+  assert.equal(compensation.fix_kind, "anchor_missing_or_invalid");
+  assert.ok(compensation.schema_ref);
+  assert.equal(compensation.suggested_patch, undefined);
+  assert.equal(compensation.corrected_payload, undefined);
 });
 
 test("R20-UX-C-03 action_data errors do not emit anchor auto-fix patch", () => {
@@ -167,7 +157,8 @@ test("R20-UX-C-03 action_data errors do not emit anchor auto-fix patch", () => {
   assert.equal(Object.prototype.hasOwnProperty.call(compensation, "corrected_payload"), false);
 });
 
-test("R20-UX-C-03 create action parent_anchor error includes suggested_patch + corrected_payload", () => {
+// R21-detox: corrected_payload/suggested_patch removed.
+test("R20-UX-C-03 create action parent_anchor error returns schema_ref without corrected_payload", () => {
   const compensation = buildValidationSchemaCompensation(
     {
       errorCode: "E_ACTION_SCHEMA_INVALID",
@@ -196,15 +187,82 @@ test("R20-UX-C-03 create action parent_anchor error includes suggested_patch + c
   );
 
   assert.ok(compensation && typeof compensation === "object");
-  assert.equal(Array.isArray(compensation.suggested_patch), true);
-  assert.equal(compensation.suggested_patch.length, 1);
-  assert.equal(compensation.suggested_patch[0].path, "/actions/0/parent_anchor");
-  assert.equal(compensation.suggested_patch[0].value.object_id, "go_canvas");
-  assert.ok(compensation.corrected_payload);
-  assert.equal(
-    compensation.corrected_payload.actions[0].parent_anchor.path,
-    "Scene/Canvas"
+  assert.equal(compensation.retryable, true);
+  assert.equal(compensation.schema_issue_category, "anchor");
+  assert.equal(compensation.field_path, "actions[0].parent_anchor.object_id");
+  assert.ok(compensation.schema_ref);
+  assert.equal(compensation.suggested_patch, undefined);
+  assert.equal(compensation.corrected_payload, undefined);
+});
+
+// R21-detox: corrected_payload/suggested_patch removed.
+test("R20-UX-GOV-02 create_object alias parent_anchor error returns schema_ref without corrected_payload", () => {
+  const compensation = buildValidationSchemaCompensation(
+    {
+      errorCode: "E_ACTION_SCHEMA_INVALID",
+      message: "actions[0].parent_anchor.object_id is required",
+    },
+    {
+      toolName: "apply_visual_actions",
+      requestBody: {
+        based_on_read_token: "tok_r20_gov02_create_alias_1234567890",
+        write_anchor: {
+          object_id: "go_canvas",
+          path: "Scene/Canvas",
+        },
+        actions: [
+          {
+            type: "create_object",
+            parent_anchor: {},
+            action_data: {
+              name: "StartButton",
+              ui_type: "Button",
+            },
+          },
+        ],
+      },
+    }
   );
-  assert.equal(compensation.normalization_applied, true);
-  assert.equal(compensation.next_step, "retry_with_corrected_payload");
+
+  assert.ok(compensation && typeof compensation === "object");
+  assert.equal(compensation.retryable, true);
+  assert.equal(compensation.schema_issue_category, "anchor");
+  assert.ok(compensation.schema_ref);
+  assert.equal(compensation.suggested_patch, undefined);
+  assert.equal(compensation.corrected_payload, undefined);
+});
+
+// R21-detox: corrected_payload/suggested_patch removed.
+test("R20-UX-GOV-03 write_anchor error returns schema_ref without corrected_payload", () => {
+  const compensation = buildValidationSchemaCompensation(
+    {
+      errorCode: "E_ACTION_SCHEMA_INVALID",
+      message: "write_anchor.object_id is required",
+    },
+    {
+      toolName: "apply_visual_actions",
+      requestBody: {
+        based_on_read_token: "tok_r20_gov03_write_anchor_1234567890",
+        actions: [
+          {
+            type: "rename_object",
+            target_anchor: {
+              object_id: "go_panel",
+              path: "Scene/Canvas/Panel",
+            },
+            action_data: {
+              name: "Panel_Renamed",
+            },
+          },
+        ],
+      },
+    }
+  );
+
+  assert.ok(compensation && typeof compensation === "object");
+  assert.equal(compensation.retryable, true);
+  assert.equal(compensation.schema_issue_category, "anchor");
+  assert.ok(compensation.schema_ref);
+  assert.equal(compensation.suggested_patch, undefined);
+  assert.equal(compensation.corrected_payload, undefined);
 });

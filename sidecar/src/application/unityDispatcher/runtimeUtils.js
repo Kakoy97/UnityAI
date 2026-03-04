@@ -9,6 +9,9 @@ const {
 const {
   buildVisualActionDataBridge,
 } = require("../turnPayloadBuilders");
+const {
+  canonicalizeVisualActionType,
+} = require("../../domain/actionTypeCanonicalizer");
 
 function isObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -353,8 +356,10 @@ function buildAnchorObject(rawAnchor, fallback, options) {
 function buildVisualActionPayload(action, options) {
   const item = action && typeof action === "object" ? action : {};
   const opts = options && typeof options === "object" ? options : {};
+  // R21-detox: canonicalize deprecated alias names before sending to L3.
+  const rawType = typeof item.type === "string" ? item.type : "";
   const payload = {
-    type: typeof item.type === "string" ? item.type : "",
+    type: canonicalizeVisualActionType(rawType) || rawType,
   };
 
   if (typeof item.target === "string") {

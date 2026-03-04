@@ -142,6 +142,41 @@ test("apply_visual_actions returns unified anchor suggestion on schema failure a
   assert.equal(service.mcpGateway.jobQueue.size(), 0);
 });
 
+test("R20-UX-GOV-05 apply_visual_actions failure carries request_id/field_path/anchor_snapshot", () => {
+  const { service } = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_gov05_failure_observability_1");
+  const token = issueReadToken(service);
+
+  const outcome = service.applyVisualActionsForMcp({
+    based_on_read_token: token,
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    actions: [
+      {
+        type: "add_component",
+        component_assembly_qualified_name:
+          "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+      },
+    ],
+  });
+
+  assert.equal(outcome.statusCode, 400);
+  assert.equal(typeof outcome.body.request_id, "string");
+  assert.equal(outcome.body.error_code, "E_ACTION_SCHEMA_INVALID");
+  assert.equal(
+    String(outcome.body.field_path || "").startsWith("actions[0].target_anchor"),
+    true
+  );
+  assert.ok(outcome.body.anchor_snapshot);
+  assert.equal(outcome.body.anchor_snapshot.write_anchor.object_id, "go_root");
+  assert.equal(outcome.body.anchor_snapshot.write_anchor.path, "Scene/Root");
+  assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
+  assert.equal(service.mcpGateway.jobQueue.size(), 0);
+});
+
 test("apply_visual_actions enforces capability anchor_policy for known action types", () => {
   const { service } = createService();
   markUnityReady(service);
@@ -175,10 +210,7 @@ test("apply_visual_actions enforces capability anchor_policy for known action ty
   assert.equal(outcome.body.error_code, "E_ACTION_SCHEMA_INVALID");
   assert.equal(outcome.body.suggestion, ANCHOR_RETRY_SUGGESTION);
   assert.equal(outcome.body.recoverable, true);
-  assert.equal(
-    String(outcome.body.error_message || "").includes("anchor_policy(target_required)"),
-    true
-  );
+  assert.equal(outcome.body.error_message, "actions[0].target_anchor is required");
   assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
   assert.equal(service.mcpGateway.jobQueue.size(), 0);
 });
@@ -318,7 +350,7 @@ test("set_ui_properties dry_run plans mapped actions and never queues Unity job"
   assert.equal(service.mcpGateway.jobQueue.size(), 0);
 });
 
-test("R20-UX-C-02 apply_visual_actions dry_run auto-fills single-action target_anchor from write_anchor", () => {
+test("R20-UX-C-02 apply_visual_actions dry_run rejects missing target_anchor object_id/path", () => {
   const { service } = createService();
   markUnityReady(service);
   seedSelectionSnapshot(service, "scene_rev_r20_ux_c02_1");
@@ -342,19 +374,18 @@ test("R20-UX-C-02 apply_visual_actions dry_run auto-fills single-action target_a
     dry_run: true,
   });
 
-  assert.equal(outcome.statusCode, 200);
-  assert.equal(outcome.body.ok, true);
-  assert.equal(outcome.body.dry_run, true);
-  assert.equal(outcome.body.normalization_applied, true);
+  assert.equal(outcome.statusCode, 400);
+  assert.equal(outcome.body.status, "rejected");
+  assert.equal(outcome.body.error_code, "E_ACTION_SCHEMA_INVALID");
   assert.equal(
-    outcome.body.normalized_payload.actions[0].target_anchor.object_id,
-    "go_panel"
+    outcome.body.error_message,
+    "actions[0].target_anchor.object_id is required"
   );
   assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
   assert.equal(service.mcpGateway.jobQueue.size(), 0);
 });
 
-test("R20-UX-C-02 apply_visual_actions dry_run auto-fills single-action parent_anchor for create action", () => {
+test("R20-UX-C-02 apply_visual_actions dry_run rejects missing parent_anchor object_id/path for create action", () => {
   const { service } = createService();
   markUnityReady(service);
   seedSelectionSnapshot(service, "scene_rev_r20_ux_c02_create_1");
@@ -379,23 +410,52 @@ test("R20-UX-C-02 apply_visual_actions dry_run auto-fills single-action parent_a
     dry_run: true,
   });
 
-  assert.equal(outcome.statusCode, 200);
-  assert.equal(outcome.body.ok, true);
-  assert.equal(outcome.body.dry_run, true);
-  assert.equal(outcome.body.normalization_applied, true);
+  assert.equal(outcome.statusCode, 400);
+  assert.equal(outcome.body.status, "rejected");
+  assert.equal(outcome.body.error_code, "E_ACTION_SCHEMA_INVALID");
   assert.equal(
-    outcome.body.normalized_payload.actions[0].parent_anchor.object_id,
-    "go_canvas"
-  );
-  assert.equal(
-    outcome.body.normalized_payload.actions[0].parent_anchor.path,
-    "Scene/Canvas"
+    outcome.body.error_message,
+    "actions[0].parent_anchor.object_id is required"
   );
   assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
   assert.equal(service.mcpGateway.jobQueue.size(), 0);
 });
 
-test("R20-UX-C-01 preflight_validate_write_payload returns normalized payload without Unity dispatch", () => {
+test("R20-UX-GOV-02 apply_visual_actions dry_run keeps create_object alias parity for missing parent_anchor rejection", () => {
+  const { service } = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_r20_ux_gov02_create_alias_1");
+  const token = issueReadToken(service);
+
+  const outcome = service.applyVisualActionsForMcp({
+    based_on_read_token: token,
+    write_anchor: {
+      object_id: "go_canvas",
+      path: "Scene/Canvas",
+    },
+    actions: [
+      {
+        type: "create_object",
+        parent_anchor: {},
+        action_data: {
+          name: "StartButton",
+          ui_type: "Button",
+        },
+      },
+    ],
+    dry_run: true,
+  });
+
+  assert.equal(outcome.statusCode, 400);
+  assert.equal(outcome.body.status, "rejected");
+  assert.equal(outcome.body.error_code, "E_ACTION_SCHEMA_INVALID");
+  assert.equal(
+    outcome.body.error_message,
+    "actions[0].parent_anchor.object_id is required"
+  );
+});
+
+test("R20-UX-C-01 preflight_validate_write_payload reports blocking error for invalid target_anchor", () => {
   const { service } = createService();
   markUnityReady(service);
   seedSelectionSnapshot(service, "scene_rev_r20_ux_c01_1");
@@ -424,17 +484,21 @@ test("R20-UX-C-01 preflight_validate_write_payload returns normalized payload wi
 
   assert.equal(outcome.statusCode, 200);
   assert.equal(outcome.body.ok, true);
-  assert.equal(outcome.body.preflight.valid, true);
-  assert.equal(outcome.body.preflight.normalization_applied, true);
+  assert.equal(outcome.body.preflight.valid, false);
+  assert.equal(outcome.body.preflight.normalization_applied, false);
   assert.equal(
-    outcome.body.preflight.normalized_payload.actions[0].target_anchor.path,
-    "Scene/Canvas/Panel"
+    outcome.body.preflight.blocking_errors[0].error_code,
+    "E_ACTION_SCHEMA_INVALID"
+  );
+  assert.equal(
+    outcome.body.preflight.blocking_errors[0].field_path,
+    "actions[0].target_anchor.object_id"
   );
   assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
   assert.equal(service.mcpGateway.jobQueue.size(), 0);
 });
 
-test("R20-UX-C-01 preflight_validate_write_payload auto-fills create parent_anchor from write_anchor", () => {
+test("R20-UX-C-01 preflight_validate_write_payload rejects create payload with invalid parent_anchor", () => {
   const { service } = createService();
   markUnityReady(service);
   seedSelectionSnapshot(service, "scene_rev_r20_ux_c01_create_1");
@@ -464,15 +528,63 @@ test("R20-UX-C-01 preflight_validate_write_payload auto-fills create parent_anch
 
   assert.equal(outcome.statusCode, 200);
   assert.equal(outcome.body.ok, true);
-  assert.equal(outcome.body.preflight.valid, true);
-  assert.equal(outcome.body.preflight.normalization_applied, true);
+  assert.equal(outcome.body.preflight.valid, false);
+  assert.equal(outcome.body.preflight.normalization_applied, false);
   assert.equal(
-    outcome.body.preflight.normalized_payload.actions[0].parent_anchor.path,
-    "Scene/Canvas"
+    outcome.body.preflight.blocking_errors[0].error_code,
+    "E_ACTION_SCHEMA_INVALID"
   );
   assert.equal(
-    outcome.body.preflight.suggested_patch[0].path,
-    "/actions/0/parent_anchor"
+    outcome.body.preflight.blocking_errors[0].field_path,
+    "actions[0].parent_anchor.object_id"
+  );
+  assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
+  assert.equal(service.mcpGateway.jobQueue.size(), 0);
+});
+
+test("R20-UX-GOV-11 preflight_validate_write_payload fail-fast when catalog_version mismatches capability_version", () => {
+  const { service } = createService();
+  markUnityReady(service);
+  seedSelectionSnapshot(service, "scene_rev_r20_ux_gov11_preflight_1");
+  const token = issueReadToken(service);
+
+  const outcome = service.preflightValidateWritePayloadForMcp({
+    tool_name: "apply_visual_actions",
+    payload: {
+      based_on_read_token: token,
+      catalog_version: "test_anchor_write_guard_v0",
+      write_anchor: {
+        object_id: "go_panel",
+        path: "Scene/Canvas/Panel",
+      },
+      actions: [
+        {
+          type: "rename_object",
+          target_anchor: {
+            object_id: "go_panel",
+            path: "Scene/Canvas/Panel",
+          },
+          action_data: {
+            name: "Panel_Renamed",
+          },
+        },
+      ],
+      dry_run: true,
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(outcome.body.preflight.valid, false);
+  assert.equal(
+    outcome.body.preflight.blocking_errors[0].error_code,
+    "E_CONTRACT_VERSION_MISMATCH"
+  );
+  assert.equal(
+    outcome.body.preflight.blocking_errors[0].message.includes(
+      "catalog_version does not match current capability_version"
+    ),
+    true
   );
   assert.equal(service.mcpGateway.jobStore.listJobs().length, 0);
   assert.equal(service.mcpGateway.jobQueue.size(), 0);

@@ -8,12 +8,16 @@
   - `R20-UX-HF-01`
   - `R20-UX-HF-02`
   - `R20-UX-HF-03`
+  - `R20-UX-GOV-07`
+  - `R20-UX-GOV-08`
 - It closes Phase E of `V2-PROTOCOL` and freezes repeatable acceptance paths for:
   - contract discoverability
   - machine-fixable error feedback
   - preflight normalization
   - retry governance
   - strict-envelope hotfix closure (Phase F)
+  - governance baseline metrics (Phase G partial)
+  - preflight/dry_run lifecycle closure (Phase G partial)
 
 ## 2. Success Criteria
 1. Sidecar focused gate (`test:r20:qa`) is green.
@@ -24,6 +28,8 @@
   - duplicate failed retries are blocked
   - stale snapshot keeps one-shot retry guidance only
 6. Invalid Unity action envelopes do not stay in silent pending until lease timeout.
+7. Governance baseline report can compare before/after KPI snapshots from `/mcp/metrics`.
+8. `preflight_validate_write_payload` is stable and `dry_run` is documented as deprecated compatibility alias.
 
 ## 3. Preconditions
 1. Sidecar dependencies installed:
@@ -57,6 +63,8 @@ npm install
 - `P20-F-HF-001`: invalid action envelope terminates with explicit failure (not max-runtime pending timeout).
 - `P20-F-HF-002`: mutation action with valid `target_anchor` + malformed optional `parent_anchor` still succeeds (or fails fast with deterministic actionable code).
 - `P20-F-HF-003`: hotfix evidence and regression notes archived.
+- `P20-G-GOV-001`: governance baseline report captures before/after KPI deltas.
+- `P20-H-LIFECYCLE-001`: preflight lifecycle is stable and tool schema includes dry_run migration guidance.
 
 ### 4.2 Evidence Naming Convention
 - `case-a-get-write-contract-bundle.json`
@@ -76,6 +84,11 @@ npm install
 - `case-f-invalid-envelope-fast-fail.json`
 - `case-f-optional-parent-anchor-compat.json`
 - `case-f-hotfix-regression-notes.md`
+- `case-g-metrics-before.json`
+- `case-g-metrics-after.json`
+- `case-g-governance-baseline-report.json`
+- `case-h-preflight-tool-schema.json`
+- `case-h-dry-run-alias-response.json`
 
 ## 5. Automated Gates
 
@@ -159,6 +172,26 @@ Expected:
 - no silent pending loop
 - terminal status available quickly (`failed` with actionable code or `succeeded`)
 
+### Case G: Governance Baseline
+Capture `/mcp/metrics` snapshots before and after replay run, then generate report:
+```bash
+npm --prefix sidecar run metrics:r20:governance -- \
+  --before Assets/Docs/evidence/phase20/<yyyy-mm-dd>/case-g-metrics-before.json \
+  --after Assets/Docs/evidence/phase20/<yyyy-mm-dd>/case-g-metrics-after.json \
+  --output Assets/Docs/evidence/phase20/<yyyy-mm-dd>/case-g-governance-baseline-report.json
+```
+
+Expected:
+- report contains KPI comparison for retry/convergence/timeout/token dimensions
+- report schema is `r20_ux_governance_baseline_report.v1`
+
+### Case H: Preflight Lifecycle Closure
+Capture tool schema and one dry_run compatibility response.
+
+Expected:
+- `get_tool_schema(tool_name=preflight_validate_write_payload)` returns `lifecycle=stable`
+- write-tool `dry_run` response contains alias deprecation guidance pointing to preflight tool
+
 ## 7. Case Status Matrix
 | Case ID | Status | Evidence |
 |---|---|---|
@@ -181,6 +214,8 @@ Expected:
 | P20-F-HF-001 | PASS | `Assets/Docs/evidence/phase20/2026-03-03/case-f-invalid-envelope-fast-fail.json` |
 | P20-F-HF-002 | PASS | `Assets/Docs/evidence/phase20/2026-03-03/case-f-optional-parent-anchor-compat.json` |
 | P20-F-HF-003 | PASS | `Assets/Docs/evidence/phase20/2026-03-03/case-f-hotfix-regression-notes.md` |
+| P20-G-GOV-001 | PENDING | `Assets/Docs/evidence/phase20/<yyyy-mm-dd>/case-g-governance-baseline-report.json` |
+| P20-H-LIFECYCLE-001 | PENDING | `Assets/Docs/evidence/phase20/<yyyy-mm-dd>/case-h-preflight-tool-schema.json` |
 
 ## 8. Evidence Checklist
 Store artifacts under:
@@ -192,6 +227,8 @@ Mandatory:
 3. Unity EditMode pass summary (XML optional; manual runner summary acceptable).
 4. Rerun notes for any failed attempt before final pass.
 5. Phase F hotfix evidence (`case-f-*`) and reproduction notes.
+6. Governance baseline artifacts (`case-g-*`).
+7. Lifecycle closure artifacts (`case-h-*`).
 
 ## 9. Sign-off
 - [x] `R20-UX-QA-01` complete (sidecar QA gate implemented and green)
@@ -200,6 +237,8 @@ Mandatory:
 - [x] `R20-UX-HF-01` complete (invalid envelope fast-fail hotfix verified)
 - [x] `R20-UX-HF-02` complete (optional parent anchor compatibility hotfix verified)
 - [x] `R20-UX-HF-03` complete (hotfix regression tests passed)
+- [ ] `R20-UX-GOV-07` complete (before/after governance baseline evidence archived)
+- [ ] `R20-UX-GOV-08` complete (preflight stable + dry_run alias migration evidence archived)
 
 ## 10. Latest Run Record
 - Date: `2026-03-03`

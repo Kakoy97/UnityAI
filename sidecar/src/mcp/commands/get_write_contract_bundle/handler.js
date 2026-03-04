@@ -4,6 +4,9 @@ const {
   buildWriteContractBundle,
   normalizeBudgetChars,
 } = require("../../../application/writeContractBundle");
+const {
+  createCapabilityActionContractRegistry,
+} = require("../../../domain/actionContractRegistry");
 
 function executeGetWriteContractBundle(context, requestBody) {
   const ctx = context && typeof context === "object" ? context : {};
@@ -100,6 +103,15 @@ function executeGetWriteContractBundle(context, requestBody) {
     };
   }
 
+  const actionContractRegistry = createCapabilityActionContractRegistry(
+    capabilityStore
+  );
+  const actionContract =
+    actionContractRegistry &&
+    typeof actionContractRegistry.resolveActionContract === "function"
+      ? actionContractRegistry.resolveActionContract(actionType)
+      : null;
+
   const bundle = buildWriteContractBundle({
     toolName,
     actionType,
@@ -107,6 +119,12 @@ function executeGetWriteContractBundle(context, requestBody) {
       actionSchema && actionSchema.action && typeof actionSchema.action === "object"
         ? actionSchema.action.anchor_policy
         : "",
+    action:
+      actionSchema && actionSchema.action && typeof actionSchema.action === "object"
+        ? actionSchema.action
+        : {},
+    actionContract,
+    actionContractRegistry,
     actionSchema,
     toolMetadata,
     budget_chars: payload.budget_chars,
@@ -129,4 +147,3 @@ function executeGetWriteContractBundle(context, requestBody) {
 module.exports = {
   executeGetWriteContractBundle,
 };
-

@@ -50,7 +50,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "\"requires_confirmation\":false," +
                 "\"write_anchor\":{\"object_id\":\"go_root\",\"path\":\"Scene/Root\"}," +
                 "\"action\":{" +
-                "\"type\":\"create_gameobject\"," +
+                "\"type\":\"create_object\"," +
                 "\"name\":\"Child\"," +
                 "\"parent_anchor\":{\"object_id\":\"go_root\",\"path\":\"Scene/Root\"}" +
                 "}" +
@@ -101,7 +101,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             var childName = NamePrefix + "Child";
             var action = new VisualLayerActionItem
             {
-                type = "create_gameobject",
+                type = "create_object",
                 parent_anchor = new UnityObjectAnchor
                 {
                     object_id = parentObjectId,
@@ -234,7 +234,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 write_anchor = null,
                 action = new VisualLayerActionItem
                 {
-                    type = "create_gameobject",
+                    type = "create_object",
                     parent_anchor = new UnityObjectAnchor
                     {
                         object_id = "go_root",
@@ -255,7 +255,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         }
 
         [Test]
-        public void ConversationController_ValidateActionRequestPayload_AllowsMalformedOptionalParentAnchor_ForMutationAction()
+        public void ConversationController_ValidateActionRequestPayload_RejectsMalformedOptionalParentAnchor_ForMutationAction()
         {
             var payload = new UnityActionRequestPayload
             {
@@ -267,7 +267,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 },
                 action = new VisualLayerActionItem
                 {
-                    type = "rename_gameobject",
+                    type = "rename_object",
                     target_anchor = new UnityObjectAnchor
                     {
                         object_id = "go_target",
@@ -289,9 +289,114 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.NotNull(method);
             var ok = (bool)method.Invoke(null, args);
 
+            Assert.IsFalse(ok);
+            Assert.AreEqual("E_ACTION_SCHEMA_INVALID", args[1] as string);
+            StringAssert.Contains("target_anchor/parent_anchor", args[2] as string);
+        }
+
+        [Test]
+        public void ConversationController_ValidateActionRequestPayload_RenameObject_RequiresActionDataName_ByContract()
+        {
+            var payload = new UnityActionRequestPayload
+            {
+                based_on_read_token = "tok_anchor_123456789012345678901234",
+                write_anchor = new UnityObjectAnchor
+                {
+                    object_id = "go_target",
+                    path = "Scene/Canvas/Image",
+                },
+                action = new VisualLayerActionItem
+                {
+                    type = "rename_object",
+                    target_anchor = new UnityObjectAnchor
+                    {
+                        object_id = "go_target",
+                        path = "Scene/Canvas/Image",
+                    },
+                    action_data_json = "{}",
+                },
+            };
+
+            var args = new object[] { payload, null, null };
+            var method = typeof(ConversationController).GetMethod(
+                "TryValidateActionRequestPayload",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+            var ok = (bool)method.Invoke(null, args);
+
+            Assert.IsFalse(ok);
+            Assert.AreEqual("E_ACTION_SCHEMA_INVALID", args[1] as string);
+            StringAssert.Contains("action_data.name", args[2] as string);
+        }
+
+        [Test]
+        public void ConversationController_ValidateActionRequestPayload_SetActive_AcceptsFalseBooleanFromActionData()
+        {
+            var payload = new UnityActionRequestPayload
+            {
+                based_on_read_token = "tok_anchor_123456789012345678901234",
+                write_anchor = new UnityObjectAnchor
+                {
+                    object_id = "go_target",
+                    path = "Scene/Canvas/Image",
+                },
+                action = new VisualLayerActionItem
+                {
+                    type = "set_active",
+                    target_anchor = new UnityObjectAnchor
+                    {
+                        object_id = "go_target",
+                        path = "Scene/Canvas/Image",
+                    },
+                    action_data_json = "{\"active\":false}",
+                },
+            };
+
+            var args = new object[] { payload, null, null };
+            var method = typeof(ConversationController).GetMethod(
+                "TryValidateActionRequestPayload",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+            var ok = (bool)method.Invoke(null, args);
+
             Assert.IsTrue(ok);
             Assert.IsTrue(string.IsNullOrEmpty(args[1] as string));
-            Assert.IsNull(payload.action.parent_anchor);
+            Assert.IsTrue(string.IsNullOrEmpty(args[2] as string));
+        }
+
+        [Test]
+        public void ConversationController_ValidateActionRequestPayload_SetParent_RequiresTargetAndParentAnchors_ByContractPolicy()
+        {
+            var payload = new UnityActionRequestPayload
+            {
+                based_on_read_token = "tok_anchor_123456789012345678901234",
+                write_anchor = new UnityObjectAnchor
+                {
+                    object_id = "go_target",
+                    path = "Scene/Canvas/Image",
+                },
+                action = new VisualLayerActionItem
+                {
+                    type = "set_parent",
+                    target_anchor = new UnityObjectAnchor
+                    {
+                        object_id = "go_target",
+                        path = "Scene/Canvas/Image",
+                    },
+                    action_data_json = "{}",
+                },
+            };
+
+            var args = new object[] { payload, null, null };
+            var method = typeof(ConversationController).GetMethod(
+                "TryValidateActionRequestPayload",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+            var ok = (bool)method.Invoke(null, args);
+
+            Assert.IsFalse(ok);
+            Assert.AreEqual("E_ACTION_SCHEMA_INVALID", args[1] as string);
+            StringAssert.Contains("target_and_parent_required", args[2] as string);
         }
 
         private static string BuildObjectId(GameObject go)

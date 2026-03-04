@@ -80,7 +80,7 @@ test("buildUnityActionRequest preserves action_data and emits matching action_da
   );
 });
 
-test("buildUnityActionRequest generates action_data_json from legacy action fields", () => {
+test("buildUnityActionRequest generates action_data_json from action_data fields", () => {
   const componentAssembly =
     "UnityEngine.CanvasRenderer, UnityEngine.UIModule";
   const request = buildUnityActionRequest(
@@ -91,7 +91,9 @@ test("buildUnityActionRequest generates action_data_json from legacy action fiel
         object_id: "go_button",
         path: "Scene/Canvas/Button",
       },
-      component_assembly_qualified_name: componentAssembly,
+      action_data: {
+        component_assembly_qualified_name: componentAssembly,
+      },
     },
     () => "2026-02-28T00:00:00.000Z"
   );
@@ -115,8 +117,10 @@ test("buildUnityActionRequest keeps warn-mode compatibility for legacy anchor fi
       type: "add_component",
       target_object_id: "go_button",
       target_object_path: "Scene/Canvas/Button",
-      component_assembly_qualified_name:
-        "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+      action_data: {
+        component_assembly_qualified_name:
+          "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+      },
     },
     () => "2026-02-28T00:00:00.000Z",
     {
@@ -145,8 +149,10 @@ test("buildUnityActionRequest rejects legacy anchor fields in deny-mode", () => 
           type: "add_component",
           target_object_id: "go_button",
           target_object_path: "Scene/Canvas/Button",
-          component_assembly_qualified_name:
-            "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+          action_data: {
+            component_assembly_qualified_name:
+              "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+          },
         },
         () => "2026-02-28T00:00:00.000Z",
         {

@@ -68,6 +68,10 @@ test("tools/list uses minimal visual schema and includes lazy schema tools", asy
     true
   );
   assert.equal(
+    visual.description.includes("Anchor decision table"),
+    true
+  );
+  assert.equal(
     Object.prototype.hasOwnProperty.call(
       visual.inputSchema.properties.actions.items.properties,
       "action_data"

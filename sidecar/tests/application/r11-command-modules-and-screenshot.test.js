@@ -143,10 +143,28 @@ test("R11-L2-06 get_action_catalog/get_action_schema/get_tool_schema/get_write_c
   );
   assert.deepEqual(
     toolSchemaOutcome.body.required_sequence,
-    ["get_current_selection", "apply_visual_actions"]
+    [
+      "get_current_selection",
+      "apply_visual_actions",
+      "get_unity_task_status_until_terminal(succeeded|failed|cancelled)",
+    ]
+  );
+  assert.equal(
+    String(toolSchemaOutcome.body.description || "").includes(
+      "get_unity_task_status"
+    ),
+    true
   );
   assert.equal(Array.isArray(toolSchemaOutcome.body.canonical_examples), true);
   assert.ok(toolSchemaOutcome.body.write_envelope_contract);
+  assert.equal(
+    Array.isArray(toolSchemaOutcome.body.action_anchor_decision_table),
+    true
+  );
+  assert.equal(
+    Array.isArray(toolSchemaOutcome.body.golden_path_templates),
+    true
+  );
 
   const writeBundleOutcome = await dispatchBodyCommand(
     registry,

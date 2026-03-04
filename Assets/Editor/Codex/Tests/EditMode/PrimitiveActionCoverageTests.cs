@@ -89,29 +89,19 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             }
         }
 
+        // R21-detox: deprecated alias registrations removed from McpActionRegistryBootstrap.
+        // L2 now canonicalizes deprecated aliases before dispatching to L3.
+        // Verify that deprecated aliases are NO LONGER registered.
         [Test]
-        public void BootstrapRegistry_DeprecatedAliases_ExposeReplacementActionType()
+        public void BootstrapRegistry_DeprecatedAliases_AreNoLongerRegistered()
         {
-            var capabilities = McpActionRegistryBootstrap.GetCapabilities();
-            var capabilityByType = new Dictionary<string, McpActionCapability>(StringComparer.Ordinal);
-            for (var i = 0; i < capabilities.Count; i++)
-            {
-                var capability = capabilities[i];
-                if (capability == null || string.IsNullOrWhiteSpace(capability.ActionType))
-                {
-                    continue;
-                }
-
-                capabilityByType[capability.ActionType] = capability;
-            }
-
+            var registry = McpActionRegistryBootstrap.Registry;
             foreach (var alias in DeprecatedAliasMap)
             {
-                McpActionCapability capability;
-                Assert.IsTrue(capabilityByType.TryGetValue(alias.Key, out capability), "Missing alias capability: " + alias.Key);
-                Assert.NotNull(capability, "Alias capability should not be null: " + alias.Key);
-                Assert.AreEqual(McpActionGovernance.LifecycleDeprecated, capability.Lifecycle, "Alias lifecycle mismatch: " + alias.Key);
-                Assert.AreEqual(alias.Value, capability.ReplacementActionType, "Alias replacement mismatch: " + alias.Key);
+                IMcpVisualActionHandler handler;
+                Assert.IsFalse(
+                    registry.TryGet(alias.Key, out handler),
+                    "Deprecated alias should no longer be registered: " + alias.Key);
             }
         }
 

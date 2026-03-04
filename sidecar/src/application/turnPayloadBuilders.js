@@ -145,40 +145,12 @@ function stringifyActionData(value) {
   }
 }
 
-function buildLegacyVisualActionData(action) {
-  const source = isObject(action) ? action : {};
-  const result = {};
-  const skipKeys = new Set([
-    "type",
-    "target",
-    "target_anchor",
-    "target_anchor_ref",
-    "parent_anchor",
-    "parent_anchor_ref",
-    "action_data",
-    "action_data_json",
-    "action_data_marshaled",
-    "target_object_path",
-    "target_path",
-    "target_object_id",
-    "object_id",
-    "parent_path",
-    "parent_object_path",
-    "parent_object_id",
-  ]);
-  for (const key of Object.keys(source)) {
-    if (skipKeys.has(key)) {
-      continue;
-    }
-    const value = source[key];
-    if (value === undefined) {
-      continue;
-    }
-    result[key] = value && typeof value === "object" ? cloneJson(value) : value;
-  }
-  return result;
-}
-
+/**
+ * Resolve action_data strictly from explicit sources only.
+ * R21-detox: removed buildLegacyVisualActionData() fallback that silently
+ * scraped top-level action keys into action_data, masking LLM parameter
+ * nesting errors and causing L2/L3 "yin-yang" validation inconsistencies.
+ */
 function resolveVisualActionData(action) {
   const source = isObject(action) ? action : {};
   if (isObject(source.action_data)) {
@@ -192,7 +164,7 @@ function resolveVisualActionData(action) {
   if (parsed) {
     return parsed;
   }
-  return buildLegacyVisualActionData(source);
+  return {};
 }
 
 function normalizeCompositeStepForUnity(step) {

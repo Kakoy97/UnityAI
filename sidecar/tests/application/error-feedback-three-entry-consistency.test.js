@@ -184,8 +184,10 @@ test("failed action error fields stay consistent across HTTP/MCP/Stream", async 
           object_id: "go_root",
           path: "Scene/Root",
         },
-        component_assembly_qualified_name:
-          "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+        action_data: {
+          component_assembly_qualified_name:
+            "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+        },
       },
     ],
   });
@@ -213,6 +215,18 @@ test("failed action error fields stay consistent across HTTP/MCP/Stream", async 
       error_code: "E_TARGET_ANCHOR_CONFLICT",
       error_message:
         "Anchor conflict at C:\\repo\\project\\Assets\\Editor\\A.cs:10\n at Codex.Executor.Apply() in C:\\repo\\project\\Assets\\Editor\\A.cs:line 10",
+      field_path: "actions[0].target_anchor.object_id",
+      anchor_snapshot: {
+        write_anchor: {
+          object_id: "go_root",
+          path: "Scene/Root",
+        },
+        target_anchor: {
+          object_id: "go_root",
+          path: "Scene/Root",
+        },
+        parent_anchor: null,
+      },
     },
   });
   assert.equal(failed.statusCode, 500);
@@ -269,12 +283,40 @@ test("failed action error fields stay consistent across HTTP/MCP/Stream", async 
   assert.equal(httpStatus.body.error_code, "E_TARGET_ANCHOR_CONFLICT");
   assert.equal(httpStatus.body.suggestion, ANCHOR_RETRY_SUGGESTION);
   assert.equal(httpStatus.body.recoverable, true);
+  assert.equal(httpStatus.body.request_id, requestId);
+  assert.equal(httpStatus.body.field_path, "actions[0].target_anchor.object_id");
+  assert.deepEqual(httpStatus.body.anchor_snapshot, {
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    target_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    parent_anchor: null,
+  });
   assert.equal(httpStatus.body.error_message.includes("\n"), false);
   assert.equal(
     httpStatus.body.error_message.includes("C:\\repo\\project"),
     false
   );
   assert.equal(httpStatus.body.error_message.includes("<path>"), true);
+  assert.equal(
+    httpStatus.body.execution_report.action_error.field_path,
+    "actions[0].target_anchor.object_id"
+  );
+  assert.deepEqual(httpStatus.body.execution_report.action_error.anchor_snapshot, {
+    write_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    target_anchor: {
+      object_id: "go_root",
+      path: "Scene/Root",
+    },
+    parent_anchor: null,
+  });
 
   service.unregisterMcpStreamSubscriber(registration.subscriber_id);
 });

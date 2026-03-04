@@ -141,3 +141,21 @@ test("error feedback metrics expose normalization and per-code counters", () => 
   assert.equal(metrics.error_feedback_by_code.E_STALE_SNAPSHOT, 1);
   assert.equal(metrics.error_feedback_by_code.E_INTERNAL, 1);
 });
+
+test("R20-UX-GOV-04 async conflict feedback enforces polling to terminal", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_JOB_CONFLICT",
+    message: "Another Unity job is already running",
+  });
+
+  assert.equal(outcome.error_code, "E_JOB_CONFLICT");
+  assert.equal(outcome.recoverable, true);
+  assert.equal(
+    String(outcome.suggestion || "").includes("get_unity_task_status"),
+    true
+  );
+  assert.equal(
+    String(outcome.suggestion || "").includes("succeeded/failed/cancelled"),
+    true
+  );
+});

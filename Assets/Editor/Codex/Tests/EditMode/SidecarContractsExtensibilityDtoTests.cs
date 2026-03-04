@@ -98,7 +98,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "\"steps\":[" +
                 "{" +
                 "\"step_id\":\"s1_create\"," +
-                "\"type\":\"create_gameobject\"," +
+                "\"type\":\"create_object\"," +
                 "\"parent_anchor\":{\"object_id\":\"go_canvas\",\"path\":\"Scene/Canvas\"}," +
                 "\"action_data_json\":\"{\\\"name\\\":\\\"HPBar\\\"}\"," +
                 "\"action_data_marshaled\":\"eyJuYW1lIjoiSFBCYXIifQ\"," +

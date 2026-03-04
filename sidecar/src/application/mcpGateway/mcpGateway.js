@@ -156,6 +156,10 @@ class McpGateway {
       typeof opts.getCaptureCompositeMetricsSnapshot === "function"
         ? opts.getCaptureCompositeMetricsSnapshot
         : null;
+    this.getProtocolGovernanceMetricsSnapshot =
+      typeof opts.getProtocolGovernanceMetricsSnapshot === "function"
+        ? opts.getProtocolGovernanceMetricsSnapshot
+        : null;
     this.legacyAnchorGateObservedSinceMs = Date.now();
 
     this.lockManager = new LockManager();

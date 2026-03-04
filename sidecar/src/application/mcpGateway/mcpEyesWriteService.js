@@ -8,6 +8,7 @@ const {
 const {
   OCC_STALE_SNAPSHOT_SUGGESTION,
 } = require("../unitySnapshotService");
+const { resolveSchemaIssueClassification } = require("../turnPolicies");
 const {
   createSplitWriteIdempotencyKey,
   cloneJson,
@@ -16,6 +17,12 @@ const { normalizeWriteToolOutcome } = require("../writeReceiptFormatter");
 const {
   WriteRetryFuse,
 } = require("../writeRetryFuse");
+const {
+  canonicalizeVisualActionType,
+} = require("../../domain/actionTypeCanonicalizer");
+const {
+  createCapabilityActionContractRegistry,
+} = require("../../domain/actionContractRegistry");
 
 function isObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -25,34 +32,97 @@ function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function normalizeActionType(value) {
-  return isNonEmptyString(value) ? String(value).trim().toLowerCase() : "";
-}
-
-function isCreateLikeActionType(value) {
-  const normalized = normalizeActionType(value);
-  return normalized === "create_gameobject" || normalized === "create_object";
-}
-
-function isValidAnchor(value) {
-  if (!isObject(value)) {
-    return false;
-  }
-  return isNonEmptyString(value.object_id) && isNonEmptyString(value.path);
-}
-
-function isAnchorEmptyOrInvalidObject(value) {
-  if (value === undefined || value === null) {
-    return true;
-  }
-  if (!isObject(value)) {
-    return false;
-  }
-  return !isValidAnchor(value);
-}
-
 function normalizeString(value) {
   return isNonEmptyString(value) ? String(value).trim() : "";
+}
+
+function normalizeAnchorSnapshotEntry(anchor) {
+  if (!isObject(anchor)) {
+    return null;
+  }
+  const objectId = normalizeString(anchor.object_id);
+  const path = normalizeString(anchor.path);
+  if (!objectId && !path) {
+    return null;
+  }
+  return {
+    object_id: objectId,
+    path,
+  };
+}
+
+function buildAnchorSnapshot(toolName, payload) {
+  const source = isObject(payload) ? payload : {};
+  const snapshot = {
+    write_anchor: normalizeAnchorSnapshotEntry(source.write_anchor),
+    target_anchor: null,
+    parent_anchor: null,
+  };
+  const normalizedTool = normalizeString(toolName);
+  if (normalizedTool === "apply_visual_actions") {
+    const actions = Array.isArray(source.actions) ? source.actions : [];
+    const firstAction =
+      actions.length > 0 && isObject(actions[0]) ? actions[0] : null;
+    if (firstAction) {
+      snapshot.target_anchor = normalizeAnchorSnapshotEntry(
+        firstAction.target_anchor
+      );
+      snapshot.parent_anchor = normalizeAnchorSnapshotEntry(
+        firstAction.parent_anchor
+      );
+    }
+  } else if (normalizedTool === "set_ui_properties") {
+    const operations = Array.isArray(source.operations) ? source.operations : [];
+    const firstOperation =
+      operations.length > 0 && isObject(operations[0]) ? operations[0] : null;
+    if (firstOperation) {
+      snapshot.target_anchor = normalizeAnchorSnapshotEntry(
+        firstOperation.target_anchor
+      );
+    }
+  }
+
+  if (
+    !snapshot.write_anchor &&
+    !snapshot.target_anchor &&
+    !snapshot.parent_anchor
+  ) {
+    return null;
+  }
+  return snapshot;
+}
+
+function isFailureWriteOutcome(statusCode, body) {
+  const source = isObject(body) ? body : {};
+  if (Number.isFinite(Number(statusCode)) && Number(statusCode) >= 400) {
+    return true;
+  }
+  const status = normalizeString(source.status).toLowerCase();
+  if (status === "failed" || status === "rejected" || status === "cancelled") {
+    return true;
+  }
+  if (source.ok === false) {
+    return true;
+  }
+  if (normalizeString(source.error_code)) {
+    return true;
+  }
+  return false;
+}
+
+const DRY_RUN_ALIAS_DEPRECATION_NOTICE = Object.freeze({
+  status: "deprecated_alias_supported",
+  preferred_tool: "preflight_validate_write_payload",
+  migration_hint:
+    "Use preflight_validate_write_payload with { tool_name, payload } for validation-only flows.",
+});
+
+function toCounterValue(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) {
+    return 0;
+  }
+  return Math.floor(n);
 }
 
 class McpEyesWriteService {
@@ -70,6 +140,22 @@ class McpEyesWriteService {
       windowMs: opts.retryFuseWindowMs,
       maxAttempts: opts.retryFuseMaxAttempts,
     });
+    this.protocolGovernanceMetrics = {
+      schema_version: "r20_protocol_governance_metrics.v1",
+      updated_at: new Date().toISOString(),
+      by_tool: {},
+      counters: {
+        write_tool_calls_total: 0,
+        dry_run_alias_calls_total: 0,
+        preflight_calls_total: 0,
+        preflight_valid_total: 0,
+        preflight_invalid_total: 0,
+        preflight_blocking_error_total: 0,
+        retry_fuse_blocked_total: 0,
+        retry_fuse_failure_recorded_total: 0,
+        retry_fuse_success_recorded_total: 0,
+      },
+    };
   }
 
   applyScriptActions(body) {
@@ -81,21 +167,40 @@ class McpEyesWriteService {
         statusCode: 400,
       });
     }
+    this.recordWriteToolInvocation("apply_script_actions");
+    const observabilityContext = this.buildFailureObservabilityContext(
+      "apply_script_actions",
+      body
+    );
     const retryState = this.beginWriteRetryFuse("apply_script_actions", body);
     if (!retryState.ok) {
       return retryState.outcome;
     }
 
+    const contractHandshake = this.validateContractVersionHandshake(body);
+    if (!contractHandshake.ok) {
+      return this.finalizeWriteOutcomeWithRetryFuse(
+        retryState,
+        contractHandshake.outcome,
+        observabilityContext
+      );
+    }
+
     const readiness = this.validateUnityWriteReady();
     if (!readiness.ok) {
-      return this.finalizeWriteOutcomeWithRetryFuse(retryState, readiness.outcome);
+      return this.finalizeWriteOutcomeWithRetryFuse(
+        retryState,
+        readiness.outcome,
+        observabilityContext
+      );
     }
 
     const tokenValidation = this.validateWriteReadToken(body);
     if (!tokenValidation.ok) {
       return this.finalizeWriteOutcomeWithRetryFuse(
         retryState,
-        tokenValidation.outcome
+        tokenValidation.outcome,
+        observabilityContext
       );
     }
     const validation = validateMcpApplyScriptActions(body);
@@ -105,29 +210,33 @@ class McpEyesWriteService {
         this.validationError(validation, {
           requestBody: body,
           toolName: "apply_script_actions",
-        })
+        }),
+        observabilityContext
       );
     }
     const precondition = this.evaluatePreconditions(body.preconditions);
     if (!precondition.ok) {
       return this.finalizeWriteOutcomeWithRetryFuse(
         retryState,
-        precondition.outcome
+        precondition.outcome,
+        observabilityContext
       );
     }
 
     const actions = Array.isArray(body.actions) ? body.actions : [];
     if (body.dry_run === true) {
+      this.recordDryRunAliasInvocation("apply_script_actions");
       return this.finalizeWriteOutcomeWithRetryFuse(retryState, {
         statusCode: 200,
         body: {
           ok: true,
           dry_run: true,
           dry_run_deprecated_alias: "preflight_validate_write_payload",
+          dry_run_deprecation: cloneJson(DRY_RUN_ALIAS_DEPRECATION_NOTICE),
           validated_actions_count: actions.length,
           precondition_report: precondition.report,
         },
-      });
+      }, observabilityContext);
     }
 
     const submitPayload = this.buildSubmitPayload(body, {
@@ -137,7 +246,8 @@ class McpEyesWriteService {
     });
     return this.finalizeWriteOutcomeWithRetryFuse(
       retryState,
-      this.normalizeWriteOutcome(this.mcpGateway.submitUnityTask(submitPayload))
+      this.normalizeWriteOutcome(this.mcpGateway.submitUnityTask(submitPayload)),
+      observabilityContext
     );
   }
 
@@ -150,27 +260,51 @@ class McpEyesWriteService {
         statusCode: 400,
       });
     }
+    this.recordWriteToolInvocation("apply_visual_actions");
+    const observabilityContext = this.buildFailureObservabilityContext(
+      "apply_visual_actions",
+      body
+    );
     const retryState = this.beginWriteRetryFuse("apply_visual_actions", body);
     if (!retryState.ok) {
       return retryState.outcome;
     }
 
-    const normalized = this.normalizeVisualActionsPayload(body);
+    const actionContractRegistry = this.buildActionContractRegistry();
+    const normalized = this.normalizeVisualActionsPayload(
+      body,
+      actionContractRegistry
+    );
     const effectiveBody = normalized.payload;
+
+    const contractHandshake = this.validateContractVersionHandshake(effectiveBody);
+    if (!contractHandshake.ok) {
+      return this.finalizeWriteOutcomeWithRetryFuse(
+        retryState,
+        contractHandshake.outcome,
+        observabilityContext
+      );
+    }
 
     const readiness = this.validateUnityWriteReady();
     if (!readiness.ok) {
-      return this.finalizeWriteOutcomeWithRetryFuse(retryState, readiness.outcome);
+      return this.finalizeWriteOutcomeWithRetryFuse(
+        retryState,
+        readiness.outcome,
+        observabilityContext
+      );
     }
 
     const tokenValidation = this.validateWriteReadToken(effectiveBody);
     if (!tokenValidation.ok) {
       return this.finalizeWriteOutcomeWithRetryFuse(
         retryState,
-        tokenValidation.outcome
+        tokenValidation.outcome,
+        observabilityContext
       );
     }
     const validation = validateMcpApplyVisualActions(effectiveBody, {
+      actionContractRegistry,
       actionAnchorPolicyByType: this.buildActionAnchorPolicyByType(),
     });
     if (!validation.ok) {
@@ -180,14 +314,16 @@ class McpEyesWriteService {
           requestBody: body,
           correctedPayload: normalized.applied ? effectiveBody : null,
           toolName: "apply_visual_actions",
-        })
+        }),
+        observabilityContext
       );
     }
     const precondition = this.evaluatePreconditions(effectiveBody.preconditions);
     if (!precondition.ok) {
       return this.finalizeWriteOutcomeWithRetryFuse(
         retryState,
-        precondition.outcome
+        precondition.outcome,
+        observabilityContext
       );
     }
 
@@ -196,12 +332,14 @@ class McpEyesWriteService {
       effectiveBody.dry_run === true &&
       !this.shouldDispatchDryRunToUnity(actions)
     ) {
+      this.recordDryRunAliasInvocation("apply_visual_actions");
       return this.finalizeWriteOutcomeWithRetryFuse(retryState, {
         statusCode: 200,
         body: {
           ok: true,
           dry_run: true,
           dry_run_deprecated_alias: "preflight_validate_write_payload",
+          dry_run_deprecation: cloneJson(DRY_RUN_ALIAS_DEPRECATION_NOTICE),
           validated_actions_count: actions.length,
           precondition_report: precondition.report,
           ...(normalized.applied
@@ -211,7 +349,7 @@ class McpEyesWriteService {
               }
             : {}),
         },
-      });
+      }, observabilityContext);
     }
 
     const submitPayload = this.buildSubmitPayload(effectiveBody, {
@@ -221,7 +359,8 @@ class McpEyesWriteService {
     });
     return this.finalizeWriteOutcomeWithRetryFuse(
       retryState,
-      this.normalizeWriteOutcome(this.mcpGateway.submitUnityTask(submitPayload))
+      this.normalizeWriteOutcome(this.mcpGateway.submitUnityTask(submitPayload)),
+      observabilityContext
     );
   }
 
@@ -234,21 +373,40 @@ class McpEyesWriteService {
         statusCode: 400,
       });
     }
+    this.recordWriteToolInvocation("set_ui_properties");
+    const observabilityContext = this.buildFailureObservabilityContext(
+      "set_ui_properties",
+      body
+    );
     const retryState = this.beginWriteRetryFuse("set_ui_properties", body);
     if (!retryState.ok) {
       return retryState.outcome;
     }
 
+    const contractHandshake = this.validateContractVersionHandshake(body);
+    if (!contractHandshake.ok) {
+      return this.finalizeWriteOutcomeWithRetryFuse(
+        retryState,
+        contractHandshake.outcome,
+        observabilityContext
+      );
+    }
+
     const readiness = this.validateUnityWriteReady();
     if (!readiness.ok) {
-      return this.finalizeWriteOutcomeWithRetryFuse(retryState, readiness.outcome);
+      return this.finalizeWriteOutcomeWithRetryFuse(
+        retryState,
+        readiness.outcome,
+        observabilityContext
+      );
     }
 
     const tokenValidation = this.validateWriteReadToken(body);
     if (!tokenValidation.ok) {
       return this.finalizeWriteOutcomeWithRetryFuse(
         retryState,
-        tokenValidation.outcome
+        tokenValidation.outcome,
+        observabilityContext
       );
     }
     const validation = validateMcpSetUiProperties(body);
@@ -258,14 +416,16 @@ class McpEyesWriteService {
         this.validationError(validation, {
           requestBody: body,
           toolName: "set_ui_properties",
-        })
+        }),
+        observabilityContext
       );
     }
     const precondition = this.evaluatePreconditions(body.preconditions);
     if (!precondition.ok) {
       return this.finalizeWriteOutcomeWithRetryFuse(
         retryState,
-        precondition.outcome
+        precondition.outcome,
+        observabilityContext
       );
     }
 
@@ -276,6 +436,7 @@ class McpEyesWriteService {
     };
 
     if (body.dry_run === true) {
+      this.recordDryRunAliasInvocation("set_ui_properties");
       return this.finalizeWriteOutcomeWithRetryFuse(retryState, {
         statusCode: 200,
         body: {
@@ -283,10 +444,11 @@ class McpEyesWriteService {
           status: "planned",
           dry_run: true,
           dry_run_deprecated_alias: "preflight_validate_write_payload",
+          dry_run_deprecation: cloneJson(DRY_RUN_ALIAS_DEPRECATION_NOTICE),
           ...planningPayload,
           precondition_report: precondition.report,
         },
-      });
+      }, observabilityContext);
     }
 
     const submitPayload = this.buildSubmitPayload(body, {
@@ -302,14 +464,16 @@ class McpEyesWriteService {
           this.normalizeWriteOutcome(
             this.attachSetUiPlanningMetadata(outcome, planningPayload)
           )
-        )
+        ),
+        observabilityContext
       );
     }
     return this.finalizeWriteOutcomeWithRetryFuse(
       retryState,
       this.normalizeWriteOutcome(
         this.attachSetUiPlanningMetadata(submitOutcome, planningPayload)
-      )
+      ),
+      observabilityContext
     );
   }
 
@@ -365,10 +529,13 @@ class McpEyesWriteService {
     }
 
     const preflight = this.runWritePreflightForTool(toolName, body.payload);
+    this.recordPreflightInvocation(toolName, preflight);
     return {
       statusCode: 200,
       body: {
         ok: true,
+        lifecycle: "stable",
+        dry_run_compatibility: cloneJson(DRY_RUN_ALIAS_DEPRECATION_NOTICE),
         preflight,
       },
     };
@@ -385,17 +552,27 @@ class McpEyesWriteService {
         context: state.context || null,
       };
     }
+    this.recordRetryFuseBlocked(toolName);
     return {
       ok: false,
-      outcome: this.buildDuplicateRetryBlockedOutcome(state.blocked),
+      outcome: this.buildDuplicateRetryBlockedOutcome(state.blocked, {
+        toolName,
+        payload,
+      }),
     };
   }
 
-  buildDuplicateRetryBlockedOutcome(blocked) {
+  buildDuplicateRetryBlockedOutcome(blocked, options) {
     const state = blocked && typeof blocked === "object" ? blocked : {};
+    const opts = options && typeof options === "object" ? options : {};
+    const observabilityContext = this.buildFailureObservabilityContext(
+      opts.toolName,
+      opts.payload
+    );
     return {
       statusCode: 429,
-      body: this.withMcpErrorFeedback({
+      body: this.decorateFailureBody(
+        this.withMcpErrorFeedback({
         status: "rejected",
         error_code: "E_DUPLICATE_RETRY_BLOCKED",
         message:
@@ -427,20 +604,29 @@ class McpEyesWriteService {
           fuse_key: normalizeString(state.fuseKey),
         },
       }),
+        observabilityContext
+      ),
     };
   }
 
-  finalizeWriteOutcomeWithRetryFuse(retryState, outcome) {
+  finalizeWriteOutcomeWithRetryFuse(retryState, outcome, observabilityContext) {
     const state = retryState && typeof retryState === "object" ? retryState : null;
+    const finalizeWithObservability = (source) =>
+      this.applyFailureObservability(source, observabilityContext);
     if (!state || state.ok !== true || !state.context) {
-      return outcome;
+      if (outcome && typeof outcome.then === "function") {
+        return outcome.then((resolved) => finalizeWithObservability(resolved));
+      }
+      return finalizeWithObservability(outcome);
     }
     if (outcome && typeof outcome.then === "function") {
       return outcome.then((resolved) =>
-        this.applyWriteRetryFuseResult(state.context, resolved)
+        finalizeWithObservability(this.applyWriteRetryFuseResult(state.context, resolved))
       );
     }
-    return this.applyWriteRetryFuseResult(state.context, outcome);
+    return finalizeWithObservability(
+      this.applyWriteRetryFuseResult(state.context, outcome)
+    );
   }
 
   applyWriteRetryFuseResult(context, outcome) {
@@ -455,12 +641,14 @@ class McpEyesWriteService {
     const errorCode = normalizeString(body && body.error_code).toUpperCase();
     if (!errorCode) {
       this.writeRetryFuse.recordSuccess(ctx);
+      this.recordRetryFuseSuccess();
       return outcome;
     }
     if (errorCode === "E_DUPLICATE_RETRY_BLOCKED") {
       return outcome;
     }
     this.writeRetryFuse.recordFailure(ctx, errorCode);
+    this.recordRetryFuseFailure();
     return outcome;
   }
 
@@ -474,8 +662,12 @@ class McpEyesWriteService {
       suggested_patch: [],
     };
 
+    const actionContractRegistry = this.buildActionContractRegistry();
     if (normalizedToolName === "apply_visual_actions") {
-      normalization = this.normalizeVisualActionsPayload(sourcePayload);
+      normalization = this.normalizeVisualActionsPayload(
+        sourcePayload,
+        actionContractRegistry
+      );
       effectivePayload = normalization.payload;
     }
 
@@ -508,6 +700,14 @@ class McpEyesWriteService {
       return result;
     }
 
+    const contractHandshake = this.validateContractVersionHandshake(effectivePayload);
+    if (!contractHandshake.ok) {
+      result.blocking_errors.push(
+        this.buildPreflightBlockingError(contractHandshake.outcome)
+      );
+      return result;
+    }
+
     const readiness = this.validateUnityWriteReady();
     if (!readiness.ok) {
       result.blocking_errors.push(
@@ -529,6 +729,7 @@ class McpEyesWriteService {
       validation = validateMcpApplyScriptActions(effectivePayload);
     } else if (normalizedToolName === "apply_visual_actions") {
       validation = validateMcpApplyVisualActions(effectivePayload, {
+        actionContractRegistry,
         actionAnchorPolicyByType: this.buildActionAnchorPolicyByType(),
       });
     } else {
@@ -621,118 +822,11 @@ class McpEyesWriteService {
     return output;
   }
 
-  normalizeVisualActionsPayload(body) {
-    const payload = isObject(body) ? cloneJson(body) : {};
-    const actions = Array.isArray(payload.actions) ? payload.actions : [];
-    if (actions.length !== 1) {
-      return {
-        payload,
-        applied: false,
-        suggested_patch: [],
-      };
-    }
-
-    const action = actions[0];
-    if (!isObject(action)) {
-      return {
-        payload,
-        applied: false,
-        suggested_patch: [],
-      };
-    }
-
-    // Safety gate: only normalize object-only action_data payloads.
-    // Legacy top-level action fields keep hard-fail behavior.
-    if (!isObject(action.action_data)) {
-      return {
-        payload,
-        applied: false,
-        suggested_patch: [],
-      };
-    }
-
-    if (isCreateLikeActionType(action.type)) {
-      if (isValidAnchor(action.parent_anchor)) {
-        return {
-          payload,
-          applied: false,
-          suggested_patch: [],
-        };
-      }
-
-      if (!isAnchorEmptyOrInvalidObject(action.parent_anchor)) {
-        return {
-          payload,
-          applied: false,
-          suggested_patch: [],
-        };
-      }
-
-      if (!isValidAnchor(payload.write_anchor)) {
-        return {
-          payload,
-          applied: false,
-          suggested_patch: [],
-        };
-      }
-
-      const normalizedParent = {
-        object_id: String(payload.write_anchor.object_id).trim(),
-        path: String(payload.write_anchor.path).trim(),
-      };
-      action.parent_anchor = normalizedParent;
-      return {
-        payload,
-        applied: true,
-        suggested_patch: [
-          {
-            op: "replace",
-            path: "/actions/0/parent_anchor",
-            value: cloneJson(normalizedParent),
-          },
-        ],
-      };
-    }
-
-    if (isValidAnchor(action.parent_anchor) || isValidAnchor(action.target_anchor)) {
-      return {
-        payload,
-        applied: false,
-        suggested_patch: [],
-      };
-    }
-
-    if (!isAnchorEmptyOrInvalidObject(action.target_anchor)) {
-      return {
-        payload,
-        applied: false,
-        suggested_patch: [],
-      };
-    }
-
-    if (!isValidAnchor(payload.write_anchor)) {
-      return {
-        payload,
-        applied: false,
-        suggested_patch: [],
-      };
-    }
-
-    const normalizedTarget = {
-      object_id: String(payload.write_anchor.object_id).trim(),
-      path: String(payload.write_anchor.path).trim(),
-    };
-    action.target_anchor = normalizedTarget;
+  normalizeVisualActionsPayload(body, actionContractRegistry) {
     return {
-      payload,
-      applied: true,
-      suggested_patch: [
-        {
-          op: "replace",
-          path: "/actions/0/target_anchor",
-          value: cloneJson(normalizedTarget),
-        },
-      ],
+      payload: isObject(body) ? cloneJson(body) : {},
+      applied: false,
+      suggested_patch: [],
     };
   }
 
@@ -957,6 +1051,98 @@ class McpEyesWriteService {
     };
   }
 
+  buildFailureObservabilityContext(toolName, payload) {
+    const normalizedToolName = normalizeString(toolName);
+    const sourcePayload = isObject(payload) ? cloneJson(payload) : {};
+    return {
+      tool_name: normalizedToolName,
+      request_id: normalizeString(sourcePayload.request_id),
+      anchor_snapshot: buildAnchorSnapshot(normalizedToolName, sourcePayload),
+    };
+  }
+
+  applyFailureObservability(outcome, context) {
+    const source = outcome && typeof outcome === "object" ? outcome : null;
+    if (!source || !isObject(source.body)) {
+      return outcome;
+    }
+    if (!isFailureWriteOutcome(source.statusCode, source.body)) {
+      return outcome;
+    }
+    const decoratedBody = this.decorateFailureBody(source.body, context);
+    if (decoratedBody === source.body) {
+      return outcome;
+    }
+    return {
+      ...source,
+      body: decoratedBody,
+    };
+  }
+
+  decorateFailureBody(body, context) {
+    const source = isObject(body) ? body : {};
+    const ctx = isObject(context) ? context : {};
+    const requestId = normalizeString(source.request_id) || normalizeString(ctx.request_id);
+    const errorMessage =
+      normalizeString(source.error_message) || normalizeString(source.message);
+    const fieldPath =
+      normalizeString(source.field_path) || this.resolveFailureFieldPath(source);
+    const sourceAnchorSnapshot = isObject(source.anchor_snapshot)
+      ? cloneJson(source.anchor_snapshot)
+      : null;
+    const contextAnchorSnapshot = isObject(ctx.anchor_snapshot)
+      ? cloneJson(ctx.anchor_snapshot)
+      : null;
+    const anchorSnapshot = sourceAnchorSnapshot || contextAnchorSnapshot;
+
+    let mutated = false;
+    const output = {
+      ...source,
+    };
+    if (
+      !Object.prototype.hasOwnProperty.call(source, "request_id") ||
+      requestId !== normalizeString(source.request_id)
+    ) {
+      output.request_id = requestId;
+      mutated = true;
+    }
+    if (errorMessage) {
+      if (normalizeString(source.error_message) !== errorMessage) {
+        output.error_message = errorMessage;
+        mutated = true;
+      }
+      if (normalizeString(source.message) !== errorMessage) {
+        output.message = errorMessage;
+        mutated = true;
+      }
+    }
+    if (fieldPath && normalizeString(source.field_path) !== fieldPath) {
+      output.field_path = fieldPath;
+      mutated = true;
+    }
+    if (anchorSnapshot && !isObject(source.anchor_snapshot)) {
+      output.anchor_snapshot = anchorSnapshot;
+      mutated = true;
+    }
+
+    return mutated ? output : source;
+  }
+
+  resolveFailureFieldPath(errorBody) {
+    const source = isObject(errorBody) ? errorBody : {};
+    const message =
+      normalizeString(source.error_message) || normalizeString(source.message);
+    if (!message) {
+      return "";
+    }
+    const classification = resolveSchemaIssueClassification({
+      errorCode: normalizeString(source.error_code),
+      message,
+      field_path: normalizeString(source.field_path),
+    });
+    return normalizeString(classification && classification.field_path);
+  }
+
   normalizeWriteOutcome(outcome) {
     if (outcome && typeof outcome.then === "function") {
       return outcome.then((resolved) => normalizeWriteToolOutcome(resolved));
@@ -1054,6 +1240,95 @@ class McpEyesWriteService {
     };
   }
 
+  validateContractVersionHandshake(body) {
+    if (
+      !this.capabilityStore ||
+      typeof this.capabilityStore.getSnapshot !== "function"
+    ) {
+      return {
+        ok: true,
+      };
+    }
+    const payload = isObject(body) ? body : {};
+    const snapshot = this.capabilityStore.getSnapshot();
+    const unityConnectionState = normalizeString(
+      snapshot && snapshot.unity_connection_state
+    ).toLowerCase();
+    const capabilityVersion = normalizeString(
+      snapshot && snapshot.capability_version
+    );
+    const requestedCatalogVersion =
+      normalizeString(payload.catalog_version) ||
+      normalizeString(payload.capability_version);
+
+    if (unityConnectionState === "stale") {
+      return {
+        ok: false,
+        outcome: this.buildContractVersionMismatchOutcome({
+          reason:
+            "Capability snapshot is stale. Refresh contracts before retrying write operations.",
+          unity_connection_state: unityConnectionState,
+          capability_version: capabilityVersion,
+          requested_catalog_version: requestedCatalogVersion,
+        }),
+      };
+    }
+    if (unityConnectionState === "ready" && !capabilityVersion) {
+      return {
+        ok: false,
+        outcome: this.buildContractVersionMismatchOutcome({
+          reason:
+            "Capability version is missing while Unity connection is ready. Refresh capability snapshot before retrying.",
+          unity_connection_state: unityConnectionState,
+          requested_catalog_version: requestedCatalogVersion,
+        }),
+      };
+    }
+    if (
+      requestedCatalogVersion &&
+      capabilityVersion &&
+      requestedCatalogVersion !== capabilityVersion
+    ) {
+      return {
+        ok: false,
+        outcome: this.buildContractVersionMismatchOutcome({
+          reason: "catalog_version does not match current capability_version.",
+          unity_connection_state: unityConnectionState,
+          capability_version: capabilityVersion,
+          requested_catalog_version: requestedCatalogVersion,
+        }),
+      };
+    }
+
+    return {
+      ok: true,
+    };
+  }
+
+  buildContractVersionMismatchOutcome(details) {
+    const source = isObject(details) ? details : {};
+    const unityConnectionState =
+      normalizeString(source.unity_connection_state).toLowerCase() || "unknown";
+    const capabilityVersion = normalizeString(source.capability_version);
+    const requestedCatalogVersion = normalizeString(source.requested_catalog_version);
+    const message =
+      normalizeString(source.reason) ||
+      "Write contract version handshake failed before dispatch.";
+    return {
+      statusCode: 409,
+      body: this.withMcpErrorFeedback({
+        status: "rejected",
+        error_code: "E_CONTRACT_VERSION_MISMATCH",
+        message,
+        unity_connection_state: unityConnectionState,
+        ...(capabilityVersion ? { capability_version: capabilityVersion } : {}),
+        ...(requestedCatalogVersion
+          ? { requested_catalog_version: requestedCatalogVersion }
+          : {}),
+      }),
+    };
+  }
+
   validateWriteReadToken(body) {
     const payload = body && typeof body === "object" ? body : {};
     const tokenValue =
@@ -1107,6 +1382,161 @@ class McpEyesWriteService {
     }
   }
 
+  touchProtocolGovernanceMetrics() {
+    this.protocolGovernanceMetrics.updated_at = new Date().toISOString();
+  }
+
+  ensureProtocolGovernanceToolMetrics(toolName) {
+    const normalizedToolName = normalizeString(toolName);
+    if (!normalizedToolName) {
+      return null;
+    }
+    if (!this.protocolGovernanceMetrics.by_tool[normalizedToolName]) {
+      this.protocolGovernanceMetrics.by_tool[normalizedToolName] = {
+        write_tool_calls_total: 0,
+        dry_run_alias_calls_total: 0,
+        preflight_calls_total: 0,
+        preflight_valid_total: 0,
+        preflight_invalid_total: 0,
+        preflight_blocking_error_total: 0,
+        retry_fuse_blocked_total: 0,
+      };
+    }
+    return this.protocolGovernanceMetrics.by_tool[normalizedToolName];
+  }
+
+  recordProtocolGovernanceCounter(counterName, delta) {
+    const name = normalizeString(counterName);
+    if (!name) {
+      return;
+    }
+    const amount = Number.isFinite(Number(delta)) ? Number(delta) : 1;
+    if (amount <= 0) {
+      return;
+    }
+    const current = toCounterValue(this.protocolGovernanceMetrics.counters[name]);
+    this.protocolGovernanceMetrics.counters[name] = current + Math.floor(amount);
+    this.touchProtocolGovernanceMetrics();
+  }
+
+  recordWriteToolInvocation(toolName) {
+    const toolMetrics = this.ensureProtocolGovernanceToolMetrics(toolName);
+    this.recordProtocolGovernanceCounter("write_tool_calls_total", 1);
+    if (toolMetrics) {
+      toolMetrics.write_tool_calls_total =
+        toCounterValue(toolMetrics.write_tool_calls_total) + 1;
+      this.touchProtocolGovernanceMetrics();
+    }
+  }
+
+  recordDryRunAliasInvocation(toolName) {
+    const toolMetrics = this.ensureProtocolGovernanceToolMetrics(toolName);
+    this.recordProtocolGovernanceCounter("dry_run_alias_calls_total", 1);
+    if (toolMetrics) {
+      toolMetrics.dry_run_alias_calls_total =
+        toCounterValue(toolMetrics.dry_run_alias_calls_total) + 1;
+      this.touchProtocolGovernanceMetrics();
+    }
+  }
+
+  recordPreflightInvocation(toolName, preflight) {
+    const toolMetrics = this.ensureProtocolGovernanceToolMetrics(toolName);
+    const source = isObject(preflight) ? preflight : {};
+    const valid = source.valid === true;
+    const blockingErrors = Array.isArray(source.blocking_errors)
+      ? source.blocking_errors.length
+      : 0;
+
+    this.recordProtocolGovernanceCounter("preflight_calls_total", 1);
+    this.recordProtocolGovernanceCounter(
+      valid ? "preflight_valid_total" : "preflight_invalid_total",
+      1
+    );
+    if (blockingErrors > 0) {
+      this.recordProtocolGovernanceCounter(
+        "preflight_blocking_error_total",
+        blockingErrors
+      );
+    }
+
+    if (toolMetrics) {
+      toolMetrics.preflight_calls_total =
+        toCounterValue(toolMetrics.preflight_calls_total) + 1;
+      if (valid) {
+        toolMetrics.preflight_valid_total =
+          toCounterValue(toolMetrics.preflight_valid_total) + 1;
+      } else {
+        toolMetrics.preflight_invalid_total =
+          toCounterValue(toolMetrics.preflight_invalid_total) + 1;
+      }
+      if (blockingErrors > 0) {
+        toolMetrics.preflight_blocking_error_total =
+          toCounterValue(toolMetrics.preflight_blocking_error_total) +
+          blockingErrors;
+      }
+      this.touchProtocolGovernanceMetrics();
+    }
+  }
+
+  recordRetryFuseBlocked(toolName) {
+    const toolMetrics = this.ensureProtocolGovernanceToolMetrics(toolName);
+    this.recordProtocolGovernanceCounter("retry_fuse_blocked_total", 1);
+    if (toolMetrics) {
+      toolMetrics.retry_fuse_blocked_total =
+        toCounterValue(toolMetrics.retry_fuse_blocked_total) + 1;
+      this.touchProtocolGovernanceMetrics();
+    }
+  }
+
+  recordRetryFuseFailure() {
+    this.recordProtocolGovernanceCounter("retry_fuse_failure_recorded_total", 1);
+  }
+
+  recordRetryFuseSuccess() {
+    this.recordProtocolGovernanceCounter("retry_fuse_success_recorded_total", 1);
+  }
+
+  getProtocolGovernanceMetricsSnapshot() {
+    const counters = {
+      ...this.protocolGovernanceMetrics.counters,
+    };
+    const writeCalls = Math.max(toCounterValue(counters.write_tool_calls_total), 1);
+    const preflightCalls = Math.max(toCounterValue(counters.preflight_calls_total), 1);
+    const byTool = Object.entries(this.protocolGovernanceMetrics.by_tool)
+      .map(([toolName, toolCounters]) => ({
+        tool_name: toolName,
+        ...toolCounters,
+      }))
+      .sort((a, b) => a.tool_name.localeCompare(b.tool_name));
+    return {
+      schema_version: this.protocolGovernanceMetrics.schema_version,
+      updated_at: this.protocolGovernanceMetrics.updated_at,
+      counters,
+      derived: {
+        duplicate_retry_block_rate: Number(
+          (
+            toCounterValue(counters.retry_fuse_blocked_total) / writeCalls
+          ).toFixed(6)
+        ),
+        preflight_invalid_rate: Number(
+          (
+            toCounterValue(counters.preflight_invalid_total) / preflightCalls
+          ).toFixed(6)
+        ),
+        dry_run_alias_usage_rate: Number(
+          (
+            toCounterValue(counters.dry_run_alias_calls_total) / writeCalls
+          ).toFixed(6)
+        ),
+      },
+      by_tool: byTool,
+      lifecycle: {
+        preflight_validate_write_payload: "stable",
+        dry_run_alias_status: "deprecated_alias_supported",
+      },
+    };
+  }
+
   evaluatePreconditions(preconditions) {
     const report = this.preconditionService.evaluateWritePreconditions(preconditions);
     if (report.ok) {
@@ -1129,7 +1559,50 @@ class McpEyesWriteService {
     };
   }
 
+  buildActionContractRegistry() {
+    if (
+      !this.capabilityStore ||
+      typeof this.capabilityStore.getSnapshot !== "function" ||
+      typeof this.capabilityStore.getActionSchema !== "function"
+    ) {
+      return null;
+    }
+    return createCapabilityActionContractRegistry(this.capabilityStore);
+  }
+
   buildActionAnchorPolicyByType() {
+    const contractRegistry = this.buildActionContractRegistry();
+    if (
+      contractRegistry &&
+      typeof contractRegistry.listActionContracts === "function"
+    ) {
+      const contracts = contractRegistry.listActionContracts();
+      if (!Array.isArray(contracts) || contracts.length === 0) {
+        return null;
+      }
+      const dynamicMap = Object.create(null);
+      for (const item of contracts) {
+        if (!item || typeof item !== "object") {
+          continue;
+        }
+        const canonicalType = normalizeString(item.action_type).toLowerCase();
+        const anchorPolicy = normalizeString(item.anchor_policy);
+        if (canonicalType && anchorPolicy && !dynamicMap[canonicalType]) {
+          dynamicMap[canonicalType] = anchorPolicy;
+        }
+        const aliases = Array.isArray(item.aliases) ? item.aliases : [];
+        for (const alias of aliases) {
+          const normalizedAlias = normalizeString(alias).toLowerCase();
+          if (normalizedAlias && anchorPolicy && !dynamicMap[normalizedAlias]) {
+            dynamicMap[normalizedAlias] = anchorPolicy;
+          }
+        }
+      }
+      if (Object.keys(dynamicMap).length > 0) {
+        return dynamicMap;
+      }
+    }
+
     if (
       !this.capabilityStore ||
       typeof this.capabilityStore.getSnapshot !== "function"
@@ -1155,7 +1628,14 @@ class McpEyesWriteService {
       if (!actionType || !anchorPolicy) {
         continue;
       }
-      map[actionType] = anchorPolicy;
+      const actionAliasType = actionType.toLowerCase();
+      const canonicalActionType = canonicalizeVisualActionType(actionAliasType);
+      if (canonicalActionType && !map[canonicalActionType]) {
+        map[canonicalActionType] = anchorPolicy;
+      }
+      if (!map[actionAliasType]) {
+        map[actionAliasType] = anchorPolicy;
+      }
     }
 
     return Object.keys(map).length > 0 ? map : null;

@@ -1,13 +1,12 @@
 "use strict";
 
-const legacy = require("./legacyValidators");
+const impl = require("./_unityCallbackValidatorsImpl");
 
 module.exports = {
-  validateUnityCompileResult: legacy.validateUnityCompileResult,
-  validateUnityActionResult: legacy.validateUnityActionResult,
-  validateUnityRuntimePing: legacy.validateUnityRuntimePing,
-  validateUnityCapabilitiesReport: legacy.validateUnityCapabilitiesReport,
-  validateUnitySelectionSnapshot: legacy.validateUnitySelectionSnapshot,
-  validateUnityConsoleSnapshot: legacy.validateUnityConsoleSnapshot,
+  validateUnityCompileResult: impl.validateUnityCompileResult,
+  validateUnityActionResult: impl.validateUnityActionResult,
+  validateUnityRuntimePing: impl.validateUnityRuntimePing,
+  validateUnityCapabilitiesReport: impl.validateUnityCapabilitiesReport,
+  validateUnitySelectionSnapshot: impl.validateUnitySelectionSnapshot,
+  validateUnityConsoleSnapshot: impl.validateUnityConsoleSnapshot,
 };
-

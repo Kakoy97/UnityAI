@@ -3,6 +3,9 @@
 const {
   buildToolSchemaUsabilityPack,
 } = require("../../../application/writeContractBundle");
+const {
+  createCapabilityActionContractRegistry,
+} = require("../../../domain/actionContractRegistry");
 
 function executeGetToolSchema(context, requestBody) {
   const ctx = context && typeof context === "object" ? context : {};
@@ -43,6 +46,9 @@ function executeGetToolSchema(context, requestBody) {
 
   const usabilityPack = buildToolSchemaUsabilityPack({
     toolName: metadata.name,
+    actionContractRegistry: createCapabilityActionContractRegistry(
+      ctx.capabilityStore
+    ),
   });
 
   return {

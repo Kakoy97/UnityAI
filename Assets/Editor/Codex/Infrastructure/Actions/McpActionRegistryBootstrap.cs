@@ -148,7 +148,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 CreateCapability(
                     "set_parent",
                     "Re-parent target_anchor under parent_anchor.",
-                    "target_required",
+                    "target_and_parent_required",
                     McpActionGovernance.DomainGameObject,
                     setParentSchema));
             registry.Register<SetSiblingIndexHandler>(
@@ -168,42 +168,9 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                     McpActionGovernance.DomainGameObject,
                     duplicateObjectSchema));
 
-            registry.Register<CreateGameObjectHandler>(
-                "create_gameobject",
-                CreateDeprecatedAliasCapability(
-                    "create_gameobject",
-                    "create_object",
-                    "Deprecated alias of create_object.",
-                    "parent_required",
-                    McpActionGovernance.DomainGameObject,
-                    createObjectSchema));
-            registry.Register<SetGameObjectActiveHandler>(
-                "set_gameobject_active",
-                CreateDeprecatedAliasCapability(
-                    "set_gameobject_active",
-                    "set_active",
-                    "Deprecated alias of set_active.",
-                    "target_required",
-                    McpActionGovernance.DomainGameObject,
-                    setActiveSchema));
-            registry.Register<RenameGameObjectHandler>(
-                "rename_gameobject",
-                CreateDeprecatedAliasCapability(
-                    "rename_gameobject",
-                    "rename_object",
-                    "Deprecated alias of rename_object.",
-                    "target_required",
-                    McpActionGovernance.DomainGameObject,
-                    renameObjectSchema));
-            registry.Register<DestroyGameObjectHandler>(
-                "destroy_gameobject",
-                CreateDeprecatedAliasCapability(
-                    "destroy_gameobject",
-                    "destroy_object",
-                    "Deprecated alias of destroy_object.",
-                    "target_required",
-                    McpActionGovernance.DomainGameObject,
-                    destroyObjectSchema));
+            // R21-detox: removed 4 deprecated gameobject alias registrations
+            // (create_gameobject, set_gameobject_active, rename_gameobject, destroy_gameobject).
+            // L2 now canonicalizes these to canonical names before dispatch.
         }
 
         private static void RegisterTransformAndLayoutValuePack(McpActionRegistry registry)
@@ -302,89 +269,8 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                     McpActionGovernance.DomainRectTransform,
                     rectAnchorsSchema));
 
-            registry.Register<SetTransformLocalPositionHandler>(
-                "set_transform_local_position",
-                CreateDeprecatedAliasCapability(
-                    "set_transform_local_position",
-                    "set_local_position",
-                    "Deprecated alias of set_local_position.",
-                    "target_required",
-                    McpActionGovernance.DomainTransform,
-                    vector3Schema));
-            registry.Register<SetTransformLocalRotationHandler>(
-                "set_transform_local_rotation",
-                CreateDeprecatedAliasCapability(
-                    "set_transform_local_rotation",
-                    "set_local_rotation",
-                    "Deprecated alias of set_local_rotation.",
-                    "target_required",
-                    McpActionGovernance.DomainTransform,
-                    vector3Schema));
-            registry.Register<SetTransformLocalScaleHandler>(
-                "set_transform_local_scale",
-                CreateDeprecatedAliasCapability(
-                    "set_transform_local_scale",
-                    "set_local_scale",
-                    "Deprecated alias of set_local_scale.",
-                    "target_required",
-                    McpActionGovernance.DomainTransform,
-                    vector3Schema));
-            registry.Register<SetTransformWorldPositionHandler>(
-                "set_transform_world_position",
-                CreateDeprecatedAliasCapability(
-                    "set_transform_world_position",
-                    "set_world_position",
-                    "Deprecated alias of set_world_position.",
-                    "target_required",
-                    McpActionGovernance.DomainTransform,
-                    vector3Schema,
-                    McpActionGovernance.TierAdvanced));
-            registry.Register<SetTransformWorldRotationHandler>(
-                "set_transform_world_rotation",
-                CreateDeprecatedAliasCapability(
-                    "set_transform_world_rotation",
-                    "set_world_rotation",
-                    "Deprecated alias of set_world_rotation.",
-                    "target_required",
-                    McpActionGovernance.DomainTransform,
-                    vector3Schema,
-                    McpActionGovernance.TierAdvanced));
-            registry.Register<SetRectTransformAnchoredPositionHandler>(
-                "set_rect_transform_anchored_position",
-                CreateDeprecatedAliasCapability(
-                    "set_rect_transform_anchored_position",
-                    "set_rect_anchored_position",
-                    "Deprecated alias of set_rect_anchored_position.",
-                    "target_required",
-                    McpActionGovernance.DomainRectTransform,
-                    vector2Schema));
-            registry.Register<SetRectTransformSizeDeltaHandler>(
-                "set_rect_transform_size_delta",
-                CreateDeprecatedAliasCapability(
-                    "set_rect_transform_size_delta",
-                    "set_rect_size_delta",
-                    "Deprecated alias of set_rect_size_delta.",
-                    "target_required",
-                    McpActionGovernance.DomainRectTransform,
-                    vector2Schema));
-            registry.Register<SetRectTransformPivotHandler>(
-                "set_rect_transform_pivot",
-                CreateDeprecatedAliasCapability(
-                    "set_rect_transform_pivot",
-                    "set_rect_pivot",
-                    "Deprecated alias of set_rect_pivot.",
-                    "target_required",
-                    McpActionGovernance.DomainRectTransform,
-                    vector2Schema));
-            registry.Register<SetRectTransformAnchorsHandler>(
-                "set_rect_transform_anchors",
-                CreateDeprecatedAliasCapability(
-                    "set_rect_transform_anchors",
-                    "set_rect_anchors",
-                    "Deprecated alias of set_rect_anchors.",
-                    "target_required",
-                    McpActionGovernance.DomainRectTransform,
-                    rectAnchorsSchema));
+            // R21-detox: removed 9 deprecated transform/rect alias registrations.
+            // L2 now canonicalizes these to canonical names before dispatch.
 
             registry.Register<SetCanvasGroupAlphaHandler>(
                 "set_canvas_group_alpha",
@@ -517,27 +403,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Actions
                 replacementActionType);
         }
 
-        private static McpActionCapability CreateDeprecatedAliasCapability(
-            string actionType,
-            string replacementActionType,
-            string description,
-            string anchorPolicy,
-            string domain,
-            string actionDataSchemaJson,
-            string tier = McpActionGovernance.TierCore,
-            string undoSafety = McpActionGovernance.UndoSafetyAtomicSafe)
-        {
-            return CreateCapability(
-                actionType,
-                description,
-                anchorPolicy,
-                domain,
-                actionDataSchemaJson,
-                tier,
-                McpActionGovernance.LifecycleDeprecated,
-                undoSafety,
-                replacementActionType);
-        }
+        // R21-detox: removed CreateDeprecatedAliasCapability — no more deprecated alias registrations.
 
         private static string SchemaVector3()
         {

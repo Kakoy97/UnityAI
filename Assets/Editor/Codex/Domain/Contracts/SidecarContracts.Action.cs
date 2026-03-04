@@ -385,9 +385,20 @@ namespace UnityAI.Editor.Codex.Domain
         public bool success;
         public string error_code;
         public string error_message;
+        public string field_path;
+        public UnityActionAnchorSnapshot anchor_snapshot;
         public int duration_ms;
         public SerializedPropertyActionResultData result_data;
         public UnityWriteReceipt write_receipt;
+    }
+
+
+    [Serializable]
+    public sealed class UnityActionAnchorSnapshot
+    {
+        public UnityObjectAnchor write_anchor;
+        public UnityObjectAnchor target_anchor;
+        public UnityObjectAnchor parent_anchor;
     }
 
 
@@ -516,6 +527,8 @@ namespace UnityAI.Editor.Codex.Domain
         public bool success;
         public string errorCode;
         public string errorMessage;
+        public string fieldPath;
+        public UnityActionAnchorSnapshot anchorSnapshot;
         public int durationMs;
         public SerializedPropertyActionResultData resultData;
         public UnityWriteReceipt writeReceipt;

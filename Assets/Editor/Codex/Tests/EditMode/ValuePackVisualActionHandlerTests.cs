@@ -18,7 +18,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 var executor = new UnityVisualActionExecutor();
                 var action = new VisualLayerActionItem
                 {
-                    type = "set_gameobject_active",
+                    type = "set_active",
                     target_anchor = BuildAnchor(root),
                     action_data_json = "{\"active\":false}",
                 };

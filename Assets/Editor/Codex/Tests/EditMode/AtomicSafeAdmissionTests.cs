@@ -155,7 +155,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
     {
         protected override string ActionType
         {
-            get { return "set_gameobject_active"; }
+            get { return "set_active"; }
         }
 
         protected override GameObject CreateTarget()

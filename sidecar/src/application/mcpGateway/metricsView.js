@@ -130,6 +130,109 @@ function getMcpMetrics(gateway) {
     gateway && typeof gateway.getCaptureCompositeMetricsSnapshot === "function"
       ? gateway.getCaptureCompositeMetricsSnapshot()
       : null;
+  const protocolGovernanceMetrics =
+    gateway &&
+    typeof gateway.getProtocolGovernanceMetricsSnapshot === "function"
+      ? gateway.getProtocolGovernanceMetricsSnapshot()
+      : null;
+  const statusQueryCalls =
+    Number.isFinite(Number(baseMetrics.status_query_calls)) &&
+    Number(baseMetrics.status_query_calls) >= 0
+      ? Math.floor(Number(baseMetrics.status_query_calls))
+      : 0;
+  const lockReleaseTotal =
+    Number.isFinite(Number(baseMetrics.lock_release_total)) &&
+    Number(baseMetrics.lock_release_total) >= 0
+      ? Math.floor(Number(baseMetrics.lock_release_total))
+      : 0;
+  const autoCancelMaxRuntimeTotal =
+    Number.isFinite(Number(baseMetrics.auto_cancel_max_runtime_total)) &&
+    Number(baseMetrics.auto_cancel_max_runtime_total) >= 0
+      ? Math.floor(Number(baseMetrics.auto_cancel_max_runtime_total))
+      : 0;
+  const autoCancelTotal =
+    Number.isFinite(Number(baseMetrics.auto_cancel_total)) &&
+    Number(baseMetrics.auto_cancel_total) >= 0
+      ? Math.floor(Number(baseMetrics.auto_cancel_total))
+      : 0;
+  const v1PolishSnapshot =
+    v1PolishMetrics && typeof v1PolishMetrics === "object"
+      ? v1PolishMetrics
+      : buildDefaultV1PolishMetricsSnapshot({
+          enabled: false,
+          storageMode: "not_configured",
+        });
+  const v1Counters =
+    v1PolishSnapshot.counters && typeof v1PolishSnapshot.counters === "object"
+      ? v1PolishSnapshot.counters
+      : {};
+  const readTokenChecksTotal =
+    Number.isFinite(Number(v1Counters.read_token_checks_total)) &&
+    Number(v1Counters.read_token_checks_total) >= 0
+      ? Math.floor(Number(v1Counters.read_token_checks_total))
+      : 0;
+  const readTokenExpiryTotal =
+    Number.isFinite(Number(v1Counters.read_token_expiry_total)) &&
+    Number(v1Counters.read_token_expiry_total) >= 0
+      ? Math.floor(Number(v1Counters.read_token_expiry_total))
+      : 0;
+  const governanceBase =
+    protocolGovernanceMetrics && typeof protocolGovernanceMetrics === "object"
+      ? cloneJson(protocolGovernanceMetrics)
+      : {
+          schema_version: "r20_protocol_governance_metrics.v1",
+          updated_at: "",
+          counters: {
+            write_tool_calls_total: 0,
+            dry_run_alias_calls_total: 0,
+            preflight_calls_total: 0,
+            preflight_valid_total: 0,
+            preflight_invalid_total: 0,
+            preflight_blocking_error_total: 0,
+            retry_fuse_blocked_total: 0,
+            retry_fuse_failure_recorded_total: 0,
+            retry_fuse_success_recorded_total: 0,
+          },
+          derived: {
+            duplicate_retry_block_rate: 0,
+            preflight_invalid_rate: 0,
+            dry_run_alias_usage_rate: 0,
+          },
+          by_tool: [],
+          lifecycle: {
+            preflight_validate_write_payload: "stable",
+            dry_run_alias_status: "deprecated_alias_supported",
+          },
+        };
+  governanceBase.derived = {
+    ...(governanceBase.derived && typeof governanceBase.derived === "object"
+      ? governanceBase.derived
+      : {}),
+    avg_status_queries_per_terminal_job:
+      lockReleaseTotal > 0
+        ? Number((statusQueryCalls / lockReleaseTotal).toFixed(6))
+        : 0,
+    max_runtime_timeout_rate:
+      autoCancelTotal > 0
+        ? Number((autoCancelMaxRuntimeTotal / autoCancelTotal).toFixed(6))
+        : 0,
+    read_token_expiry_rate:
+      readTokenChecksTotal > 0
+        ? Number((readTokenExpiryTotal / readTokenChecksTotal).toFixed(6))
+        : 0,
+  };
+  governanceBase.token = {
+    read_token_checks_total: readTokenChecksTotal,
+    read_token_expiry_total: readTokenExpiryTotal,
+  };
+  governanceBase.timeout = {
+    auto_cancel_total: autoCancelTotal,
+    auto_cancel_max_runtime_total: autoCancelMaxRuntimeTotal,
+  };
+  governanceBase.convergence = {
+    status_query_calls: statusQueryCalls,
+    lock_release_total: lockReleaseTotal,
+  };
   return {
     ...baseMetrics,
     legacy_anchor_mode_requested: gateway.legacyAnchorModeRequested,
@@ -146,13 +249,8 @@ function getMcpMetrics(gateway) {
     legacy_anchor_requested_deny_blocked_total:
       gateway.legacyAnchorModeMetrics.requested_deny_blocked_total,
     action_error_code_missing_total: gateway.actionErrorCodeMissingTotal,
-    v1_polish_metrics:
-      v1PolishMetrics && typeof v1PolishMetrics === "object"
-        ? cloneJson(v1PolishMetrics)
-        : buildDefaultV1PolishMetricsSnapshot({
-            enabled: false,
-            storageMode: "not_configured",
-          }),
+    v1_polish_metrics: cloneJson(v1PolishSnapshot),
+    r20_protocol_governance: governanceBase,
     capture_composite:
       captureCompositeMetrics && typeof captureCompositeMetrics === "object"
         ? cloneJson(captureCompositeMetrics)

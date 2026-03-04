@@ -47,6 +47,16 @@ class McpEyesService {
     return this.writeService.preflightValidateWritePayload(body);
   }
 
+  getProtocolGovernanceMetricsSnapshot() {
+    if (
+      this.writeService &&
+      typeof this.writeService.getProtocolGovernanceMetricsSnapshot === "function"
+    ) {
+      return this.writeService.getProtocolGovernanceMetricsSnapshot();
+    }
+    return null;
+  }
+
   getCurrentSelection() {
     return this.readService.getCurrentSelection();
   }

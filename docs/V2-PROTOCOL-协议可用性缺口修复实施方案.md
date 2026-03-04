@@ -104,7 +104,7 @@
 | R20-UX-GOV-05 | Phase G | 可观测性增强 | `sidecar/src/application/turnService.js`、`sidecar/src/application/mcpGateway/mcpEyesWriteService.js`、`Assets/Editor/Codex/Infrastructure/Write/OperationHistoryStore.cs`、`Assets/Editor/Codex/Tests/EditMode/OperationHistoryStoreTests.cs`、相关 tests | 失败事件统一携带 `request_id/error_code/error_message/field_path/anchor_snapshot` 并持久化 | 单条失败可从 evidence 直接定位到请求、字段路径与锚点上下文 |
 | R20-UX-GOV-06 | Phase G | 黄金路径模板 | `sidecar/src/mcp/commands/get_write_contract_bundle/handler.js`、`sidecar/src/mcp/commands/get_tool_schema/handler.js`、`sidecar/src/mcp/commands/legacyCommandManifest.js`、相关 tests | 内置高频任务模板（`create`/`rename`/`set_parent`/`set_active`）+ action-type 锚点决策表 | Cursor 在单轮 schema 查询后可按模板一次构造正确 payload（无空锚点重试风暴） |
 | R20-UX-GOV-07 | Phase G | 指标基线闭环 | `sidecar/src/application/mcpGateway/metricsView.js`、`sidecar/scripts/generate-r20-ux-governance-baseline.js`（新增）、`docs/Phase20-Protocol-Usability-Acceptance.md`、`Assets/Docs/evidence/phase20/*` | 采集并固化“改造前/后”指标（重试次数、收敛轮次、超时率、token 消耗） | 验收文档含可追溯的 before/after 数值与证据文件 |
-| R20-UX-GOV-08 | Phase G | lifecycle 收口 | `sidecar/src/mcp/commands/preflight_validate_write_payload/handler.js`、`sidecar/src/mcp/commands/preflight_validate_write_payload/validator.js`、`sidecar/src/application/mcpGateway/mcpEyesWriteService.js`、`sidecar/src/mcp/commands/legacyCommandManifest.js`、`docs/V2-PROTOCOL-协议可用性缺口修复实施方案.md` | 明确 `preflight` 升级 stable 的门槛与时间点；`dry_run` 仅保留兼容 alias（带 deprecation 指引） | 旧调用不破坏，新调用默认引导 preflight，且迁移规则在文档和响应中一致 |
+| R20-UX-GOV-08 | Phase G | lifecycle 收口 | `sidecar/src/mcp/commands/definitions/preflight_validate_write_payload.js`、`sidecar/src/application/writeContractBundle.js`、`sidecar/src/application/mcpGateway/mcpEyesWriteService.js`、`sidecar/src/mcp/commands/legacyCommandManifest.js`、`docs/V2-PROTOCOL-协议可用性缺口修复实施方案.md` | 明确 `preflight` 升级 stable 的门槛与时间点；`dry_run` 仅保留兼容 alias（带 deprecation 指引） | 旧调用不破坏，新调用默认引导 preflight，且迁移规则在文档和响应中一致 |
 
 ---
 
@@ -266,7 +266,7 @@
 | Phase D | `R20-UX-D-01 ~ D-02` | 重试治理 | ✅ 已完成（开发 + Sidecar 回归） |
 | Phase E | `R20-UX-QA-01 ~ E2E-01` | QA 与验收收口 | 🟡 进行中（`R20-UX-QA-01`/`R20-UX-E2E-01` 已完成，`QA-02` 待 Unity 实机证据） |
 | Phase F | `R20-UX-HF-01 ~ HF-03` | L3 strict envelope hotfix 收口 | ✅ 已完成（后续发现 alias parity 缺口，已转入 Phase G） |
-| Phase G | `R20-UX-GOV-01 ~ GOV-08` | 协议治理闭环（语义统一、修复覆盖、可观测、模板化） | 🟡 待启动（本次已补齐执行矩阵，待按依赖推进） |
+| Phase G | `R20-UX-GOV-01 ~ GOV-13` | 协议治理闭环（语义统一、修复覆盖、可观测、模板化） | 🟡 进行中（`GOV-01~GOV-06`、`GOV-09~GOV-13`、`GOV-07/08` 开发已落地；待证据与验收收口） |
 
 ---
 
@@ -400,4 +400,175 @@
 ## 15. 当前阶段结论（给管理决策）
 - 现状可用性已经显著提升，但仍未达到“工程化稳态”。
 - 在 `Phase G` 完成前，不建议继续推进高复杂新能力（尤其自升级自动写代码链路）。
-- 推荐策略：先完成协议治理闭环（GOV-01~06），再恢复 V2 及后续能力开发。
+- 推荐策略（更新）：`GOV-01~06` 视为“可用性增强层已完成”，先完成根因收口任务 `GOV-09~13`，再推进 `GOV-07/08` 与后续能力开发。
+
+---
+
+## 16. GOV-05 实施记录（2026-03-04）
+### 16.1 本次落地内容
+- 失败响应可观测字段补齐到统一出口：
+  - `request_id`
+  - `error_code`
+  - `error_message`
+  - `field_path`
+  - `anchor_snapshot`
+- 对无 `request_id` 的失败体，统一补齐 `request_id: ""` 字段，避免下游读取出现 `undefined`。
+
+### 16.2 关键文件
+- `sidecar/src/application/mcpGateway/mcpEyesWriteService.js`
+- （联动已存在）`sidecar/src/application/turnService.js`
+- （联动已存在）`Assets/Editor/Codex/Infrastructure/Write/OperationHistoryStore.cs`
+
+### 16.3 回归结果
+- `npm --prefix sidecar run test:r20:qa`：`pass 71 / fail 0`
+
+---
+
+## 17. GOV-06 实施记录（2026-03-04）
+### 17.1 本次落地内容
+- 在 `get_write_contract_bundle` 与 `get_tool_schema` 增加：
+  - `action_anchor_decision_table`（action-type 级锚点决策）
+  - `golden_path_templates`（高频任务模板：`create_object` / `rename_object` / `set_parent` / `set_active`）
+- 将 `golden_path_templates` 设计为“action 模板片段”，避免重复输出完整 envelope，确保在 `budget_chars=3600` 下仍可返回。
+- 在 `tools/list`（`apply_visual_actions` 描述）内联 action-type 锚点决策表，强化“单轮可用”可读性。
+
+### 17.2 关键文件
+- `sidecar/src/application/writeContractBundle.js`
+- `sidecar/src/mcp/commands/legacyCommandManifest.js`
+- `sidecar/tests/application/get-write-contract-bundle.test.js`
+- `sidecar/tests/application/r11-command-modules-and-screenshot.test.js`
+- `sidecar/tests/application/mcp-tool-schema-minimal.test.js`
+
+### 17.3 回归结果
+- `node --test sidecar/tests/application/get-write-contract-bundle.test.js sidecar/tests/application/r11-command-modules-and-screenshot.test.js sidecar/tests/application/mcp-tool-schema-minimal.test.js`：`pass 29 / fail 0`
+- `npm --prefix sidecar run test:r20:qa`：`pass 71 / fail 0`
+
+---
+
+## 18. 关键问题补充清单（供 Cursor 评审，2026-03-04）
+> 说明：以下问题为当前阻塞“稳定可用”的核心缺口。  
+> 结论：`R20-UX-GOV-01~06` 已完成了“可用性增强层”，但未完全闭环“字段级契约同源”。
+
+### 18.1 P0 问题清单（现状）
+1. `rename_object` 的 `name` 必填在 L2/L3 不一致  
+   - L2：`rename_object` 未做字段级硬校验（只在 create-like 分支检查 `name`）  
+     - `sidecar/src/domain/validators/legacyValidators.js:4290`  
+     - `sidecar/src/domain/validators/legacyValidators.js:4298`  
+   - L3：rename 执行前强制 `name` 必填  
+     - `Assets/Editor/Codex/Infrastructure/Actions/LegacyPrimitiveActionHandlers.cs:68`
+2. L3 rename handler 只吃 `action_data.name`  
+   - `action_data.name` 缺失会把 `action.name` 置空再执行，最终在 L3 报 `name is required`  
+   - 证据：  
+     - `Assets/Editor/Codex/Infrastructure/Actions/ValuePackVisualActionHandlers.cs:143`  
+     - `Assets/Editor/Codex/Infrastructure/Actions/ValuePackVisualActionHandlers.cs:147`
+3. 锚点规则 / action 语义 / alias 仍是多点实现，不是单一契约源  
+   - L2 validator 一套：`sidecar/src/domain/validators/legacyValidators.js:68`、`:184`  
+   - 模板与说明一套：`sidecar/src/application/writeContractBundle.js:67`、`:330`
+4. 归一化覆盖面不足  
+   - 仅覆盖“单 action + 锚点回填”，不覆盖高频 `action_data` 缺字段  
+   - 证据：`sidecar/src/application/mcpGateway/mcpEyesWriteService.js:749`、`:752`、`:779`
+5. `golden_path_templates` 是“建议层”，不是“执行前强约束层”  
+   - 证据：`sidecar/src/application/writeContractBundle.js:365`
+6. QA gate 对“行为一致性”覆盖不足  
+   - 存在“文件在就算过”的结构，未阻断 `L2 pass / L3 fail` 类问题  
+   - 证据：`sidecar/tests/application/r20-protocol-phase-e-closure-gate.test.js:10`
+7. `set_parent` 的硬门禁在 L2 依赖动态 policy，缺少硬兜底  
+   - 模板层将 `set_parent` 定义为 `target_and_parent_required`，但 `validateVisualActionHardcut` 的硬编码分类不包含 `set_parent`。  
+   - 当 capability/policy 缺失或漂移时，可能出现 “L2 放行 / L3 拒绝”。
+8. 非 component / 非 create action 的 `action_data.required` 在 L2 缺系统性校验  
+   - `set_active.active`、`set_sibling_index.sibling_index`、`set_local_position.x/y/z` 等字段在 L3 有 schema 要求，L2 目前未统一消费。
+9. 现有 capability 报告已携带 `action_data_schema`，但 validator 未消费  
+   - `capabilityStore` 已缓存 `action_data_schema`，但 L2 校验主链仍以手写分支为主。
+
+### 18.2 已完成项与能力边界（避免误判）
+| 任务 | 状态 | 实际收口范围 | 未覆盖部分 |
+|---|---|---|---|
+| GOV-01 | ✅ 已完成 | alias/canonical 基础统一（部分） | `action_data.required` 字段级强一致未闭环 |
+| GOV-02 | ✅ 已完成 | alias parity 回归（已有覆盖） | 未形成“每个 action 字段级必填”全矩阵 |
+| GOV-03 | ✅ 已完成 | 锚点类机器修复增强 | 非锚点字段（如 `action_data.name`）机器修复不足 |
+| GOV-04 | ✅ 已完成 | 异步终态语义收口 | 不解决 L2/L3 字段门禁漂移 |
+| GOV-05 | ✅ 已完成 | 可观测字段统一落盘 | 尚未把 `L2 pass / L3 fail` 设为发布阻断 |
+| GOV-06 | ✅ 已完成 | 高频黄金模板 + 决策表 | 模板为建议，不是 validator/dispatcher 强约束 |
+
+### 18.3 根因级修复执行方案（新增优先级，高于 GOV-07/08）
+> 说明：本节任务定义已被 **18.8 重构任务矩阵**取代。  
+> 以 18.8 的编号与验收标准为准（包含 `GOV-12A / GOV-12B` 拆分及 `GOV-11` 版本握手简化）。
+
+### 18.4 执行顺序调整（更新）
+1. 先完成 `R20-UX-GOV-09 ~ R20-UX-GOV-13`（根因收口）。  
+2. 再推进 `R20-UX-GOV-07`（指标基线采样），此时数据才有统计意义。  
+3. 最后推进 `R20-UX-GOV-08`（preflight/dry_run lifecycle 收口）。
+
+### 18.5 当前决策结论
+- `GOV-01~06` 不是无效改动，但属于“必要非充分”。  
+- 当前阶段不建议继续扩展新能力（尤其自升级自动写链路），优先完成契约同源与行为一致性收口。  
+- 以“`L2 pass == L3 pass` 对齐率”作为 Phase G 后续唯一硬指标。
+- `legacyValidators.js` 的结构化拆分（物理分面 + 校验原语抽取）纳入本轮治理计划，但执行时点固定为 `GOV-13`（`GOV-12B` 行为 gate 全绿之后），不与 `GOV-09~11` 同步并行改造。
+
+### 18.6 重构约束（新增，替代点状修补）
+- 本轮按“完整重构”执行，不再新增 `rename_object.name` 等 action 特判分支。
+- 所有 action（含未来新增 action）统一走同一契约解析/校验流程：
+  - `canonical_action_type`
+  - `alias_to_canonical`
+  - `anchor_requirement`
+  - `action_data_schema.required`
+  - `action_data_schema.properties(type/enum/range)`
+- L2 与 L3 必须读取同一份契约定义（同版本号 + 同 hash），禁止各自维护一套隐式规则。
+- 任何“L2 pass / L3 fail（schema 类）”都视为发布阻断缺陷，不接受“先发再补”。
+- C6（硬约束）：所有 action 的 `action_data.required` 必须在 L2 完成校验，不允许进入 L3 handler 后才因缺字段失败。
+
+### 18.7 补丁退役清单（重构落地后删除）
+> 目标：避免“新架构上线但旧补丁仍在生效”造成双轨行为。
+
+| 退役项ID | 当前补丁逻辑 | 文件 | 退役条件 | 退役动作 |
+|---|---|---|---|---|
+| RETIRE-01 | 单 action 锚点自动回填（`normalizeVisualActionsPayload`） | `sidecar/src/application/mcpGateway/mcpEyesWriteService.js` | SSOT + L2/L3 合同校验上线并全绿 | 删除或改为默认 `OFF` 的兼容开关 |
+| RETIRE-02 | 锚点类 `suggested_patch/corrected_payload` 特判生成器（局部规则） | `sidecar/src/application/schemaCompensationFixes.js` | 通用 contract-driven 修复器上线 | 迁移到通用修复器后移除专用分支 |
+| RETIRE-03 | `isMutationVisualActionType` 等硬编码 action 分类 | `sidecar/src/domain/validators/legacyValidators.js` | validator 改为读取 `actionContractRegistry` | 删除硬编码分支，改动态策略 |
+| RETIRE-04 | `golden_path_templates` 手写模板数组 | `sidecar/src/application/writeContractBundle.js` | bundle 改为契约驱动生成 | 用 registry 生成模板，删除手写常量 |
+| RETIRE-05 | 文件存在性为主的 QA 闭环测试 | `sidecar/tests/application/r20-protocol-phase-e-closure-gate.test.js` | parity 行为测试进入主 gate | 保留文档存在性检查为次级，主 gate 切行为一致性 |
+| RETIRE-06 | L3 对畸形可选锚点的兼容容忍分支（Phase F hotfix 遗留） | `Assets/Editor/Codex/Application/Conversation/PendingActionCoordinator.cs` | GOV-10 合同化门禁上线且 L2 已拦截畸形锚点 | 退役兼容分支，避免形成新漂移 |
+| RETIRE-07 | `legacyValidators.js` 巨石文件形态（实现耦合，不利于后续治理） | `sidecar/src/domain/validators/legacyValidators.js`、`sidecar/src/domain/validators/coreValidators.js`、`sidecar/src/domain/validators/mcpWriteValidators.js`、`sidecar/src/domain/validators/unityCallbackValidators.js`、`sidecar/src/domain/validators/readQueryValidators.js`、`sidecar/src/domain/validators/lifecycleValidators.js` | `GOV-12B` 全绿且 `GOV-09~11` 已稳定 | 在 `GOV-13` 中完成物理拆分，保持对外 facade 与行为不变 |
+| RETIRE-08 | `legacyCommandManifest.js` 巨石清单（内联 schema 重复 + 命令定义耦合） | `sidecar/src/mcp/commands/legacyCommandManifest.js`、`sidecar/src/mcp/commands/schemaFragments.js`（新增）、`sidecar/src/mcp/commands/*/definition.js`（新增） | `GOV-12B` 全绿且 `GOV-09~11` 已稳定，命令快照回归通过 | 在 `GOV-13` 中完成“共享 schema 片段抽取 + definition 模块化 + manifest 聚合化”，清理未使用导入并保持对外契约不变 |
+
+### 18.8 重构任务矩阵（覆盖 18.3 并细化退役）
+| 任务ID | 目标 | 文件级改动清单 | 验收标准 |
+|---|---|---|---|
+| R20-UX-GOV-09 | SSOT 契约中心（L3 真源） | 新增 `sidecar/src/domain/actionContractRegistry.js`（L2 消费层）；改造 `legacyValidators.js`、`writeContractBundle.js`、`mcpEyesWriteService.js` | 以 L3 `McpActionRegistryBootstrap` capability report 为真源；L2 不再维护并行语义表 |
+| R20-UX-GOV-10 | L3 合同化门禁 | `Assets/Editor/Codex/Application/Conversation/PendingActionCoordinator.cs` + L3 contract validator（新增） | L3 不再依赖各 handler 私有 schema 判断 |
+| R20-UX-GOV-11 | L2/L3 合同版本握手（简化） | 复用 capability `capability_version`；必要时仅使用 L3 单侧生成 hash | 版本不一致或 stale 时 fail-fast：`E_CONTRACT_VERSION_MISMATCH`，避免跨语言 hash 误报 |
+| R20-UX-GOV-12A | parity 基线测试 | 新增 `sidecar/tests/application/action-contract-parity.test.js`（baseline 模式） + Unity 对应基线套件 | 先固化现状差异（known_gap），为重构提供回归基线 |
+| R20-UX-GOV-12B | parity 收口 gate | 将 known_gap 收口为强断言，并接入 CI 主 gate | 至少覆盖 6 个高频 action（`create/rename/set_parent/set_active/set_local_position/add_component`）的 canonical/alias/缺字段/缺锚点 case 全绿 |
+| R20-UX-GOV-13 | 补丁退役与收口（含 validator + manifest 结构化拆分） | 按 `RETIRE-01~08` 执行清理；`legacyValidators` 分面拆分到 `core/mcpWrite/unityCallback/readQuery/lifecycle`（对外接口保持不变）；`legacyCommandManifest` 完成 `schemaFragments + definition` 模块化（对外接口保持不变） | 运行时无双轨逻辑；重构后路径唯一；拆分前后 parity 与命令快照一致 |
+
+> 进度备注（2026-03-04）：`R20-UX-GOV-09` 已落地第一版（新增 `actionContractRegistry`，并在 `legacyValidators` / `mcpEyesWriteService` / `writeContractBundle` 接入同源契约消费）。
+> 进度备注（2026-03-04）：`R20-UX-GOV-11` 已落地第一版（写工具与 `preflight_validate_write_payload` 接入 `capability_version` 握手；`stale`/版本不一致 fail-fast 为 `E_CONTRACT_VERSION_MISMATCH`；split-write payload 接受 `catalog_version`/`capability_version` 并做一致性校验）。
+> 进度备注（2026-03-04）：`R20-UX-GOV-12A` 已推进基线套件（`sidecar/tests/application/action-contract-parity.test.js` + `Assets/Editor/Codex/Tests/EditMode/VisualActionContractParityBaselineTests.cs`），并接入 `test:r20:qa` 与 `r20-protocol-phase-e-closure-gate` 文件级守门。
+> 进度备注（2026-03-04）：`R20-UX-GOV-12B` 已推进收口版 parity gate（关闭 `known_gap`；L2 与 L3 在“`target_anchor` 完整 + 可选 `parent_anchor` 畸形”场景对齐为通过；`test:r20:qa` 已纳入强断言路径）。
+> 评审结论（2026-03-04）：采纳 `legacyCommandManifest` 优化方案的 A/B 路径（共享 schema 片段抽取 + definition 模块化）并纳入 `RETIRE-08`；C 路径（schema-validator 单一数据源）作为后续阶段目标，不与 `GOV-13` 同批强耦合落地。
+> 执行约束（补充）：`legacyValidators` 结构化拆分属于 `GOV-13` 收口任务，不前置到 `GOV-09~11`，避免在契约主链路未稳定时引入额外回归噪声。
+> 进度备注（2026-03-04）：`R20-UX-GOV-13` 已完成 `RETIRE-08` 第一阶段（`legacyCommandManifest` 由单体改为聚合器，28 个命令定义已拆分到 `sidecar/src/mcp/commands/definitions/*.js`，并通过 `r11-command-modules-and-screenshot`、`mcp-tool-schema-minimal`、`get-write-contract-bundle`、`test:r20:qa` 回归）；`RETIRE-07`（`legacyValidators` 物理分面拆分）待继续推进。
+> 进度备注（2026-03-04）：`R20-UX-GOV-13` 已完成 `RETIRE-07` 第一阶段（`legacyValidators.js` 退化为分面聚合入口；五个分面模块改为直接依赖 `_legacyValidatorsImpl.js`，解除对 `legacyValidators.js` 的循环依赖入口）；相关回归 `validators.*`、`r11-command-modules-and-screenshot`、`test:r20:qa` 全绿。下一步为 `RETIRE-07` 第二阶段：将 `_legacyValidatorsImpl.js` 的实现按分面实质下沉，最终移除该临时实现文件。
+> 进度备注（2026-03-04）：`R20-UX-GOV-13` 已完成 `RETIRE-07` 第二阶段（部分）：`coreValidators`、`readQueryValidators`、`lifecycleValidators` 已从 `_legacyValidatorsImpl.js` 实现下沉为独立实现，不再走转发；`test:r20:qa` 持续全绿。待完成项：`unityCallbackValidators` 与 `mcpWriteValidators` 的实现下沉 + `_legacyValidatorsImpl.js` 删除收口。
+> 进度备注（2026-03-04）：`R20-UX-GOV-13` 已完成 `RETIRE-07` 删除收口：`_legacyValidatorsImpl.js` 已移除；实现按分面拆为 `core/readQuery/lifecycle`（直接实现）与 `mcpWrite/unityCallback`（各自独立 impl 文件 `_mcpWriteValidatorsImpl.js` / `_unityCallbackValidatorsImpl.js`）；`test:r20:qa`、`validators.anchor-hardcut`、`validators.unity-action-result` 全绿。
+> 进度备注（2026-03-04）：`R20-UX-GOV-13` 已完成 `RETIRE-01`：`normalizeVisualActionsPayload` 改为 no-op（不再自动回填锚点）；`apply_visual_actions` 与 `preflight` 对缺失锚点统一走显式失败路径，不再“隐式改写后执行”。
+> 进度备注（2026-03-04）：`R20-UX-GOV-13` 已完成 `RETIRE-02`：`schemaCompensationFixes` 从锚点专用分支重构为 contract-driven 通用补偿器（仅消费 `correctedPayload + field_path` 生成 `suggested_patch`），删除 create/rename 定向特判。
+> 进度备注（2026-03-04）：`R20-UX-GOV-13` 已完成 `RETIRE-03`：L2 锚点必填判定统一收敛到 anchor_policy 驱动（移除 `isMutationVisualActionType` 的强依赖分支）；同时关闭“malformed optional parent_anchor 放行”兼容逻辑，避免再形成 L2/L3 漂移。
+> 进度备注（2026-03-04）：`R20-UX-GOV-13` 已完成 `RETIRE-05`：`r20-protocol-phase-e-closure-gate` 从“仅文件存在性”升级为“文件存在 + 行为断言”双门禁，新增关键行为用例（缺必填 `action_data` / 畸形可选 `parent_anchor` 必须在 L2 拦截）。
+> 进度备注（2026-03-04）：`R20-UX-GOV-13` 已完成 `RETIRE-06`：L3 `VisualActionContractValidator` 已退役 Phase-F 遗留容忍分支（不再在非 parent_required 场景下静默丢弃畸形 `parent_anchor`），与 L2 严格失败语义对齐。
+> 进度备注（2026-03-04）：`R20-UX-GOV-13` 关于 `RETIRE-04` 保持“字段保留、实现去手写”策略：`golden_path_templates` 字段仍保留对外兼容，但模板来源已为 `actionContractRegistry` 动态生成，不再维护手写 action 列表。
+> 回归结果（2026-03-04）：`npm --prefix sidecar run test:r20:qa` 全绿（79/79）。
+> 进度备注（2026-03-04）：`R20-UX-GOV-07` 已完成开发落地：`/mcp/metrics` 新增 `r20_protocol_governance` 快照（重试/预检/dry_run alias 计数 + convergence/timeout/token 衍生指标），并新增 `scripts/generate-r20-ux-governance-baseline.js` 生成 before/after 对比报告。
+> 进度备注（2026-03-04）：`R20-UX-GOV-08` 已完成开发落地：`preflight_validate_write_payload` 生命周期升级为 `stable`，`dry_run` 兼容别名统一返回 deprecation 指引，`get_tool_schema`/`tools list` 同步迁移说明。
+> 进度备注（2026-03-04）：已完成“全量守卫失败”结构化修复（非阈值放宽）：`turnPolicies.js` 的 schema-compensation 逻辑拆分至 `sidecar/src/application/turnPolicySchemaCompensation.js`（`turnPolicies.js` 由 908 行降至 487 行），`turnService.js` 写执行归一化/回执补全逻辑拆分至 `sidecar/src/application/turnServiceWriteSupport.js`（`turnService.js` 由 880 行降至 713 行）；并同步升级 `sidecar/scripts/r16-wire-guard.js` 以匹配 validators 分面后的真实实现文件（`_mcpWriteValidatorsImpl.js`）与 wire token allowlist。
+> 回归结果（2026-03-04）：`r10-arch-guard`、`r11-arch-guard`、`r16-wire-guard` 全绿；`npm --prefix sidecar run test:r20:qa` 全绿（86/86）；`npm --prefix sidecar test` 全绿（335/335）。
+
+### 18.9 执行顺序（重构版）
+1. `GOV-12A`（先建立 parity 基线）  
+2. `GOV-09`（建立 SSOT，L3 真源/L2 消费）  
+3. `GOV-10`（L3 合同化）  
+4. `GOV-11`（版本握手，优先 capability_version）  
+5. `GOV-12B`（行为 gate 收口）  
+6. `GOV-13`（补丁退役 + `legacyValidators`/`legacyCommandManifest` 结构化拆分）  
+7. `GOV-07`（指标采样）  
+8. `GOV-08`（lifecycle 收口）

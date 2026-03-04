@@ -112,14 +112,14 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                             new CompositeVisualActionStep
                             {
                                 step_id = "s1_use_before_bind",
-                                type = "set_gameobject_active",
+                                type = "set_active",
                                 target_anchor_ref = "future_alias",
                                 action_data_json = "{\"active\":true}",
                             },
                             new CompositeVisualActionStep
                             {
                                 step_id = "s2_create_late_bind",
-                                type = "create_gameobject",
+                                type = "create_object",
                                 parent_anchor = new UnityObjectAnchor
                                 {
                                     object_id = rootObjectId,
@@ -173,7 +173,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                             new CompositeVisualActionStep
                             {
                                 step_id = "s1_create",
-                                type = "create_gameobject",
+                                type = "create_object",
                                 parent_anchor = new UnityObjectAnchor
                                 {
                                     object_id = rootObjectId,
@@ -220,7 +220,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                             new CompositeVisualActionStep
                             {
                                 step_id = "s1_create_first",
-                                type = "create_gameobject",
+                                type = "create_object",
                                 parent_anchor = new UnityObjectAnchor
                                 {
                                     object_id = rootObjectId,
@@ -239,7 +239,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                             new CompositeVisualActionStep
                             {
                                 step_id = "s2_create_second_dup",
-                                type = "create_gameobject",
+                                type = "create_object",
                                 parent_anchor_ref = "dup_alias",
                                 action_data_json = "{\"name\":\"R10_L3_DUP_CHILD_2\"}",
                                 bind_outputs = new[]
@@ -288,7 +288,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                     new CompositeVisualActionStep
                     {
                         step_id = "s1_create",
-                        type = "create_gameobject",
+                        type = "create_object",
                         parent_anchor = new UnityObjectAnchor
                         {
                             object_id = rootObjectId,

@@ -51,6 +51,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.IsTrue(lines[0].Contains("\"session_id\":\"sess_test_fixed\""));
             Assert.IsTrue(lines[0].Contains("\"action_type\":\"rename_object\""));
             Assert.IsTrue(lines[0].Contains("\"success\":true"));
+            Assert.IsTrue(lines[0].Contains("\"request_id\":\"req_rename_object\""));
         }
 
         [Test]
@@ -73,10 +74,54 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.LessOrEqual(totalLines, 2);
         }
 
+        [Test]
+        public void Append_FailureEntry_PersistsObservabilityFields()
+        {
+            var request = BuildActionResultRequest(
+                "create_object",
+                false,
+                "E_ACTION_SCHEMA_INVALID",
+                "actions[0].parent_anchor.object_id is required");
+            request.payload.field_path = "actions[0].parent_anchor.object_id";
+            request.payload.anchor_snapshot = new UnityActionAnchorSnapshot
+            {
+                write_anchor = new UnityObjectAnchor
+                {
+                    object_id = "go_canvas",
+                    path = "Scene/Canvas"
+                },
+                target_anchor = new UnityObjectAnchor
+                {
+                    object_id = "go_canvas",
+                    path = "Scene/Canvas"
+                },
+                parent_anchor = new UnityObjectAnchor
+                {
+                    object_id = string.Empty,
+                    path = "Scene/Canvas"
+                }
+            };
+
+            var append = OperationHistoryStore.Append(request);
+            Assert.IsTrue(append.Success, append.ErrorMessage);
+            Assert.IsTrue(File.Exists(append.FilePath));
+
+            var line = File.ReadAllText(append.FilePath);
+            Assert.IsTrue(line.Contains("\"success\":false"));
+            Assert.IsTrue(line.Contains("\"error_code\":\"E_ACTION_SCHEMA_INVALID\""));
+            Assert.IsTrue(line.Contains("\"error_message\":\"actions[0].parent_anchor.object_id is required\""));
+            Assert.IsTrue(line.Contains("\"field_path\":\"actions[0].parent_anchor.object_id\""));
+            Assert.IsTrue(line.Contains("\"anchor_snapshot\":"));
+            Assert.IsTrue(line.Contains("\"write_anchor\""));
+            Assert.IsTrue(line.Contains("\"target_anchor\""));
+            Assert.IsTrue(line.Contains("\"parent_anchor\""));
+        }
+
         private static UnityActionResultRequest BuildActionResultRequest(
             string actionType,
             bool success,
-            string errorCode)
+            string errorCode,
+            string errorMessage = "")
         {
             return new UnityActionResultRequest
             {
@@ -96,7 +141,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                     component_assembly_qualified_name = string.Empty,
                     success = success,
                     error_code = errorCode,
-                    error_message = string.Empty,
+                    error_message = errorMessage,
                     duration_ms = 12,
                     write_receipt = new UnityWriteReceipt
                     {

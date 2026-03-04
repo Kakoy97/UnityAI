@@ -131,20 +131,8 @@ function buildPhase2CatalogReport() {
             required: ["x", "y"],
           },
         },
-        {
-          type: "set_rect_transform_anchored_position",
-          description: "Deprecated alias of set_rect_anchored_position.",
-          anchor_policy: "target_required",
-          lifecycle: "deprecated",
-          tier: "core",
-          domain: "rect_transform",
-          undo_safety: "atomic_safe",
-          replacement_action_type: "set_rect_anchored_position",
-          action_data_schema: {
-            type: "object",
-            required: ["x", "y"],
-          },
-        },
+        // R21-detox: removed deprecated alias entry (set_rect_transform_anchored_position).
+        // L3 no longer registers deprecated aliases.
       ],
     },
   };
@@ -366,6 +354,7 @@ test("get_action_catalog preserves phase2 lifecycle and replacement metadata", a
   assert.equal(stable.body.items[0].lifecycle, "stable");
   assert.equal(stable.body.items[0].undo_safety, "atomic_safe");
 
+  // R21-detox: deprecated aliases removed from L3, so deprecated filter returns 0 items.
   const deprecated = await invokeRoute(route, "POST", "/mcp/get_action_catalog", {
     domain: "rect_transform",
     lifecycle: "deprecated",
@@ -374,11 +363,5 @@ test("get_action_catalog preserves phase2 lifecycle and replacement metadata", a
   });
   assert.equal(deprecated.statusCode, 200);
   assert.equal(deprecated.body.ok, true);
-  assert.equal(deprecated.body.items.length, 1);
-  assert.equal(deprecated.body.items[0].type, "set_rect_transform_anchored_position");
-  assert.equal(deprecated.body.items[0].lifecycle, "deprecated");
-  assert.equal(
-    deprecated.body.items[0].replacement_action_type,
-    "set_rect_anchored_position"
-  );
+  assert.equal(deprecated.body.items.length, 0);
 });

@@ -18,6 +18,7 @@
 - `diagnose-ui.js`
 - `diagnose-ui-specialist.js`
 - `generate-v1-polish-primitive-report.js`
+- `generate-r20-ux-governance-baseline.js`
 - `replay-failed-report.js`
 - `setup-cursor-mcp.js`
 - `verify-mcp-setup.js`
@@ -132,3 +133,11 @@
 - Run:
   - `npm run metrics:v1-polish:report`
   - `npm run metrics:v1-polish:report:ci`
+
+## R20 Governance Baseline Report (R20-UX-GOV-07)
+- Script: `generate-r20-ux-governance-baseline.js`
+- Purpose: build traceable before/after KPI report from `/mcp/metrics` snapshots for protocol-governance closure.
+- Default output: `sidecar/.state/r20-ux-governance-baseline-report.json`
+- Run:
+  - `npm run metrics:r20:governance -- --before ./tmp/metrics-before.json`
+  - `npm run metrics:r20:governance -- --before ./tmp/metrics-before.json --after ./tmp/metrics-after.json --output ./tmp/r20-governance-report.json`

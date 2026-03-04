@@ -21,6 +21,11 @@
 - `case-f-invalid-envelope-fast-fail.json`
 - `case-f-optional-parent-anchor-compat.json`
 - `case-f-hotfix-regression-notes.md`
+- `case-g-metrics-before.json`
+- `case-g-metrics-after.json` (single-run baseline可省略)
+- `case-g-governance-baseline-report.json`
+- `case-h-preflight-tool-schema.json`
+- `case-h-dry-run-alias-response.json`
 
 ## Optional Artifacts
 - `case-e-unity-editmode-results.xml`
@@ -33,3 +38,5 @@
 5. `case-d-stale-retry-policy.json` contains `retry_policy.allow_auto_retry=true` and `max_attempts=1`.
 6. `case-f-invalid-envelope-fast-fail.json` does not contain `E_JOB_MAX_RUNTIME_EXCEEDED` and includes deterministic schema failure code.
 7. `case-f-optional-parent-anchor-compat.json` shows mutation action reaches terminal status (`succeeded` or deterministic `failed`), without silent pending loop.
+8. `case-g-governance-baseline-report.json` includes before/after comparison fields (`retry_fuse_blocked_total`, `avg_status_queries_per_terminal_job`, `max_runtime_timeout_rate`, `read_token_expiry_rate`).
+9. `case-h-preflight-tool-schema.json` shows `lifecycle=stable` and dry_run alias migration guidance.

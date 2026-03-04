@@ -44,8 +44,10 @@ function buildValidApplyVisualBody(extra) {
           object_id: "go_root",
           path: "Scene/Root",
         },
-        component_assembly_qualified_name:
-          "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+        action_data: {
+          component_assembly_qualified_name:
+            "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+        },
       },
     ],
     ...(extra && typeof extra === "object" ? extra : {}),
@@ -116,7 +118,10 @@ test("apply_visual_actions rejects mutation without target_anchor", () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.errorCode, "E_ACTION_SCHEMA_INVALID");
-  assert.equal(result.message, "actions[0].target_anchor is required");
+  assert.equal(
+    result.message,
+    "actions[0].target_anchor or actions[0].parent_anchor is required"
+  );
   assert.equal(result.statusCode, 400);
 });
 
@@ -138,13 +143,81 @@ test("apply_visual_actions rejects create without parent_anchor", () => {
   assert.equal(result.statusCode, 400);
 });
 
+test("apply_visual_actions rejects create_object without parent_anchor", () => {
+  const result = validateMcpApplyVisualActions(
+    buildValidApplyVisualBody({
+      actions: [
+        {
+          type: "create_object",
+          name: "Child",
+        },
+      ],
+    })
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_ACTION_SCHEMA_INVALID");
+  assert.equal(result.message, "actions[0].parent_anchor is required");
+  assert.equal(result.statusCode, 400);
+});
+
+test("R20-UX-GOV-11 apply_visual_actions accepts catalog_version/capability_version when equal", () => {
+  const result = validateMcpApplyVisualActions(
+    buildValidApplyVisualBody({
+      catalog_version: "sha256:gov11_v1",
+      capability_version: "sha256:gov11_v1",
+    })
+  );
+
+  assert.equal(result.ok, true);
+});
+
+test("R20-UX-GOV-11 apply_visual_actions rejects mismatched catalog_version and capability_version", () => {
+  const result = validateMcpApplyVisualActions(
+    buildValidApplyVisualBody({
+      catalog_version: "sha256:gov11_v1",
+      capability_version: "sha256:gov11_v2",
+    })
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(
+    result.message,
+    "catalog_version and capability_version must match when both are provided"
+  );
+  assert.equal(result.statusCode, 400);
+});
+
 test("apply_visual_actions rejects union mismatch: create_gameobject with target_anchor", () => {
   const result = validateMcpApplyVisualActions(
     buildValidApplyVisualBody({
       actions: [
         {
           type: "create_gameobject",
-          name: "Child",
+          action_data: { name: "Child" },
+          target_anchor: {
+            object_id: "go_root",
+            path: "Scene/Root",
+          },
+        },
+      ],
+    })
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_ACTION_SCHEMA_INVALID");
+  assert.equal(result.message, "actions[0].parent_anchor is required");
+  assert.equal(result.statusCode, 400);
+});
+
+test("apply_visual_actions rejects union mismatch: create_object with target_anchor", () => {
+  const result = validateMcpApplyVisualActions(
+    buildValidApplyVisualBody({
+      actions: [
+        {
+          type: "create_object",
+          action_data: { name: "Child" },
           target_anchor: {
             object_id: "go_root",
             path: "Scene/Root",
@@ -170,12 +243,14 @@ test("apply_visual_actions accepts valid mutation/create anchor unions", () => {
             object_id: "go_root",
             path: "Scene/Root",
           },
-          component_assembly_qualified_name:
-            "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+          action_data: {
+            component_assembly_qualified_name:
+              "UnityEngine.CanvasRenderer, UnityEngine.UIModule",
+          },
         },
         {
           type: "create_gameobject",
-          name: "Child",
+          action_data: { name: "Child" },
           parent_anchor: {
             object_id: "go_root",
             path: "Scene/Root",
@@ -240,11 +315,102 @@ test("apply_visual_actions enforces target_required when known action anchor_pol
 
   assert.equal(result.ok, false);
   assert.equal(result.errorCode, "E_ACTION_SCHEMA_INVALID");
-  assert.equal(
-    result.message,
-    "actions[0].target_anchor is required by anchor_policy(target_required)"
-  );
+  assert.equal(result.message, "actions[0].target_anchor is required");
   assert.equal(result.statusCode, 400);
+});
+
+test("R20-UX-GOV-02 apply_visual_actions resolves alias action type against canonical anchor_policy", () => {
+  const result = validateMcpApplyVisualActions(
+    buildValidApplyVisualBody({
+      actions: [
+        {
+          type: "rename_gameobject",
+          parent_anchor: {
+            object_id: "go_canvas",
+            path: "Scene/Canvas",
+          },
+          action_data: {
+            name: "Panel_A",
+          },
+        },
+      ],
+    }),
+    {
+      actionAnchorPolicyByType: {
+        rename_object: "target_required",
+      },
+    }
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_ACTION_SCHEMA_INVALID");
+  assert.equal(result.message, "actions[0].target_anchor is required");
+});
+
+test("R20-UX-GOV-09 apply_visual_actions enforces action_data.required from action contract registry", () => {
+  const actionContractRegistry = {
+    resolveActionContract(actionType) {
+      if (actionType !== "rename_object") {
+        return null;
+      }
+      return {
+        action_type: "rename_object",
+        anchor_policy: "target_required",
+        action_data_schema: {
+          required: ["name"],
+        },
+      };
+    },
+  };
+
+  const result = validateMcpApplyVisualActions(
+    buildValidApplyVisualBody({
+      actions: [
+        {
+          type: "rename_object",
+          target_anchor: {
+            object_id: "go_canvas",
+            path: "Scene/Canvas",
+          },
+          action_data: {},
+        },
+      ],
+    }),
+    {
+      actionContractRegistry,
+    }
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_ACTION_SCHEMA_INVALID");
+  assert.equal(result.message, "actions[0].action_data.name is required");
+});
+
+test("R20-UX-GOV-12B apply_visual_actions rejects malformed optional parent_anchor even when target_anchor is valid", () => {
+  const result = validateMcpApplyVisualActions(
+    buildValidApplyVisualBody({
+      actions: [
+        {
+          type: "rename_object",
+          target_anchor: {
+            object_id: "go_canvas",
+            path: "Scene/Canvas",
+          },
+          parent_anchor: {
+            object_id: "go_parent",
+            path: "",
+          },
+          action_data: {
+            name: "Panel_A",
+          },
+        },
+      ],
+    })
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_ACTION_SCHEMA_INVALID");
+  assert.equal(result.message, "actions[0].parent_anchor.path is required");
 });
 
 test("apply_visual_actions keeps unknown action submit-open when policy map has no hit", () => {

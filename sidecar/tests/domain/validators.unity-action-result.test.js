@@ -142,3 +142,22 @@ test("validateUnityActionResult rejects legacy payload.action.type fallback", ()
   assert.equal(result.errorCode, "E_SCHEMA_INVALID");
   assert.equal(result.message, "payload.action_type is required");
 });
+
+test("R20-UX-GOV-01 validateUnityActionResult canonicalizes create_gameobject alias", () => {
+  const body = buildBody({
+    action_type: "create_gameobject",
+    name: "Child",
+    parent_object_path: "Scene/Root",
+    target_object_path: undefined,
+    target_object_id: undefined,
+    object_id: undefined,
+    component_assembly_qualified_name: undefined,
+    source_component_assembly_qualified_name: undefined,
+    component_name: undefined,
+    object_type: "Button",
+  });
+
+  const result = validateUnityActionResult(body);
+  assert.equal(result.ok, true);
+  assert.equal(body.payload.action_type, "create_object");
+});

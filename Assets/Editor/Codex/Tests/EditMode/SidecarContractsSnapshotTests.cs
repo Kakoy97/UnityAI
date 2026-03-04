@@ -73,9 +73,16 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "success",
                 "error_code",
                 "error_message",
+                "field_path",
+                "anchor_snapshot",
                 "duration_ms",
                 "result_data",
                 "write_receipt");
+            AssertFieldSnapshot(
+                typeof(UnityActionAnchorSnapshot),
+                "write_anchor",
+                "target_anchor",
+                "parent_anchor");
             AssertFieldSnapshot(
                 typeof(UnityWriteReceipt),
                 "schema_version",

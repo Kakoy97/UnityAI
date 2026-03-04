@@ -28,7 +28,8 @@ const WRITE_ANCHOR_GUARD_CONTRACT = Object.freeze({
         "replace_component",
       ]),
       mutation_required_anchor: "target_anchor",
-      create_types: Object.freeze(["create_gameobject"]),
+      // R21-detox: removed "create_gameobject" deprecated alias.
+      create_types: Object.freeze(["create_object"]),
       create_required_anchor: "parent_anchor",
     }),
   }),
@@ -307,6 +308,7 @@ const OBSERVABILITY_FREEZE_CONTRACT = Object.freeze({
     "legacy_anchor_last_hit_at",
     "legacy_anchor_requested_deny_blocked_total",
     "action_error_code_missing_total",
+    "r20_protocol_governance",
     "capture_composite",
   ]),
   frozen_stream_event_fields: Object.freeze([
