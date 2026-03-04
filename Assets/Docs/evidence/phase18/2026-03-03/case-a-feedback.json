@@ -1,8 +1,0 @@
-﻿{
-    "status":  "failed",
-    "error_code":  "E_CAPTURE_MODE_DISABLED",
-    "message":  "capture_mode \u0027editor_view\u0027 is disabled. Use capture_mode=\u0027render_output\u0027.",
-    "error_message":  "capture_mode \u0027editor_view\u0027 is disabled. Use capture_mode=\u0027render_output\u0027.",
-    "suggestion":  "capture_scene_screenshot currently keeps render_output as baseline. If you need composite, enable CAPTURE_COMPOSITE_ENABLED + UNITY_CAPTURE_COMPOSITE_ENABLED; otherwise retry with render_output after get_ui_overlay_report.",
-    "recoverable":  true
-}

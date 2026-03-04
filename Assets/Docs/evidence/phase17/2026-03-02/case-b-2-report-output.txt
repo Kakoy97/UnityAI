@@ -1,7 +1,0 @@
-
-> codex-unity-sidecar-mvp@0.1.0 metrics:v1-polish:report
-> node scripts/generate-v1-polish-primitive-report.js
-
-[v1-polish-report] source=D:\csgo\csgoToolV02\UnityAI\sidecar\.state\v1-polish-metrics.json
-[v1-polish-report] candidates=4
-[v1-polish-report] report=D:\csgo\csgoToolV02\UnityAI\sidecar\.state\v1-polish-primitive-candidates.json
