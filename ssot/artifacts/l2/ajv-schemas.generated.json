@@ -1,0 +1,3437 @@
+{
+  "version": 1,
+  "schemas": [
+    {
+      "tool_name": "modify_ui_layout",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "anchored_x",
+          "anchored_y",
+          "width",
+          "height"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "anchored_x": {
+            "type": "number"
+          },
+          "anchored_y": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number",
+            "minimum": 0
+          },
+          "height": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_component_properties",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "component_type",
+          "property_path",
+          "value_kind"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "property_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value_kind": {
+            "type": "string",
+            "enum": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "value_string": {
+            "type": "string"
+          },
+          "value_number": {
+            "type": "number"
+          },
+          "value_boolean": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "add_component",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "component_type"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "remove_component",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "component_type"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "replace_component",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "source_component_type",
+          "new_component_type"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_component_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_component_type": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "create_object",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "parent_object_id",
+          "parent_path",
+          "new_object_name",
+          "object_kind",
+          "set_active"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_object_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "object_kind": {
+            "type": "string",
+            "enum": [
+              "empty",
+              "ui_button",
+              "ui_panel",
+              "camera",
+              "light"
+            ]
+          },
+          "set_active": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "instantiate_prefab",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "parent_object_id",
+          "parent_path",
+          "prefab_asset_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prefab_asset_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "instance_name": {
+            "type": "string"
+          },
+          "world_position_stays": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "delete_object",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "rename_object",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "new_name"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_name": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_active",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "active"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_parent",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "parent_object_id",
+          "parent_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_sibling_index",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "sibling_index"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sibling_index": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_local_position",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_local_rotation",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_local_scale",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_world_position",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_world_rotation",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "reset_transform",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_rect_anchored_position",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_rect_size_delta",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_rect_pivot",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_rect_anchors",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "min_x",
+          "min_y",
+          "max_x",
+          "max_y"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "min_x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "min_y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "max_x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "max_y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_canvas_group_alpha",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "alpha"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "alpha": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_layout_element",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "min_width",
+          "min_height",
+          "preferred_width",
+          "preferred_height",
+          "flexible_width",
+          "flexible_height",
+          "ignore_layout"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "min_width": {
+            "type": "number",
+            "minimum": -1
+          },
+          "min_height": {
+            "type": "number",
+            "minimum": -1
+          },
+          "preferred_width": {
+            "type": "number",
+            "minimum": -1
+          },
+          "preferred_height": {
+            "type": "number",
+            "minimum": -1
+          },
+          "flexible_width": {
+            "type": "number",
+            "minimum": -1
+          },
+          "flexible_height": {
+            "type": "number",
+            "minimum": -1
+          },
+          "ignore_layout": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_ui_image_color",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "r",
+          "g",
+          "b",
+          "a"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "r": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "g": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "b": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "a": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_ui_image_raycast_target",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "raycast_target"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "raycast_target": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_ui_text_content",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "text"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_ui_text_color",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "r",
+          "g",
+          "b",
+          "a"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "r": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "g": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "b": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "a": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_ui_text_font_size",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "font_size"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "font_size": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "execute_unity_transaction",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "transaction_id",
+          "steps_json"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transaction_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "steps_json": {
+            "type": "string",
+            "minLength": 2
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "duplicate_object",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "duplicate_name": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "get_scene_snapshot_for_write",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "scope_path": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "get_current_selection",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "get_gameobject_components",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "target_object_id",
+          "target_path"
+        ]
+      }
+    },
+    {
+      "tool_name": "get_hierarchy_subtree",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 200000
+          }
+        },
+        "required": [
+          "target_object_id",
+          "target_path"
+        ]
+      }
+    },
+    {
+      "tool_name": "get_scene_roots",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "scene_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "include_inactive": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "list_assets_in_folder",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "folder_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recursive": {
+            "type": "boolean"
+          },
+          "include_meta": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          }
+        },
+        "required": [
+          "folder_path"
+        ]
+      }
+    },
+    {
+      "tool_name": "find_objects_by_component",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "component_query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "under_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "include_inactive": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          }
+        },
+        "required": [
+          "component_query"
+        ]
+      }
+    },
+    {
+      "tool_name": "query_prefab_info",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "prefab_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 200000
+          },
+          "include_components": {
+            "type": "boolean"
+          },
+          "include_missing_scripts": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prefab_path",
+          "max_depth"
+        ]
+      }
+    },
+    {
+      "tool_name": "get_ui_tree",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "ui_system": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "ugui",
+              "uitk"
+            ]
+          },
+          "root_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "root_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "include_inactive": {
+            "type": "boolean"
+          },
+          "include_components": {
+            "type": "boolean"
+          },
+          "include_layout": {
+            "type": "boolean"
+          },
+          "include_interaction": {
+            "type": "boolean"
+          },
+          "include_text_metrics": {
+            "type": "boolean"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 200000
+          },
+          "resolution": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              }
+            }
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "get_ui_overlay_report",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "root_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "root_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "include_inactive": {
+            "type": "boolean"
+          },
+          "include_children_summary": {
+            "type": "boolean"
+          },
+          "max_nodes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20000
+          },
+          "max_children_per_canvas": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "hit_test_ui_at_viewport_point",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "view": {
+            "type": "string",
+            "enum": [
+              "game"
+            ]
+          },
+          "coord_space": {
+            "type": "string",
+            "enum": [
+              "viewport_px",
+              "normalized"
+            ]
+          },
+          "coord_origin": {
+            "type": "string",
+            "enum": [
+              "bottom_left",
+              "top_left"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "resolution_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "resolution_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "scope_root_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "include_non_interactable": {
+            "type": "boolean"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ]
+      }
+    },
+    {
+      "tool_name": "validate_ui_layout",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "scope_root_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "resolution_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "checks_csv": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_issues": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "time_budget_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300000
+          },
+          "layout_refresh_mode": {
+            "type": "string",
+            "enum": [
+              "scoped_roots_only",
+              "full_tree"
+            ]
+          },
+          "include_repair_plan": {
+            "type": "boolean"
+          },
+          "max_repair_suggestions": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "repair_style": {
+            "type": "string",
+            "enum": [
+              "conservative",
+              "balanced",
+              "aggressive"
+            ]
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "get_serialized_property_tree",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_assembly_qualified_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 256
+          },
+          "root_property_path": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 64
+          },
+          "after_property_path": {
+            "type": "string"
+          },
+          "page_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 2000000
+          },
+          "include_value_summary": {
+            "type": "boolean"
+          },
+          "include_non_visible": {
+            "type": "boolean"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
+        },
+        "required": [
+          "target_object_id",
+          "target_path",
+          "component_assembly_qualified_name"
+        ]
+      }
+    },
+    {
+      "tool_name": "capture_scene_screenshot",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "view_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "scene",
+              "game"
+            ]
+          },
+          "capture_mode": {
+            "type": "string",
+            "enum": [
+              "render_output",
+              "composite",
+              "final_pixels",
+              "editor_view"
+            ]
+          },
+          "output_mode": {
+            "type": "string",
+            "enum": [
+              "artifact_uri",
+              "inline_base64"
+            ]
+          },
+          "image_format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpg"
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 4096
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 4096
+          },
+          "jpeg_quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "max_base64_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10485760
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          },
+          "include_ui": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "get_action_catalog",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tier": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lifecycle": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "catalog_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "if_none_match": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "get_action_schema",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "action_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "catalog_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "if_none_match": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "action_type"
+        ]
+      }
+    },
+    {
+      "tool_name": "get_tool_schema",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "tool_name"
+        ]
+      }
+    },
+    {
+      "tool_name": "get_write_contract_bundle",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "catalog_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "budget_chars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200000
+          },
+          "include_error_fix_map": {
+            "type": "boolean"
+          },
+          "include_canonical_examples": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "preflight_validate_write_payload",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payload": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "tool_name",
+          "payload"
+        ]
+      }
+    },
+    {
+      "tool_name": "setup_cursor_mcp",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "native",
+              "cline"
+            ],
+            "case_insensitive": true
+          },
+          "sidecar_base_url": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^https?://"
+          },
+          "dry_run": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "verify_mcp_setup",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "native",
+              "cline"
+            ],
+            "case_insensitive": true
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "get_unity_task_status",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      }
+    },
+    {
+      "tool_name": "cancel_unity_task",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      }
+    },
+    {
+      "tool_name": "submit_unity_task",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "thread_id",
+          "idempotency_key",
+          "user_intent",
+          "based_on_read_token",
+          "write_anchor"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "file_actions"
+            ],
+            "properties": {
+              "file_actions": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          {
+            "required": [
+              "visual_layer_actions"
+            ],
+            "properties": {
+              "visual_layer_actions": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approval_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "require_user"
+            ]
+          },
+          "user_intent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object_id",
+              "path"
+            ],
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "context": {
+            "type": "object"
+          },
+          "file_actions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "visual_layer_actions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "apply_script_actions",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "based_on_read_token",
+          "write_anchor",
+          "actions"
+        ],
+        "properties": {
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object_id",
+              "path"
+            ],
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "user_intent": {
+            "type": "string"
+          },
+          "approval_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "require_user"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "apply_visual_actions",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "based_on_read_token",
+          "write_anchor",
+          "actions"
+        ],
+        "properties": {
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object_id",
+              "path"
+            ],
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "target_anchor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "object_id",
+                    "path"
+                  ],
+                  "properties": {
+                    "object_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "parent_anchor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "object_id",
+                    "path"
+                  ],
+                  "properties": {
+                    "object_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "action_data": {
+                  "type": "object"
+                }
+              },
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "target_anchor": {}
+                  },
+                  "required": [
+                    "target_anchor"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "parent_anchor": {}
+                  },
+                  "required": [
+                    "parent_anchor"
+                  ]
+                }
+              ]
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "user_intent": {
+            "type": "string"
+          },
+          "approval_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "require_user"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_ui_properties",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "based_on_read_token",
+          "write_anchor",
+          "operations"
+        ],
+        "properties": {
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object_id",
+              "path"
+            ],
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "target_anchor"
+              ],
+              "properties": {
+                "target_anchor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "object_id",
+                    "path"
+                  ],
+                  "properties": {
+                    "object_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "rect_transform": {
+                  "type": "object"
+                },
+                "image": {
+                  "type": "object"
+                },
+                "text": {
+                  "type": "object"
+                },
+                "layout_element": {
+                  "type": "object"
+                }
+              },
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "rect_transform": {}
+                  },
+                  "required": [
+                    "rect_transform"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "image": {}
+                  },
+                  "required": [
+                    "image"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "text": {}
+                  },
+                  "required": [
+                    "text"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "layout_element": {}
+                  },
+                  "required": [
+                    "layout_element"
+                  ]
+                }
+              ]
+            }
+          },
+          "atomic": {
+            "type": "boolean"
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "user_intent": {
+            "type": "string"
+          },
+          "approval_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "require_user"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "set_serialized_property",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "component_type",
+          "property_path",
+          "value_kind"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "property_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value_kind": {
+            "type": "string",
+            "enum": [
+              "integer",
+              "float",
+              "string",
+              "bool"
+            ]
+          },
+          "int_value": {
+            "type": "integer"
+          },
+          "float_value": {
+            "type": "number"
+          },
+          "string_value": {
+            "type": "string"
+          },
+          "bool_value": {
+            "type": "boolean"
+          },
+          "dry_run": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "hit_test_ui_at_screen_point",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "view_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "game"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reference_width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reference_height": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ]
+      }
+    }
+  ]
+}

@@ -358,14 +358,6 @@ class TurnStore {
       stage: data.stage || "",
       task_allocation: cloneTaskAllocation(data.task_allocation),
       files_changed: cloneFileChanges(data.files_changed),
-      compile_request: cloneCompileRequest(data.compile_request),
-      unity_action_request: cloneUnityActionRequest(data.unity_action_request),
-      unity_query_components_request: cloneUnityQueryComponentsRequest(
-        data.unity_query_components_request
-      ),
-      unity_query_components_result: cloneUnityQueryComponentsResult(
-        data.unity_query_components_result
-      ),
       planner_metrics: clonePlannerMetrics(data.planner_metrics),
       execution_report: cloneExecutionReport(data.execution_report),
     };
@@ -675,32 +667,6 @@ function cloneFileChanges(changes) {
     .map((item) => ({ ...item }));
 }
 
-function cloneCompileRequest(value) {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  return { ...value };
-}
-
-function cloneUnityActionRequest(value) {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  return {
-    ...value,
-    payload:
-      value.payload && typeof value.payload === "object"
-        ? {
-            ...value.payload,
-            action:
-              value.payload.action && typeof value.payload.action === "object"
-                ? { ...value.payload.action }
-                : value.payload.action || null,
-          }
-        : value.payload || null,
-  };
-}
-
 function cloneExecutionReport(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -755,52 +721,9 @@ function cloneTurnEvents(events) {
       stage: item.stage || "",
       task_allocation: cloneTaskAllocation(item.task_allocation),
       files_changed: cloneFileChanges(item.files_changed),
-      compile_request: cloneCompileRequest(item.compile_request),
-      unity_action_request: cloneUnityActionRequest(item.unity_action_request),
-      unity_query_components_request: cloneUnityQueryComponentsRequest(
-        item.unity_query_components_request
-      ),
-      unity_query_components_result: cloneUnityQueryComponentsResult(
-        item.unity_query_components_result
-      ),
       planner_metrics: clonePlannerMetrics(item.planner_metrics),
       execution_report: cloneExecutionReport(item.execution_report),
     }));
-}
-
-function cloneUnityQueryComponentsRequest(value) {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  return {
-    ...value,
-    payload:
-      value.payload && typeof value.payload === "object"
-        ? {
-            ...value.payload,
-          }
-        : value.payload || null,
-  };
-}
-
-function cloneUnityQueryComponentsResult(value) {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  return {
-    ...value,
-    payload:
-      value.payload && typeof value.payload === "object"
-        ? {
-            ...value.payload,
-            components: Array.isArray(value.payload.components)
-              ? value.payload.components
-                  .filter((item) => item && typeof item === "object")
-                  .map((item) => ({ ...item }))
-              : [],
-          }
-        : value.payload || null,
-  };
 }
 
 function cloneTurnEventsSince(events, cursor) {

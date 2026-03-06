@@ -1,48 +1,21 @@
 "use strict";
 
 module.exports = function buildDefinition(deps) {
-  const {
-    validateGetActionCatalog,
-    executeGetActionCatalog,
-    validateGetActionSchema,
-    executeGetActionSchema,
-    validateGetToolSchema,
-    executeGetToolSchema,
-    validateGetWriteContractBundle,
-    executeGetWriteContractBundle,
-    validatePreflightValidateWritePayload,
-    executePreflightValidateWritePayload,
-    validateSetupCursorMcp,
-    executeSetupCursorMcp,
-    validateVerifyMcpSetup,
-    executeVerifyMcpSetup,
-    validateListAssetsInFolder,
-    validateGetSceneRoots,
-    validateFindObjectsByComponent,
-    validateQueryPrefabInfo,
-    validateCaptureSceneScreenshot,
-    executeCaptureSceneScreenshot,
-    validateGetUiOverlayReport,
-    executeGetUiOverlayReport,
-    validateGetUiTree,
-    executeGetUiTree,
-    validateGetSerializedPropertyTree,
-    executeGetSerializedPropertyTree,
-    validateHitTestUiAtViewportPoint,
-    executeHitTestUiAtViewportPoint,
-    validateUiLayout,
-    executeValidateUiLayout,
-    executeSetUiProperties,
-    executeSetSerializedProperty,
-    validateHitTestUiAtScreenPoint,
-    executeHitTestUiAtScreenPoint,
-    normalizeBody,
-    buildVisualActionsDescription,
-    readEnvBoolean,
-    isCompositeCaptureEnabledForManifest,
-    buildCaptureSceneScreenshotDescription,
-    validateGetUnityTaskStatusArgs,
-  } = deps;
+  const source = deps && typeof deps === "object" ? deps : {};
+  const validateSetupCursorMcp =
+    typeof source.validateSetupCursorMcp === "function"
+      ? source.validateSetupCursorMcp
+      : null;
+  const getSsotInputSchemaForTool =
+    typeof source.getSsotInputSchemaForTool === "function"
+      ? source.getSsotInputSchemaForTool
+      : null;
+  const getSsotToolDescriptionForTool =
+    typeof source.getSsotToolDescriptionForTool === "function"
+      ? source.getSsotToolDescriptionForTool
+      : null;
+  const fallbackDescription =
+    "Setup Cursor MCP config via SSOT-generated schema.";
 
   return {
     name: "setup_cursor_mcp",
@@ -54,32 +27,19 @@ module.exports = function buildDefinition(deps) {
       source: "body",
     },
     validate: validateSetupCursorMcp,
-    execute: executeSetupCursorMcp,
+    turnServiceMethod: "setupCursorMcpForMcp",
     mcp: {
       expose: true,
-      description:
-        "Write or update Cursor MCP config for unity-sidecar (native/cline path whitelist only). This is for onboarding and reconfiguration.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          mode: {
-            type: "string",
-            enum: ["native", "cline"],
-            default: "native",
-            description: "Target Cursor config mode.",
+      description: getSsotToolDescriptionForTool
+        ? getSsotToolDescriptionForTool("setup_cursor_mcp", fallbackDescription)
+        : fallbackDescription,
+      inputSchema: getSsotInputSchemaForTool
+        ? getSsotInputSchemaForTool("setup_cursor_mcp")
+        : {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          sidecar_base_url: {
-            type: "string",
-            description:
-              "Optional sidecar base URL. Defaults to http://127.0.0.1:46321.",
-          },
-          dry_run: {
-            type: "boolean",
-            description: "When true, returns planned result without writing file.",
-          },
-        },
-      },
     },
   };
 };

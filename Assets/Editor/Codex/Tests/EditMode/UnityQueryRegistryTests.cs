@@ -13,12 +13,12 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         public void Register_Throws_WhenDuplicateQueryType()
         {
             var registry = new UnityQueryRegistry();
-            registry.Register(new StubHandler(UnityQueryTypes.CaptureSceneScreenshot, (q, c) =>
-                Task.FromResult(UnityQueryHandlerResult.Success(new UnityCaptureSceneScreenshotResponse(), string.Empty))));
+            registry.Register(new StubHandler(UnityQueryTypes.SsotRequest, (q, c) =>
+                Task.FromResult(UnityQueryHandlerResult.Success(new object(), string.Empty))));
 
             Assert.Throws<InvalidOperationException>(() =>
-                registry.Register(new StubHandler(UnityQueryTypes.CaptureSceneScreenshot, (q, c) =>
-                    Task.FromResult(UnityQueryHandlerResult.Success(new UnityCaptureSceneScreenshotResponse(), string.Empty)))));
+                registry.Register(new StubHandler(UnityQueryTypes.SsotRequest, (q, c) =>
+                    Task.FromResult(UnityQueryHandlerResult.Success(new object(), string.Empty)))));
         }
 
         [Test]
@@ -60,21 +60,12 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         }
 
         [Test]
-        public void BuildDefaultRegistry_ContainsPhaseDQueryHandlers()
+        public void BuildDefaultRegistry_IsSsotOnly()
         {
             var registry = UnityQueryRegistryBootstrap.BuildDefaultRegistry();
             Assert.NotNull(registry);
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.ListAssetsInFolder));
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.GetSceneRoots));
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.FindObjectsByComponent));
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.QueryPrefabInfo));
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.CaptureSceneScreenshot));
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.GetUiOverlayReport));
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.GetUiTree));
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.GetSerializedPropertyTree));
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.HitTestUiAtScreenPoint));
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.HitTestUiAtViewportPoint));
-            Assert.IsTrue(registry.Contains(UnityQueryTypes.ValidateUiLayout));
+            Assert.IsTrue(registry.Contains(UnityQueryTypes.SsotRequest));
+            Assert.AreEqual(1, registry.Count);
         }
 
         private static UnityQueryExecutionContext BuildExecutionContext()

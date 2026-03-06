@@ -1,4 +1,4 @@
-# V1-POLISH 泛化层打磨实施方案
+﻿# V1-POLISH 泛化层打磨实施方案
 
 版本：v1.1  
 更新时间：2026-03-02  
@@ -36,7 +36,7 @@
 |---|---|---|---|---|---|
 | R17-POLISH-E2E-00 | Phase A | 验收大纲左移 | `docs/Phase17-V1-Polish-Acceptance.md`（先创建大纲） | 先固化 Case 列表（bool/array/dry_run/hint/限制策略）与证据模板 | 后续每个任务都可映射到验收 Case ID |
 | R17-POLISH-P0-01 | Phase A | bool 写入补齐 | `sidecar/src/mcp/commands/set_serialized_property/validator.js`、`sidecar/src/mcp/commands/legacyCommandManifest.js`、`Assets/Editor/Codex/Infrastructure/Actions/SerializedPropertyActionHandler.cs`、`Assets/Editor/Codex/Infrastructure/Actions/McpActionRegistryBootstrap.cs`、相关 tests | `value_kind=bool` 端到端可写（含 tool schema 与 action schema 文案一致性） | boolean 字段写入成功，类型不匹配错误码稳定，schema parity 用例通过 |
-| R17-POLISH-P0-02 | Phase A | CloneAction 线缆修复 | `Assets/Editor/Codex/Infrastructure/Actions/BuiltInVisualActionHandlers.cs`、相关 tests | `CloneAction` 补齐 `action_data_marshaled` 复制 | composite 步骤克隆不再丢失 marshaled 数据 |
+| R17-POLISH-P0-02 | Phase A | CloneAction 线缆修复 | `Assets/Editor/Codex/Infrastructure/Actions/BuiltInVisualActionHandlers.cs`、相关 tests | `CloneAction` 补齐 `legacy_marshaled_action_data` 复制 | composite 步骤克隆不再丢失 marshaled 数据 |
 | R17-POLISH-P0-03 | Phase A | patch 数量硬限制 | `sidecar/src/mcp/commands/set_serialized_property/validator.js`、`Assets/Editor/Codex/Infrastructure/Actions/SerializedPropertyActionHandler.cs`、相关 tests | `max_patches_per_action`（建议 64）双端硬限制 | 超限请求稳定返回 `E_SCHEMA_INVALID`/对应错误码 |
 | R17-POLISH-W-00 | Phase B | 数组 patch mini-design | `docs/V1-POLISH-Array-Patch-Schema-Mini-Design.md`（新增） | 固化数组 patch schema：采用 `op=set|insert|remove|clear`（`value_kind=array`） | 方案评审通过后再进入 W-01 |
 | R17-POLISH-W-01 | Phase B | 数组 op 增强 | `Assets/Editor/Codex/Domain/Contracts/SidecarContracts.Action.cs`、`sidecar/src/mcp/commands/set_serialized_property/validator.js`、`sidecar/src/mcp/commands/legacyCommandManifest.js`、`Assets/Editor/Codex/Infrastructure/Actions/SerializedPropertyActionHandler.cs`、相关 tests | 在 `value_kind=array` 下支持 `op=insert/remove/clear` | 数组增删改行为可回归，remove 按高索引到低索引执行 |
@@ -76,7 +76,7 @@
 
 ## 4. 技术约束与统一规范
 
-- 外部协议保持 `action_data` object-only；不得回退暴露 `action_data_json`。
+- 外部协议保持 `action_data` object-only；不得回退暴露 `legacy_stringified_action_data`。
 - 所有新增错误码需映射到 `mcpErrorFeedback`，并提供可恢复建议。
 - 对 `atomic_safe` action 的改动必须保持 `AtomicActionTestBase` 覆盖。
 - 读路径新增字段不得破坏既有 `truncated/next_cursor` 语义。
@@ -121,3 +121,4 @@
 4. `R17-POLISH-P0-03`（patch 限制）
 
 完成 `Phase A` 后，再开启 `Phase B`。  
+

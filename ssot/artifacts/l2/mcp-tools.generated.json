@@ -1,0 +1,4442 @@
+{
+  "version": 1,
+  "tools": [
+    {
+      "name": "modify_ui_layout",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Modify RectTransform geometry only (position and size fields such as anchored_x, anchored_y, width, height). Strictly do NOT use this tool for color, text, sprite, material, animation, gameplay values, or non-UI objects. If the target is not a valid UI node with RectTransform, the request must fail fast without implicit fallback or auto-repair.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "anchored_x",
+          "anchored_y",
+          "width",
+          "height"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "anchored_x": {
+            "type": "number"
+          },
+          "anchored_y": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number",
+            "minimum": 0
+          },
+          "height": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "anchored_x": 100,
+            "anchored_y": 100,
+            "width": 160,
+            "height": 48
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_component_properties",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set one explicit component property on one explicit target object. Use this only for scalar/component property writes. Strictly do NOT use this tool to create/delete objects, move hierarchy, or edit UI RectTransform geometry; those must use create_object/instantiate_prefab/delete_object/modify_ui_layout.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "component_type",
+          "property_path",
+          "value_kind"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "property_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value_kind": {
+            "type": "string",
+            "enum": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "value_string": {
+            "type": "string"
+          },
+          "value_number": {
+            "type": "number"
+          },
+          "value_boolean": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Panel/Image",
+            "component_type": "UnityEngine.UI.Image, UnityEngine.UI",
+            "property_path": "m_Color.a",
+            "value_kind": "number",
+            "value_number": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "add_component",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Add one explicit component to one explicit target object. Use this only for component attachment. Strictly do NOT use this tool for property writes, component removal, object hierarchy changes, or UI rect edits.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "component_type"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Panel",
+            "component_type": "UnityEngine.CanvasGroup, UnityEngine.UI"
+          }
+        }
+      ]
+    },
+    {
+      "name": "remove_component",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Remove one explicit component from one explicit target object. Use this only for component removal. Strictly do NOT use this tool for property writes, adding components, object deletion, or hierarchy parenting changes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "component_type"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Panel",
+            "component_type": "UnityEngine.CanvasGroup, UnityEngine.UI"
+          }
+        }
+      ]
+    },
+    {
+      "name": "replace_component",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Replace one explicit source component on one explicit target object with one explicit new component type. Use this only for component type replacement. Do NOT use this tool for scalar property edits or hierarchy operations.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "source_component_type",
+          "new_component_type"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_component_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_component_type": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Label",
+            "source_component_type": "UnityEngine.UI.Text, UnityEngine.UI",
+            "new_component_type": "TMPro.TextMeshProUGUI, Unity.TextMeshPro"
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_object",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Create a new empty object or predefined UI object under an explicit parent anchor. Strictly do NOT use this tool for prefab instantiation or deleting existing objects; use instantiate_prefab/delete_object for those operations.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "parent_object_id",
+          "parent_path",
+          "new_object_name",
+          "object_kind",
+          "set_active"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_object_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "object_kind": {
+            "type": "string",
+            "enum": [
+              "empty",
+              "ui_button",
+              "ui_panel",
+              "camera",
+              "light"
+            ]
+          },
+          "set_active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "parent_object_id": "mock_parent_object_id",
+            "parent_path": "Scene/Canvas/Panel",
+            "new_object_name": "StartButton",
+            "object_kind": "ui_button",
+            "set_active": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "instantiate_prefab",
+      "lifecycle": "deprecated",
+      "kind": "write",
+      "description": "Instantiate one prefab asset under one explicit parent. Strictly do NOT use this tool for plain empty object creation, value patching, or UI rect edits; those must use create_object/set_component_properties/modify_ui_layout.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "parent_object_id",
+          "parent_path",
+          "prefab_asset_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prefab_asset_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "instance_name": {
+            "type": "string"
+          },
+          "world_position_stays": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "parent_object_id": "mock_parent_object_id",
+            "parent_path": "Scene/Enemies",
+            "prefab_asset_path": "Assets/Prefabs/Enemy.prefab",
+            "instance_name": "Enemy_01",
+            "world_position_stays": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "delete_object",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Delete one explicit target object by anchor. Strictly do NOT use this tool to disable/hide objects or clear values; if object should remain in scene, use set_component_properties or dedicated active-state tools instead.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/DebugPanel"
+          }
+        }
+      ]
+    },
+    {
+      "name": "rename_object",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Rename one explicit target object to one explicit new_name. Use this only for object name mutation. Do NOT use this tool for hierarchy changes, active-state toggles, or transform/UI edits.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "new_name"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_name": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "new_name": "StartButton"
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_active",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set active state for one explicit target object. Use this only for visibility/activation toggle. Do NOT use this tool to delete objects, rename objects, or reparent hierarchy.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "active"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_parent",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Reparent one explicit target object under one explicit parent object. Use this only for hierarchy parenting changes. Do NOT use this tool for rename/active-state/property edits.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "parent_object_id",
+          "parent_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "parent_object_id": "mock_parent_object_id",
+            "parent_path": "Scene/Canvas/Panel"
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_sibling_index",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set the sibling index for one explicit target object under its current parent. Use this only for order changes among siblings. Do NOT use this tool for reparenting, renaming, deleting, or value/property writes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "sibling_index"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sibling_index": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "sibling_index": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_local_position",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set local position of one explicit target transform. Use this only for local space translation. Do NOT use this tool for world-space transform writes, hierarchy parenting, or UI RectTransform geometry writes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_local_rotation",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set local Euler rotation of one explicit target transform. Use this only for local-space rotation writes. Do NOT use this tool for world rotation, hierarchy parenting, or non-transform property edits.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_local_scale",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set local scale of one explicit target transform. Use this only for local scale writes. Do NOT use this tool for position/rotation/world-space edits or hierarchy operations.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_world_position",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set world position of one explicit target transform. Use this only for world-space translation. Do NOT use this tool for local-space transform edits, hierarchy parenting, or UI RectTransform layout changes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_world_rotation",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set world Euler rotation of one explicit target transform. Use this only for world-space rotation writes. Do NOT use this tool for local rotation, hierarchy parenting, or non-transform property updates.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "reset_transform",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Reset local transform of one explicit target object to identity-like defaults (localPosition=0, localRotation=identity, localScale=1). Do NOT use this tool for selective partial transform edits; use dedicated set_local_* or set_world_* tools.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button"
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_rect_anchored_position",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set RectTransform anchored position of one explicit UI target. Use this only for anchored position (x/y) writes. Do NOT use this tool for width/height or pivot/anchor changes; use dedicated UI geometry tools for those fields.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 100,
+            "y": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_rect_size_delta",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set RectTransform sizeDelta of one explicit UI target. Use this only for width/height-like sizeDelta writes. Do NOT use this tool for anchored position, pivot, anchors, or non-RectTransform fields.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 160,
+            "y": 48
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_rect_pivot",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set RectTransform pivot of one explicit UI target. x and y must be in [0,1]. Do NOT use this tool for anchored position, sizeDelta, anchors, or non-RectTransform fields.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 0.5,
+            "y": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_rect_anchors",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set RectTransform anchorMin/anchorMax of one explicit UI target. min/max values must be in [0,1] and min must not exceed max per axis. Do NOT use this tool for pivot or size/position fields.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "min_x",
+          "min_y",
+          "max_x",
+          "max_y"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "min_x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "min_y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "max_x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "max_y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "min_x": 0,
+            "min_y": 0,
+            "max_x": 1,
+            "max_y": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_canvas_group_alpha",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set CanvasGroup alpha on one explicit UI target object. Use this only for CanvasGroup transparency. Do NOT use this tool for Image color, text content, text style, RectTransform geometry, or hierarchy changes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "alpha"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "alpha": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Panel",
+            "alpha": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_layout_element",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set LayoutElement sizing fields on one explicit UI target object. Use this only for LayoutElement constraints. Do NOT use this tool for Image/Text visual style, RectTransform anchor/pivot/size changes, or hierarchy edits.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "min_width",
+          "min_height",
+          "preferred_width",
+          "preferred_height",
+          "flexible_width",
+          "flexible_height",
+          "ignore_layout"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "min_width": {
+            "type": "number",
+            "minimum": -1
+          },
+          "min_height": {
+            "type": "number",
+            "minimum": -1
+          },
+          "preferred_width": {
+            "type": "number",
+            "minimum": -1
+          },
+          "preferred_height": {
+            "type": "number",
+            "minimum": -1
+          },
+          "flexible_width": {
+            "type": "number",
+            "minimum": -1
+          },
+          "flexible_height": {
+            "type": "number",
+            "minimum": -1
+          },
+          "ignore_layout": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "min_width": 120,
+            "min_height": 32,
+            "preferred_width": 160,
+            "preferred_height": 48,
+            "flexible_width": 0,
+            "flexible_height": 0,
+            "ignore_layout": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_image_color",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set UnityEngine.UI.Image color on one explicit target object. Use this only for Image RGBA color. Do NOT use this tool for text color/content, CanvasGroup alpha, RectTransform geometry, or hierarchy operations.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "r",
+          "g",
+          "b",
+          "a"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "r": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "g": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "b": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "a": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button/Image",
+            "r": 1,
+            "g": 0,
+            "b": 0,
+            "a": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_image_raycast_target",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set UnityEngine.UI.Image raycastTarget flag on one explicit target object. Use this only for Image input hit-testing behavior. Do NOT use this tool for color/text/layout/transform changes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "raycast_target"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "raycast_target": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button/Image",
+            "raycast_target": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_text_content",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set UI text content on one explicit target object (Text or TMP_Text). Use this only for text string changes. Do NOT use this tool for color/font size/layout/transform/hierarchy changes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "text"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button/Label",
+            "text": "Start"
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_text_color",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set UI text color on one explicit target object (Text or TMP_Text). Use this only for text RGBA color. Do NOT use this tool for content/font size/layout/transform/hierarchy changes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "r",
+          "g",
+          "b",
+          "a"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "r": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "g": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "b": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "a": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button/Label",
+            "r": 1,
+            "g": 1,
+            "b": 1,
+            "a": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_text_font_size",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set UI text font size on one explicit target object (Text or TMP_Text). Use this only for font size changes. Do NOT use this tool for text content/color/layout/transform/hierarchy changes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "font_size"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "font_size": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button/Label",
+            "font_size": 24
+          }
+        }
+      ]
+    },
+    {
+      "name": "execute_unity_transaction",
+      "lifecycle": "experimental",
+      "kind": "write",
+      "description": "Execute multiple SSOT write steps atomically in one Undo transaction. Provide a transaction_id and steps_json (JSON array string) where each step includes tool_name and payload_json. Do NOT use this tool for read operations or legacy action payloads.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "transaction_id",
+          "steps_json"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transaction_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "steps_json": {
+            "type": "string",
+            "minLength": 2
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "transaction_id": "txn_rename_disable_001",
+            "steps_json": "[{\"tool_name\":\"rename_object\",\"payload_json\":\"{\\\"target_object_id\\\":\\\"mock_target_object_id\\\",\\\"target_path\\\":\\\"Scene/Canvas/Button\\\",\\\"new_name\\\":\\\"Button_Main\\\"}\"},{\"tool_name\":\"set_active\",\"payload_json\":\"{\\\"target_object_id\\\":\\\"mock_target_object_id\\\",\\\"target_path\\\":\\\"Scene/Canvas/Button_Main\\\",\\\"active\\\":false}\"}]"
+          }
+        }
+      ]
+    },
+    {
+      "name": "duplicate_object",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Duplicate one explicit target object and place the clone under the same parent. Use this only for object duplication. Do NOT use this tool for renaming existing objects, reparenting hierarchy, or component/property edits.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "duplicate_name": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "duplicate_name": "Button_Copy"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_scene_snapshot_for_write",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Get scene roots summary and a write token candidate.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "scope_path": {
+            "type": "string"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "scope_path": "Scene/Canvas"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_current_selection",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Read the current Unity selection snapshot and return a write-ready read token candidate. Use this as the first step before any write workflow when you need deterministic target anchors. Do NOT use this tool to inspect deep hierarchy trees or component details; use get_hierarchy_subtree or get_gameobject_components for those tasks.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {}
+        }
+      ]
+    },
+    {
+      "name": "get_gameobject_components",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Read the component list of one explicit target object. target_object_id and target_path are both required and must resolve to the same object. Do NOT use this tool for hierarchy traversal or layout diagnosis; use get_hierarchy_subtree or validate_ui_layout instead.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "target_object_id",
+          "target_path"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_hierarchy_subtree",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Read hierarchy subtree from one explicit target root. target_object_id and target_path are both required and must resolve to the same object. This tool can consume large token budget when depth/node_budget/char_budget are high: start with depth<=2, node_budget<=200, char_budget<=12000 and only increase when necessary. Do NOT use this tool to fetch component internals; use get_gameobject_components for component lists.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 200000
+          }
+        },
+        "required": [
+          "target_object_id",
+          "target_path"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas",
+            "depth": 2,
+            "node_budget": 200,
+            "char_budget": 12000
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_scene_roots",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Read root GameObjects from loaded scenes and return deterministic anchors (object_id/path). Use this tool when you need a stable scene-level entry point before any hierarchy traversal or write planning. Do NOT use this for deep subtree/component inspection; use get_hierarchy_subtree or get_gameobject_components for those.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "scene_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "include_inactive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {}
+        },
+        {
+          "request": {
+            "scene_path": "Assets/Scenes/SampleScene.unity",
+            "include_inactive": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "list_assets_in_folder",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "List Unity assets under one explicit folder path. folder_path is required. Use this before prefab/script path selection to avoid path hallucination. Do NOT use this to inspect scene hierarchy or runtime object components; use get_scene_roots/get_hierarchy_subtree/get_gameobject_components for runtime targets.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "folder_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recursive": {
+            "type": "boolean"
+          },
+          "include_meta": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          }
+        },
+        "required": [
+          "folder_path"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "folder_path": "Assets/Prefabs",
+            "recursive": true,
+            "include_meta": false,
+            "limit": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "find_objects_by_component",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Find scene objects by component query and return explicit anchors for deterministic follow-up calls. component_query is required. Use this when object names are unknown but component identity is known. Do NOT use this as a replacement for full hierarchy dump; use get_hierarchy_subtree when structure context is required.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "component_query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "under_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "include_inactive": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          }
+        },
+        "required": [
+          "component_query"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "component_query": "Button",
+            "under_path": "Scene/Canvas",
+            "include_inactive": true,
+            "limit": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "query_prefab_info",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Inspect prefab hierarchy structure with explicit depth and budget controls. prefab_path and max_depth are required. Use this tool for prefab tree analysis before instantiate/edit operations. Do NOT use this for runtime scene hierarchy; use get_scene_roots/get_hierarchy_subtree for scene objects.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "prefab_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 200000
+          },
+          "include_components": {
+            "type": "boolean"
+          },
+          "include_missing_scripts": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prefab_path",
+          "max_depth"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "prefab_path": "Assets/Prefabs/UI/MainPanel.prefab",
+            "max_depth": 4,
+            "node_budget": 400,
+            "char_budget": 24000,
+            "include_components": true,
+            "include_missing_scripts": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_ui_tree",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Read structured UI tree for deterministic targeting and diagnosis. Use this tool to inspect UI node hierarchy, layout, interaction and text metrics budgets. Do NOT use this as a write operation; it is read-only and should not be used to mutate UI state.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "ui_system": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "ugui",
+              "uitk"
+            ]
+          },
+          "root_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "root_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "include_inactive": {
+            "type": "boolean"
+          },
+          "include_components": {
+            "type": "boolean"
+          },
+          "include_layout": {
+            "type": "boolean"
+          },
+          "include_interaction": {
+            "type": "boolean"
+          },
+          "include_text_metrics": {
+            "type": "boolean"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 200000
+          },
+          "resolution": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              }
+            }
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "ui_system": "ugui",
+            "root_path": "Scene/Canvas",
+            "include_inactive": false,
+            "include_components": true,
+            "include_layout": true,
+            "include_interaction": true,
+            "include_text_metrics": false,
+            "max_depth": 3,
+            "node_budget": 300,
+            "char_budget": 20000
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_ui_overlay_report",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Inspect ScreenSpaceOverlay coverage and overlay diagnostics for screenshot strategy decisions. Use this before image verification when UI overlay may hide render output. Do NOT use this tool to inspect non-overlay hierarchy details; use get_ui_tree for full structural tree.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "root_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "root_path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "include_inactive": {
+            "type": "boolean"
+          },
+          "include_children_summary": {
+            "type": "boolean"
+          },
+          "max_nodes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20000
+          },
+          "max_children_per_canvas": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "root_path": "Scene/Canvas",
+            "include_inactive": true,
+            "include_children_summary": true,
+            "max_nodes": 500,
+            "max_children_per_canvas": 30,
+            "timeout_ms": 3000
+          }
+        }
+      ]
+    },
+    {
+      "name": "hit_test_ui_at_viewport_point",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Hit test UI from deterministic viewport coordinates and return ordered hit stack. Use this when clickability/path targeting must be validated at specific points. Do NOT use this as a layout validator; use validate_ui_layout for structural issues.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "view": {
+            "type": "string",
+            "enum": [
+              "game"
+            ]
+          },
+          "coord_space": {
+            "type": "string",
+            "enum": [
+              "viewport_px",
+              "normalized"
+            ]
+          },
+          "coord_origin": {
+            "type": "string",
+            "enum": [
+              "bottom_left",
+              "top_left"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "resolution_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "resolution_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "scope_root_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "include_non_interactable": {
+            "type": "boolean"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "coord_space": "viewport_px",
+            "coord_origin": "bottom_left",
+            "x": 360,
+            "y": 220,
+            "resolution_width": 1280,
+            "resolution_height": 720,
+            "scope_root_path": "Scene/Canvas",
+            "max_results": 8
+          }
+        }
+      ]
+    },
+    {
+      "name": "validate_ui_layout",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Validate UI layout issues across target resolution and return issue list. Use this for OUT_OF_BOUNDS/OVERLAP/NOT_CLICKABLE/TEXT_OVERFLOW diagnostics. Do NOT use this tool for writing/fixing values directly.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "scope_root_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "resolution_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "checks_csv": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_issues": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "time_budget_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300000
+          },
+          "layout_refresh_mode": {
+            "type": "string",
+            "enum": [
+              "scoped_roots_only",
+              "full_tree"
+            ]
+          },
+          "include_repair_plan": {
+            "type": "boolean"
+          },
+          "max_repair_suggestions": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "repair_style": {
+            "type": "string",
+            "enum": [
+              "conservative",
+              "balanced",
+              "aggressive"
+            ]
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "scope_root_path": "Scene/Canvas",
+            "resolution_name": "HD",
+            "resolution_width": 1280,
+            "resolution_height": 720,
+            "checks_csv": "OUT_OF_BOUNDS,OVERLAP,NOT_CLICKABLE,TEXT_OVERFLOW",
+            "max_issues": 100,
+            "layout_refresh_mode": "scoped_roots_only",
+            "include_repair_plan": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_serialized_property_tree",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Read serialized property tree for one explicit component on one explicit target. target_object_id/target_path/component_assembly_qualified_name are required. Do NOT use this for hierarchy traversal; use get_hierarchy_subtree.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_assembly_qualified_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 256
+          },
+          "root_property_path": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 64
+          },
+          "after_property_path": {
+            "type": "string"
+          },
+          "page_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 2000000
+          },
+          "include_value_summary": {
+            "type": "boolean"
+          },
+          "include_non_visible": {
+            "type": "boolean"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
+        },
+        "required": [
+          "target_object_id",
+          "target_path",
+          "component_assembly_qualified_name"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "component_assembly_qualified_name": "UnityEngine.RectTransform, UnityEngine.CoreModule",
+            "component_index": 0,
+            "root_property_path": "m_AnchoredPosition",
+            "depth": 1,
+            "page_size": 128,
+            "node_budget": 512,
+            "char_budget": 24000,
+            "include_value_summary": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "capture_scene_screenshot",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Capture Unity visual output for verification. Use this tool for render snapshots and visual evidence collection. Do NOT use this to modify scene state or infer deep hierarchy/component data; use read structure tools for those.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "view_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "scene",
+              "game"
+            ]
+          },
+          "capture_mode": {
+            "type": "string",
+            "enum": [
+              "render_output",
+              "composite",
+              "final_pixels",
+              "editor_view"
+            ]
+          },
+          "output_mode": {
+            "type": "string",
+            "enum": [
+              "artifact_uri",
+              "inline_base64"
+            ]
+          },
+          "image_format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpg"
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 4096
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 4096
+          },
+          "jpeg_quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "max_base64_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10485760
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          },
+          "include_ui": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "view_mode": "game",
+            "capture_mode": "render_output",
+            "output_mode": "artifact_uri",
+            "image_format": "png",
+            "width": 1280,
+            "height": 720,
+            "timeout_ms": 3000,
+            "include_ui": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_action_catalog",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Deprecated in SSOT mode. This tool returns a static deprecation response and does not provide runtime action discovery.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tier": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lifecycle": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "catalog_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "if_none_match": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "domain": "ui",
+            "tier": "core",
+            "lifecycle": "stable",
+            "cursor": 0,
+            "limit": 10
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_action_schema",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Deprecated in SSOT mode. This tool returns a static deprecation response and does not provide runtime action schema payloads.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "action_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "catalog_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "if_none_match": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "action_type"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "action_type": "set_ui_text_content"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_tool_schema",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Get static SSOT tool input schema by tool_name from compiled artifacts. tool_name is required. Use this to inspect authoritative parameters and required fields before composing requests. Do NOT use this tool as an execution endpoint.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "tool_name"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "tool_name": "modify_ui_layout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_write_contract_bundle",
+      "lifecycle": "experimental",
+      "kind": "read",
+      "description": "Aggregate write-contract guidance from SSOT compiled artifacts for a known tool_name. Use this for payload authoring and validation preparation only. Do NOT use this endpoint as an execution API.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "catalog_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "budget_chars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200000
+          },
+          "include_error_fix_map": {
+            "type": "boolean"
+          },
+          "include_canonical_examples": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "tool_name": "modify_ui_layout",
+            "action_type": "rename_object",
+            "budget_chars": 3600,
+            "include_error_fix_map": true,
+            "include_canonical_examples": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "preflight_validate_write_payload",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Validate one SSOT write-tool payload without dispatching to Unity execution. tool_name and payload are required. This endpoint only accepts tools that are classified as write in SSOT compiled metadata. Do NOT use this for legacy pipeline payloads or as an execution API.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payload": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "tool_name",
+          "payload"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "tool_name": "modify_ui_layout",
+            "payload": {
+              "based_on_read_token": "rt_mock",
+              "idempotency_key": "idem_preflight_mock_001",
+              "execution_mode": "execute",
+              "write_anchor_object_id": "GlobalObjectId_V1-mock",
+              "write_anchor_path": "Scene/Canvas",
+              "target_object_id": "GlobalObjectId_V1-target",
+              "target_path": "Scene/Canvas/Button",
+              "anchored_x": 100,
+              "anchored_y": 100,
+              "width": 160,
+              "height": 48
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "setup_cursor_mcp",
+      "lifecycle": "experimental",
+      "kind": "read",
+      "description": "Write or update Cursor MCP config for unity-sidecar (native/cline path whitelist only). Use this for onboarding or reconfiguration of MCP client wiring. Do NOT use this tool to change Unity scene objects or to diagnose Unity runtime status.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "native",
+              "cline"
+            ],
+            "case_insensitive": true
+          },
+          "sidecar_base_url": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^https?://"
+          },
+          "dry_run": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "mode": "native",
+            "dry_run": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "verify_mcp_setup",
+      "lifecycle": "experimental",
+      "kind": "read",
+      "description": "Verify Cursor MCP onboarding readiness and return structured diagnostics for native/cline config. Use this after setup_cursor_mcp to confirm configuration health. Do NOT use this tool to mutate any scene state or as a replacement for Unity health checks.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "native",
+              "cline"
+            ],
+            "case_insensitive": true
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "mode": "auto"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_unity_task_status",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Get the current status of one Unity task by job_id. Poll this tool until terminal state (succeeded/failed/cancelled). Do NOT use this tool to submit writes or infer schema contracts.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "job_id": "job_mock_123"
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancel_unity_task",
+      "lifecycle": "stable",
+      "kind": "read",
+      "description": "Cancel one running or queued Unity task by job_id. Use this only for task cancellation control. Do NOT use this tool to submit new writes or inspect schema contracts.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "job_id"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "job_id": "job_mock_123"
+          }
+        }
+      ]
+    },
+    {
+      "name": "submit_unity_task",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Submit an asynchronous Unity write task. This tool enqueues a job and returns job status handles; it does not guarantee immediate terminal completion. Do NOT use this for direct one-step scene mutation when a dedicated write tool exists.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "thread_id",
+          "idempotency_key",
+          "user_intent",
+          "based_on_read_token",
+          "write_anchor"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "file_actions"
+            ],
+            "properties": {
+              "file_actions": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          {
+            "required": [
+              "visual_layer_actions"
+            ],
+            "properties": {
+              "visual_layer_actions": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approval_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "require_user"
+            ]
+          },
+          "user_intent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object_id",
+              "path"
+            ],
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "context": {
+            "type": "object"
+          },
+          "file_actions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "visual_layer_actions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "thread_id": "thread_mock_1",
+            "idempotency_key": "idem_mock_1",
+            "based_on_read_token": "rt_mock",
+            "user_intent": "Create one script file",
+            "write_anchor": {
+              "object_id": "GlobalObjectId_V1-mock",
+              "path": "Scene/Canvas"
+            },
+            "file_actions": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "apply_script_actions",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Apply structured file/script actions in one write request. Requires based_on_read_token and top-level write_anchor. Do NOT use this tool for visual hierarchy/component mutations; use dedicated visual/write tools instead.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "based_on_read_token",
+          "write_anchor",
+          "actions"
+        ],
+        "properties": {
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object_id",
+              "path"
+            ],
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "user_intent": {
+            "type": "string"
+          },
+          "approval_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "require_user"
+            ]
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "based_on_read_token": "rt_mock",
+            "write_anchor": {
+              "object_id": "GlobalObjectId_V1-mock",
+              "path": "Scene/Canvas"
+            },
+            "actions": [],
+            "dry_run": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "apply_visual_actions",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Apply structured Unity visual actions with explicit anchors and action payloads. Use this tool only for action-array based visual writes.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "based_on_read_token",
+          "write_anchor",
+          "actions"
+        ],
+        "properties": {
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object_id",
+              "path"
+            ],
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "type"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "target_anchor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "object_id",
+                    "path"
+                  ],
+                  "properties": {
+                    "object_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "parent_anchor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "object_id",
+                    "path"
+                  ],
+                  "properties": {
+                    "object_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "action_data": {
+                  "type": "object"
+                }
+              },
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "target_anchor": {}
+                  },
+                  "required": [
+                    "target_anchor"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "parent_anchor": {}
+                  },
+                  "required": [
+                    "parent_anchor"
+                  ]
+                }
+              ]
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "user_intent": {
+            "type": "string"
+          },
+          "approval_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "require_user"
+            ]
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "based_on_read_token": "rt_mock",
+            "write_anchor": {
+              "object_id": "GlobalObjectId_V1-mock",
+              "path": "Scene/Canvas"
+            },
+            "actions": [
+              {
+                "type": "rename_object",
+                "target_anchor": {
+                  "object_id": "GlobalObjectId_V1-target",
+                  "path": "Scene/Canvas/Button"
+                },
+                "action_data": {
+                  "name": "Button_Renamed"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_properties",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Set common UI properties with a deterministic operation contract. This endpoint maps to legacy visual actions while enforcing SSOT schema validation at L2. Do NOT use this for non-UI component writes; use set_component_properties or set_serialized_property.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "based_on_read_token",
+          "write_anchor",
+          "operations"
+        ],
+        "properties": {
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object_id",
+              "path"
+            ],
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "target_anchor"
+              ],
+              "properties": {
+                "target_anchor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "object_id",
+                    "path"
+                  ],
+                  "properties": {
+                    "object_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "rect_transform": {
+                  "type": "object"
+                },
+                "image": {
+                  "type": "object"
+                },
+                "text": {
+                  "type": "object"
+                },
+                "layout_element": {
+                  "type": "object"
+                }
+              },
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "rect_transform": {}
+                  },
+                  "required": [
+                    "rect_transform"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "image": {}
+                  },
+                  "required": [
+                    "image"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "text": {}
+                  },
+                  "required": [
+                    "text"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "layout_element": {}
+                  },
+                  "required": [
+                    "layout_element"
+                  ]
+                }
+              ]
+            }
+          },
+          "atomic": {
+            "type": "boolean"
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "user_intent": {
+            "type": "string"
+          },
+          "approval_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "require_user"
+            ]
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "based_on_read_token": "rt_mock",
+            "write_anchor": {
+              "object_id": "GlobalObjectId_V1-mock",
+              "path": "Scene/Canvas"
+            },
+            "operations": [
+              {
+                "target_anchor": {
+                  "object_id": "GlobalObjectId_V1-target",
+                  "path": "Scene/Canvas/Button"
+                },
+                "rect_transform": {
+                  "anchored_position": {
+                    "x": 100,
+                    "y": 100
+                  },
+                  "size_delta": {
+                    "x": 160,
+                    "y": 48
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_serialized_property",
+      "lifecycle": "experimental",
+      "kind": "write",
+      "description": "Set one explicit SerializedProperty path on one explicit component instance. Use this as low-level precise write when dedicated high-level tools are not suitable. Do NOT use this as a generic fallback for hierarchy or transform workflows.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path",
+          "component_type",
+          "property_path",
+          "value_kind"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "property_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value_kind": {
+            "type": "string",
+            "enum": [
+              "integer",
+              "float",
+              "string",
+              "bool"
+            ]
+          },
+          "int_value": {
+            "type": "integer"
+          },
+          "float_value": {
+            "type": "number"
+          },
+          "string_value": {
+            "type": "string"
+          },
+          "bool_value": {
+            "type": "boolean"
+          },
+          "dry_run": {
+            "type": "boolean"
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "component_type": "UnityEngine.RectTransform, UnityEngine.CoreModule",
+            "component_index": 0,
+            "property_path": "m_AnchoredPosition.x",
+            "value_kind": "float",
+            "float_value": 120
+          }
+        }
+      ]
+    },
+    {
+      "name": "hit_test_ui_at_screen_point",
+      "lifecycle": "deprecated",
+      "kind": "read",
+      "description": "Hit test UGUI from deterministic screen-space coordinates. This command is currently disabled in runtime stabilization closure and may return E_COMMAND_DISABLED. Do NOT use this as a write API.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "view_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "game"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reference_width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reference_height": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "view_mode": "game",
+            "x": 640,
+            "y": 360,
+            "reference_width": 1280,
+            "reference_height": 720
+          }
+        }
+      ]
+    }
+  ]
+}

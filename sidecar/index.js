@@ -5,13 +5,10 @@ const { bootstrap } = require("./src");
 const {
   parsePort,
   assertNoDeprecatedOccFlags,
-  parseMcpLeaseStartupConfig,
-  assertNoDeprecatedAutoCleanupSettings,
 } = require("./src/adapters/argAdapter");
 
 try {
   assertNoDeprecatedOccFlags(process.argv);
-  assertNoDeprecatedAutoCleanupSettings(process.argv, process.env);
 } catch (error) {
   // eslint-disable-next-line no-console
   console.error(error && error.message ? error.message : String(error));
@@ -27,7 +24,6 @@ if (!port) {
 
 const server = bootstrap(port, {
   argv: process.argv,
-  mcpLeaseConfig: parseMcpLeaseStartupConfig(process.env),
 });
 server.listen(port, "127.0.0.1", () => {
   // eslint-disable-next-line no-console

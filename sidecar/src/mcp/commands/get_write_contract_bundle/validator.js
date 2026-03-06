@@ -1,110 +1,66 @@
 "use strict";
 
 const {
-  isObject,
-  isNonEmptyString,
-  validateAllowedKeys,
-} = require("../_shared/validationUtils");
+  getValidatorRegistrySingleton,
+} = require("../../../application/ssotRuntime/validatorRegistry");
+
+const TOOL_NAME = "get_write_contract_bundle";
+
+function summarizeValidationErrors(errors) {
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return "Request schema invalid.";
+  }
+  const first = errors[0] && typeof errors[0] === "object" ? errors[0] : {};
+  const path =
+    typeof first.instancePath === "string" && first.instancePath.trim()
+      ? first.instancePath
+      : "/";
+  const message =
+    typeof first.message === "string" && first.message.trim()
+      ? first.message.trim()
+      : "invalid value";
+  return `Request schema invalid at ${path}: ${message}`;
+}
 
 function validateGetWriteContractBundle(body) {
-  if (!isObject(body)) {
+  const payload =
+    body && typeof body === "object" && !Array.isArray(body) ? body : {};
+  let registry = null;
+  try {
+    registry = getValidatorRegistrySingleton();
+  } catch (error) {
     return {
       ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "Body must be a JSON object",
-      statusCode: 400,
+      errorCode: "E_SSOT_SCHEMA_UNAVAILABLE",
+      message:
+        error && typeof error.message === "string" && error.message.trim()
+          ? error.message.trim()
+          : "SSOT compiled schema registry is unavailable.",
+      statusCode: 500,
     };
   }
 
-  const keysValidation = validateAllowedKeys(
-    body,
-    new Set([
-      "tool_name",
-      "action_type",
-      "catalog_version",
-      "budget_chars",
-      "include_error_fix_map",
-      "include_canonical_examples",
-    ]),
-    "body"
-  );
-  if (!keysValidation.ok) {
-    return keysValidation;
-  }
-
-  if (body.tool_name !== undefined && body.tool_name !== null && !isNonEmptyString(body.tool_name)) {
+  const validation = registry.validateToolInput(TOOL_NAME, payload);
+  if (validation && validation.ok === true) {
     return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "tool_name must be a non-empty string when provided",
-      statusCode: 400,
-    };
-  }
-  if (
-    body.action_type !== undefined &&
-    body.action_type !== null &&
-    !isNonEmptyString(body.action_type)
-  ) {
-    return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "action_type must be a non-empty string when provided",
-      statusCode: 400,
-    };
-  }
-  if (
-    body.catalog_version !== undefined &&
-    body.catalog_version !== null &&
-    typeof body.catalog_version !== "string"
-  ) {
-    return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "catalog_version must be a string when provided",
-      statusCode: 400,
-    };
-  }
-  if (
-    body.budget_chars !== undefined &&
-    body.budget_chars !== null &&
-    (!Number.isFinite(Number(body.budget_chars)) || Math.floor(Number(body.budget_chars)) < 1)
-  ) {
-    return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "budget_chars must be an integer >= 1 when provided",
-      statusCode: 400,
-    };
-  }
-  if (
-    body.include_error_fix_map !== undefined &&
-    body.include_error_fix_map !== null &&
-    typeof body.include_error_fix_map !== "boolean"
-  ) {
-    return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "include_error_fix_map must be a boolean when provided",
-      statusCode: 400,
-    };
-  }
-  if (
-    body.include_canonical_examples !== undefined &&
-    body.include_canonical_examples !== null &&
-    typeof body.include_canonical_examples !== "boolean"
-  ) {
-    return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "include_canonical_examples must be a boolean when provided",
-      statusCode: 400,
+      ok: true,
+      value:
+        validation.value && typeof validation.value === "object"
+          ? validation.value
+          : payload,
     };
   }
 
-  return { ok: true };
+  return {
+    ok: false,
+    errorCode: "E_SSOT_SCHEMA_INVALID",
+    message: summarizeValidationErrors(validation && validation.errors),
+    statusCode: 400,
+    details:
+      validation && Array.isArray(validation.errors) ? validation.errors : [],
+  };
 }
 
 module.exports = {
   validateGetWriteContractBundle,
 };
-

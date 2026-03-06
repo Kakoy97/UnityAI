@@ -1,68 +1,41 @@
 "use strict";
 
 module.exports = function buildDefinition(deps) {
-  const {
-    validateGetActionCatalog,
-    executeGetActionCatalog,
-    validateGetActionSchema,
-    executeGetActionSchema,
-    validateGetToolSchema,
-    executeGetToolSchema,
-    validateGetWriteContractBundle,
-    executeGetWriteContractBundle,
-    validatePreflightValidateWritePayload,
-    executePreflightValidateWritePayload,
-    validateSetupCursorMcp,
-    executeSetupCursorMcp,
-    validateVerifyMcpSetup,
-    executeVerifyMcpSetup,
-    validateListAssetsInFolder,
-    validateGetSceneRoots,
-    validateFindObjectsByComponent,
-    validateQueryPrefabInfo,
-    validateCaptureSceneScreenshot,
-    executeCaptureSceneScreenshot,
-    validateGetUiOverlayReport,
-    executeGetUiOverlayReport,
-    validateGetUiTree,
-    executeGetUiTree,
-    validateGetSerializedPropertyTree,
-    executeGetSerializedPropertyTree,
-    validateHitTestUiAtViewportPoint,
-    executeHitTestUiAtViewportPoint,
-    validateUiLayout,
-    executeValidateUiLayout,
-    executeSetUiProperties,
-    executeSetSerializedProperty,
-    validateHitTestUiAtScreenPoint,
-    executeHitTestUiAtScreenPoint,
-    normalizeBody,
-    buildVisualActionsDescription,
-    readEnvBoolean,
-    isCompositeCaptureEnabledForManifest,
-    buildCaptureSceneScreenshotDescription,
-    validateGetUnityTaskStatusArgs,
-  } = deps;
+  const source = deps && typeof deps === "object" ? deps : {};
+  const validateCancelUnityTask =
+    typeof source.validateCancelUnityTask === "function"
+      ? source.validateCancelUnityTask
+      : null;
+  const getSsotInputSchemaForTool =
+    typeof source.getSsotInputSchemaForTool === "function"
+      ? source.getSsotInputSchemaForTool
+      : null;
+  const getSsotToolDescriptionForTool =
+    typeof source.getSsotToolDescriptionForTool === "function"
+      ? source.getSsotToolDescriptionForTool
+      : null;
+  const fallbackDescription =
+    "Cancel one queued/running Unity task by job_id via SSOT schema.";
 
   return {
     name: "cancel_unity_task",
     kind: "status",
     lifecycle: "stable",
     http: { method: "POST", path: "/mcp/cancel_unity_task", source: "body" },
-    turnServiceMethod: "cancelUnityTask",
+    turnServiceMethod: "cancelUnityTaskForMcp",
+    validate: validateCancelUnityTask,
     mcp: {
       expose: true,
-      description: "Cancel a running or queued Unity task",
-      inputSchema: {
-        type: "object",
-        properties: {
-          job_id: {
-            type: "string",
-            description: "Job identifier to cancel",
+      description: getSsotToolDescriptionForTool
+        ? getSsotToolDescriptionForTool("cancel_unity_task", fallbackDescription)
+        : fallbackDescription,
+      inputSchema: getSsotInputSchemaForTool
+        ? getSsotInputSchemaForTool("cancel_unity_task")
+        : {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-        },
-        required: ["job_id"],
-      },
     },
   };
 };

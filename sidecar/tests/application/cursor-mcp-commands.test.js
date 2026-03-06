@@ -4,6 +4,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { getMcpCommandRegistry } = require("../../src/mcp/commandRegistry");
+const {
+  setupCursorMcp,
+  verifyCursorMcpSetup,
+} = require("../../src/application/cursorMcpSetupService");
 
 function createRegistry() {
   return getMcpCommandRegistry();
@@ -21,6 +25,45 @@ async function dispatchBodyCommand(registry, path, body) {
       queryCoordinator: {},
       unitySnapshotService: {},
       nowIso: () => "2026-03-03T00:00:00.000Z",
+      setupCursorMcpForMcp(payload) {
+        const source =
+          payload && typeof payload === "object" && !Array.isArray(payload)
+            ? payload
+            : {};
+        const result = setupCursorMcp({
+          mode: typeof source.mode === "string" ? source.mode : "native",
+          sidecarBaseUrl:
+            typeof source.sidecar_base_url === "string"
+              ? source.sidecar_base_url
+              : undefined,
+          dryRun: source.dry_run === true,
+        });
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            data: result,
+            captured_at: "2026-03-03T00:00:00.000Z",
+          },
+        };
+      },
+      verifyMcpSetupForMcp(payload) {
+        const source =
+          payload && typeof payload === "object" && !Array.isArray(payload)
+            ? payload
+            : {};
+        const report = verifyCursorMcpSetup({
+          mode: typeof source.mode === "string" ? source.mode : "auto",
+        });
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            data: report,
+            captured_at: "2026-03-03T00:00:00.000Z",
+          },
+        };
+      },
     },
   });
 }
@@ -73,5 +116,5 @@ test("setup_cursor_mcp command rejects invalid mode", async () => {
   );
 
   assert.equal(outcome.statusCode, 400);
-  assert.equal(outcome.body.error_code, "E_SCHEMA_INVALID");
+  assert.equal(outcome.body.error_code, "E_SSOT_SCHEMA_INVALID");
 });

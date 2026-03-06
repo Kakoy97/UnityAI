@@ -1,48 +1,29 @@
 "use strict";
 
+function fallbackSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {},
+  };
+}
+
 module.exports = function buildDefinition(deps) {
-  const {
-    validateGetActionCatalog,
-    executeGetActionCatalog,
-    validateGetActionSchema,
-    executeGetActionSchema,
-    validateGetToolSchema,
-    executeGetToolSchema,
-    validateGetWriteContractBundle,
-    executeGetWriteContractBundle,
-    validatePreflightValidateWritePayload,
-    executePreflightValidateWritePayload,
-    validateSetupCursorMcp,
-    executeSetupCursorMcp,
-    validateVerifyMcpSetup,
-    executeVerifyMcpSetup,
-    validateListAssetsInFolder,
-    validateGetSceneRoots,
-    validateFindObjectsByComponent,
-    validateQueryPrefabInfo,
-    validateCaptureSceneScreenshot,
-    executeCaptureSceneScreenshot,
-    validateGetUiOverlayReport,
-    executeGetUiOverlayReport,
-    validateGetUiTree,
-    executeGetUiTree,
-    validateGetSerializedPropertyTree,
-    executeGetSerializedPropertyTree,
-    validateHitTestUiAtViewportPoint,
-    executeHitTestUiAtViewportPoint,
-    validateUiLayout,
-    executeValidateUiLayout,
-    executeSetUiProperties,
-    executeSetSerializedProperty,
-    validateHitTestUiAtScreenPoint,
-    executeHitTestUiAtScreenPoint,
-    normalizeBody,
-    buildVisualActionsDescription,
-    readEnvBoolean,
-    isCompositeCaptureEnabledForManifest,
-    buildCaptureSceneScreenshotDescription,
-    validateGetUnityTaskStatusArgs,
-  } = deps;
+  const source = deps && typeof deps === "object" ? deps : {};
+  const validateGetGameobjectComponents =
+    typeof source.validateGetGameobjectComponents === "function"
+      ? source.validateGetGameobjectComponents
+      : null;
+  const getSsotInputSchemaForTool =
+    typeof source.getSsotInputSchemaForTool === "function"
+      ? source.getSsotInputSchemaForTool
+      : null;
+  const getSsotToolDescriptionForTool =
+    typeof source.getSsotToolDescriptionForTool === "function"
+      ? source.getSsotToolDescriptionForTool
+      : null;
+  const fallbackDescription =
+    "Read component list for an explicit target anchor via SSOT isolated query pipeline.";
 
   return {
     name: "get_gameobject_components",
@@ -53,26 +34,16 @@ module.exports = function buildDefinition(deps) {
       path: "/mcp/get_gameobject_components",
       source: "body",
     },
-    turnServiceMethod: "getGameObjectComponentsForMcp",
+    turnServiceMethod: "getGameObjectComponentsSsotForMcp",
+    validate: validateGetGameobjectComponents,
     mcp: {
       expose: true,
-      description:
-        "Read component list from latest selection snapshot target or optional target_anchor override.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          target_anchor: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              object_id: { type: "string" },
-              path: { type: "string" },
-            },
-            required: ["object_id", "path"],
-          },
-        },
-      },
+      description: getSsotToolDescriptionForTool
+        ? getSsotToolDescriptionForTool("get_gameobject_components", fallbackDescription)
+        : fallbackDescription,
+      inputSchema: getSsotInputSchemaForTool
+        ? getSsotInputSchemaForTool("get_gameobject_components")
+        : fallbackSchema(),
     },
   };
 };

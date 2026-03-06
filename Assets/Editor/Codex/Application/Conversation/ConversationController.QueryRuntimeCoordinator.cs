@@ -172,11 +172,7 @@ namespace UnityAI.Editor.Codex.Application
                     "diag.runtime.ping.response: request_id=" + SafeString(pong.request_id) +
                     ", state=" + SafeString(statusFromPing == null ? string.Empty : statusFromPing.state) +
                     ", stage=" + SafeString(pong.stage) +
-                    ", recovered=" + pong.recovered +
-                    ", has_unity_action_request=" +
-                    (pong.unity_action_request != null &&
-                     pong.unity_action_request.payload != null &&
-                     pong.unity_action_request.payload.action != null) + ".");
+                    ", recovered=" + pong.recovered + ".");
             }
 
             if (IsTerminalStatus(statusFromPing))
@@ -198,17 +194,6 @@ namespace UnityAI.Editor.Codex.Application
 
                 IsBusy = true;
                 ApplyStage(statusFromPing.stage, now);
-                if (TryCapturePendingUnityActionRequest(
-                        statusFromPing.unity_action_request,
-                        "unity.runtime.ping",
-                        statusFromPing.request_id))
-                {
-                    await HandleCapturedPendingActionAsync(
-                        "unity.runtime.ping",
-                        "Received unity.action.request from runtime ping. Waiting for confirmation.");
-                    return;
-                }
-
                 BusyReason = BuildBusyReasonForRuntimeState();
                 SaveState();
                 EmitChanged();
@@ -225,7 +210,7 @@ namespace UnityAI.Editor.Codex.Application
 
             if (pong.recovered)
             {
-                AddLog(UiLogLevel.Warning, "unity.runtime.ping recovered pending action from sidecar.");
+                AddLog(UiLogLevel.Warning, "unity.runtime.ping recovered sidecar runtime state.");
                 return;
             }
 

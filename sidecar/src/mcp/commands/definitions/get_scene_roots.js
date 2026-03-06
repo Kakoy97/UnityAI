@@ -1,48 +1,21 @@
 "use strict";
 
 module.exports = function buildDefinition(deps) {
-  const {
-    validateGetActionCatalog,
-    executeGetActionCatalog,
-    validateGetActionSchema,
-    executeGetActionSchema,
-    validateGetToolSchema,
-    executeGetToolSchema,
-    validateGetWriteContractBundle,
-    executeGetWriteContractBundle,
-    validatePreflightValidateWritePayload,
-    executePreflightValidateWritePayload,
-    validateSetupCursorMcp,
-    executeSetupCursorMcp,
-    validateVerifyMcpSetup,
-    executeVerifyMcpSetup,
-    validateListAssetsInFolder,
-    validateGetSceneRoots,
-    validateFindObjectsByComponent,
-    validateQueryPrefabInfo,
-    validateCaptureSceneScreenshot,
-    executeCaptureSceneScreenshot,
-    validateGetUiOverlayReport,
-    executeGetUiOverlayReport,
-    validateGetUiTree,
-    executeGetUiTree,
-    validateGetSerializedPropertyTree,
-    executeGetSerializedPropertyTree,
-    validateHitTestUiAtViewportPoint,
-    executeHitTestUiAtViewportPoint,
-    validateUiLayout,
-    executeValidateUiLayout,
-    executeSetUiProperties,
-    executeSetSerializedProperty,
-    validateHitTestUiAtScreenPoint,
-    executeHitTestUiAtScreenPoint,
-    normalizeBody,
-    buildVisualActionsDescription,
-    readEnvBoolean,
-    isCompositeCaptureEnabledForManifest,
-    buildCaptureSceneScreenshotDescription,
-    validateGetUnityTaskStatusArgs,
-  } = deps;
+  const source = deps && typeof deps === "object" ? deps : {};
+  const validateGetSceneRoots =
+    typeof source.validateGetSceneRoots === "function"
+      ? source.validateGetSceneRoots
+      : null;
+  const getSsotInputSchemaForTool =
+    typeof source.getSsotInputSchemaForTool === "function"
+      ? source.getSsotInputSchemaForTool
+      : null;
+  const getSsotToolDescriptionForTool =
+    typeof source.getSsotToolDescriptionForTool === "function"
+      ? source.getSsotToolDescriptionForTool
+      : null;
+  const fallbackDescription =
+    "Read root GameObjects from loaded scenes and return explicit anchors via SSOT isolated query pipeline.";
 
   return {
     name: "get_scene_roots",
@@ -53,24 +26,16 @@ module.exports = function buildDefinition(deps) {
     validate: validateGetSceneRoots,
     mcp: {
       expose: true,
-      description:
-        "Get root GameObjects of a loaded scene, including object_id/path anchors. Use this to establish reliable hierarchy anchors before downstream reads or writes.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          scene_path: {
-            type: "string",
-            description:
-              "Optional scene asset path. If omitted, returns roots across currently loaded scenes.",
+      description: getSsotToolDescriptionForTool
+        ? getSsotToolDescriptionForTool("get_scene_roots", fallbackDescription)
+        : fallbackDescription,
+      inputSchema: getSsotInputSchemaForTool
+        ? getSsotInputSchemaForTool("get_scene_roots")
+        : {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          include_inactive: {
-            type: "boolean",
-            description:
-              "Whether inactive roots are included. Default true if omitted.",
-          },
-        },
-      },
     },
   };
 };

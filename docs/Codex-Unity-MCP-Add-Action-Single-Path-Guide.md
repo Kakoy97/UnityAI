@@ -1,4 +1,4 @@
-# Codex-Unity MCP Add-Action Single Path Guide (R10)
+﻿# Codex-Unity MCP Add-Action Single Path Guide (R10)
 
 ## 1. Goal
 - Provide one stable onboarding path for adding a new visual action.
@@ -12,7 +12,7 @@
 1. Implement handler in L3:
 - File: `Assets/Editor/Codex/Infrastructure/Actions/ValuePackVisualActionHandlers.cs`
 - Pattern: `sealed class XxxHandler : McpVisualActionHandler<TDto>`
-- Requirement: parse `action_data_json` into typed DTO and return clear error code on validation failure.
+- Requirement: parse `legacy_stringified_action_data` into typed DTO and return clear error code on validation failure.
 
 2. Register capability metadata:
 - File: `Assets/Editor/Codex/Infrastructure/Actions/McpActionRegistryBootstrap.cs`
@@ -60,3 +60,4 @@
 - Executor primitive (optional): `Assets/Editor/Codex/Infrastructure/UnityVisualActionExecutor.cs`
 - Unity tests: `Assets/Editor/Codex/Tests/EditMode/*`
 - Sidecar capability visibility: `sidecar/src/application/capabilityStore.js`
+

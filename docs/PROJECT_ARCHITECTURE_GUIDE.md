@@ -37,13 +37,13 @@
 
 ### 3.1 外部协议（LLM 可见）
 - 外部写入统一使用 `action_data` object。
-- 外部 payload 禁止 `action_data_json` 和 `action_data_marshaled`。
+- 外部 payload 禁止 `legacy_stringified_action_data` 和 `legacy_marshaled_action_data`。
 - 违规时返回 `E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED`。
 
 ### 3.2 L2 -> L3 内部桥接
-- 当前内部桥接保留双栈兼容：`action_data_marshaled`（优先）+ `action_data_json`（回退）。
+- 当前内部桥接保留双栈兼容：`legacy_marshaled_action_data`（优先）+ `legacy_stringified_action_data`（回退）。
 - 解析入口：`McpVisualActionContext`。
-- 目标是稳定过渡后仅保留 `action_data_marshaled` 主链路。
+- 目标是稳定过渡后仅保留 `legacy_marshaled_action_data` 主链路。
 
 ## 4. 当前能力面（R16）
 
@@ -106,7 +106,7 @@
 ## 8. 已知风险与后续方向
 
 - Prefab/Variant 专科仍需单独工具化（当前专科首批聚焦 UI）。
-- `action_data_json` 回退仍存在于内部兼容链路，后续需清退。
+- `legacy_stringified_action_data` 回退仍存在于内部兼容链路，后续需清退。
 - `set_serialized_property` 在高风险类型（如 ManagedReference）上仍建议保持受限策略。
 
 ## 9. 快速定位（文件索引）
@@ -118,3 +118,4 @@
 - R16 门禁脚本：`sidecar/scripts/r16-wire-guard.js`
 - UI 专科诊断脚本：`sidecar/scripts/diagnose-ui-specialist.js`
 - Phase16 验收文档：`docs/Phase16-Hybrid-Architecture-Acceptance.md`
+

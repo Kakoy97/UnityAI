@@ -26,17 +26,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries
         public static UnityQueryRegistry BuildDefaultRegistry()
         {
             var registry = new UnityQueryRegistry();
-            registry.Register(new ListAssetsInFolderQueryHandler());
-            registry.Register(new GetSceneRootsQueryHandler());
-            registry.Register(new FindObjectsByComponentQueryHandler());
-            registry.Register(new QueryPrefabInfoQueryHandler());
-            registry.Register(new CaptureSceneScreenshotQueryHandler());
-            registry.Register(new GetUiOverlayReportQueryHandler());
-            registry.Register(new GetUiTreeQueryHandler());
-            registry.Register(new GetSerializedPropertyTreeQueryHandler());
-            registry.Register(new HitTestUiAtScreenPointDisabledQueryHandler());
-            registry.Register(new HitTestUiAtViewportPointQueryHandler());
-            registry.Register(new ValidateUiLayoutQueryHandler());
+            registry.Register(new SsotRequestQueryHandler());
             return registry;
         }
     }

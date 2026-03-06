@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 function isObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -14,7 +14,7 @@ function validateAllowedKeys(body, allowedKeys, objectName) {
     if (!allowedKeys.has(key)) {
       return {
         ok: false,
-        errorCode: "E_SCHEMA_INVALID",
+        errorCode: "E_SSOT_SCHEMA_INVALID",
         message: `${objectName} has unexpected field: ${key}`,
         statusCode: 400,
       };
@@ -31,7 +31,7 @@ function validateIntegerField(value, minimum, fieldName) {
   ) {
     return {
       ok: false,
-      errorCode: "E_SCHEMA_INVALID",
+      errorCode: "E_SSOT_SCHEMA_INVALID",
       message: `${fieldName} must be an integer >= ${minimum} when provided`,
       statusCode: 400,
     };
@@ -45,4 +45,5 @@ module.exports = {
   validateAllowedKeys,
   validateIntegerField,
 };
+
 

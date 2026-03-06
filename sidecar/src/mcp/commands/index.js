@@ -2,14 +2,13 @@
 
 const { materializeCommandManifest } = require("./_shared/commandManifest");
 const {
-  MCP_COMMAND_DEFINITIONS: LEGACY_COMMAND_MANIFEST,
-} = require("./legacyCommandManifest");
+  MCP_COMMAND_DEFINITIONS: COMMAND_DEFINITION_MANIFEST,
+} = require("./commandDefinitionManifest");
 
 const MCP_COMMAND_DEFINITIONS = materializeCommandManifest(
-  LEGACY_COMMAND_MANIFEST
+  COMMAND_DEFINITION_MANIFEST
 );
 
 module.exports = {
   MCP_COMMAND_DEFINITIONS,
 };
-

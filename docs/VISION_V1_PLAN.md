@@ -572,7 +572,7 @@ V1 需补：`rect_screen_px`、`interaction`（interactable/raycast/blocks_rayca
 - 顶层与动作锚点硬校验：
   - `validateMcpApplyVisualActions(...)`
   - `ConversationController.TryValidateActionRequestPayload(...)`
-- 对外禁止 `action_data_json`，只允许 `action_data`：
+- 对外禁止 `legacy_stringified_action_data`，只允许 `action_data`：
   - `sidecar/src/domain/validators.js`（`E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED`）
 - Undo：
   - 现有执行器已使用 `Undo.RecordObject`/`Undo.AddComponent`（`UnityVisualActionExecutor.cs`）。
@@ -685,11 +685,11 @@ V1 加固建议：
 - 新增 `sidecar/tests/domain/validators.validate-ui-layout.test.js`
 - 新增 `sidecar/tests/domain/validators.set-ui-properties.test.js`
 
-### 2) 对外禁止 `action_data_json`
+### 2) 对外禁止 `legacy_stringified_action_data`
 
 保持现有策略，不变更：
 - 外部 payload 只能传 `action_data`
-- `action_data_json` 只允许 L2->L3 内部 bridge 生成
+- `legacy_stringified_action_data` 只允许 L2->L3 内部 bridge 生成
 - 违规返回：`E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED`
 
 ### 3) unknown action / unknown command fail-closed
@@ -846,7 +846,7 @@ V1 需在 read/write 回包中补充统一诊断字段，便于跨层追踪：
 | V1-CLOSE-L2-01 | Phase A | `get_ui_tree` 契约补齐 | `sidecar/src/mcp/commands/get_ui_tree/validator.js`、`sidecar/src/mcp/commands/get_ui_tree/handler.js`、`sidecar/src/mcp/commands/index.js`、`sidecar/src/ports/contracts.js` | 返回补齐 `runtime_resolution/runtime_source` 与树字段一致性 | `get_tool_schema` 与 validator 一致；回包包含 runtime 上下文 |
 | V1-CLOSE-L2-02 | Phase A | `hit_test_ui_at_viewport_point` 收口 | `sidecar/src/mcp/commands/hit_test_ui_at_viewport_point/validator.js`、`sidecar/src/mcp/commands/hit_test_ui_at_viewport_point/handler.js`、`sidecar/src/mcp/commands/hit_test_ui_at_screen_point/handler.js`、`sidecar/src/mcp/commands/index.js`、`sidecar/src/ports/contracts.js` | 新命令启用；旧 `hit_test_ui_at_screen_point` 保持 fail-closed；坐标映射 freeze（scope 优先 + clamp） | 边界点不再越界；`mapped_point` 总在 `[0,runtime-1]`；旧命令只返回禁用/弃用错误 |
 | V1-CLOSE-L2-03 | Phase A | `validate_ui_layout` 收口 | `sidecar/src/mcp/commands/validate_ui_layout/validator.js`、`sidecar/src/mcp/commands/validate_ui_layout/handler.js`、`sidecar/src/mcp/commands/index.js`、`sidecar/src/application/turnPolicies.js`、`sidecar/src/application/mcpGateway/mcpErrorFeedback.js` | 支持 4 类 issue + budget/partial；补齐 `TEXT_OVERFLOW` 跨分辨率 `mode=derived_only` 与 `NOT_CLICKABLE` `mode=static_only` 口径 | `OUT_OF_BOUNDS/OVERLAP/NOT_CLICKABLE/TEXT_OVERFLOW` 可稳定返回；超时返回 `partial`；语义不冲突 |
-| V1-CLOSE-L2-04 | Phase A | `set_ui_properties` 写接口收口 | `sidecar/src/mcp/commands/set_ui_properties/validator.js`、`sidecar/src/mcp/commands/set_ui_properties/handler.js`、`sidecar/src/application/mcpGateway/mcpEyesWriteService.js`、`sidecar/src/domain/validators.js` | 字段级写接口映射到现有 action 链，禁止外部 `action_data_json`；冻结 `dry_run` 为“仅规划不提交” | `dry_run=true` 不提交 Unity、不改状态；返回 `planned_actions_count + mapped_actions` |
+| V1-CLOSE-L2-04 | Phase A | `set_ui_properties` 写接口收口 | `sidecar/src/mcp/commands/set_ui_properties/validator.js`、`sidecar/src/mcp/commands/set_ui_properties/handler.js`、`sidecar/src/application/mcpGateway/mcpEyesWriteService.js`、`sidecar/src/domain/validators.js` | 字段级写接口映射到现有 action 链，禁止外部 `legacy_stringified_action_data`；冻结 `dry_run` 为“仅规划不提交” | `dry_run=true` 不提交 Unity、不改状态；返回 `planned_actions_count + mapped_actions` |
 | V1-CLOSE-L3-01 | Phase B | hit-test Query 实现 | `Assets/Editor/Codex/Infrastructure/Queries/Handlers/HitTestUiAtViewportPointQueryHandler.cs`、`Assets/Editor/Codex/Infrastructure/Queries/UnityQueryRegistryBootstrap.cs`、`Assets/Editor/Codex/Infrastructure/UnityRagReadService.cs`、`Assets/Editor/Codex/Domain/SidecarContracts.cs` | 实现 viewport 坐标命中栈，回包含 `coord_origin/runtime_source/approximate`，并执行 clamp 与 scope-canvas 绑定 | Unity 非前台可执行；无 raycast 源时有明确 approximate 标记；跨边界点不越界 |
 | V1-CLOSE-L3-02 | Phase B | layout validator 实现 | `Assets/Editor/Codex/Infrastructure/UiValidation/UiLayoutValidator.cs`、`Assets/Editor/Codex/Infrastructure/Queries/Handlers/ValidateUiLayoutQueryHandler.cs`、`Assets/Editor/Codex/Infrastructure/UnityRagReadService.cs`、`Assets/Editor/Codex/Domain/SidecarContracts.cs` | 多分辨率纯推导模型 + `time_budget_ms` + `truncated_reason`；`TEXT_OVERFLOW` 跨分辨率 derived-only；`NOT_CLICKABLE` static-only 降级 | 不污染 GameView 全局状态；预算触发时回包完整且可诊断；误报语义可解释 |
 | V1-CLOSE-L3-03 | Phase B | `get_ui_tree` 字段增强 | `Assets/Editor/Codex/Infrastructure/UnityRagReadService.cs`、`Assets/Editor/Codex/Infrastructure/Queries/Handlers/GetUiTreeQueryHandler.cs`、`Assets/Editor/Codex/Domain/SidecarContracts.cs` | 补齐 interaction/text/rect/runtime 关键字段，并冻结 `rect_screen_px` 为 bottom-left origin | UI 树可直接支撑 hit-test 与 validate，不再缺关键字段且坐标口径一致 |
@@ -916,4 +916,5 @@ V2 建议增加独立截图 provider（不破坏 V1 API）：
 - `anchor_cross_refs[]`（结构化 anchor 与截图区域映射）
 
 该组合可保证：V1 即可闭环交付，V2 在不破坏契约的前提下增强最终视觉精度。
+
 

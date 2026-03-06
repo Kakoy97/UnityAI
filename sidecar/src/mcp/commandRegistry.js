@@ -1,42 +1,6 @@
 "use strict";
 
 const { MCP_COMMAND_DEFINITIONS } = require("./commands");
-const TOOLS_LIST_SCHEMA_COMPACT_GUIDANCE =
-  "Input schema is compact in tools/list. Use get_tool_schema for full schema.";
-const SCHEMA_STRIP_KEYS = new Set([
-  "description",
-  "default",
-  "examples",
-  "example",
-  "title",
-  "$schema",
-  "$id",
-  "$defs",
-  "definitions",
-  "deprecated",
-  "readOnly",
-  "writeOnly",
-]);
-const SCHEMA_BASE_KEYS = Object.freeze([
-  "type",
-  "additionalProperties",
-  "required",
-  "enum",
-  "const",
-  "format",
-  "pattern",
-  "minimum",
-  "maximum",
-  "exclusiveMinimum",
-  "exclusiveMaximum",
-  "minLength",
-  "maxLength",
-  "minItems",
-  "maxItems",
-  "uniqueItems",
-  "minProperties",
-  "maxProperties",
-]);
 
 function normalizeMethod(value) {
   if (typeof value !== "string") {
@@ -57,10 +21,6 @@ function normalizeName(value) {
     return "";
   }
   return value.trim();
-}
-
-function isObject(value) {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function cloneJson(value) {
@@ -88,160 +48,34 @@ function deepFreeze(value) {
   return value;
 }
 
-function copySchemaScalarValue(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => cloneJson(item));
-  }
-  if (isObject(value)) {
-    return cloneJson(value);
-  }
-  return value;
+function hasOwn(obj, key) {
+  return !!obj && Object.prototype.hasOwnProperty.call(obj, key);
 }
 
-function compactSchemaNode(node, options, depth) {
-  if (!isObject(node)) {
-    return undefined;
+function validateCommandDefinitionContract(command) {
+  if (!command || typeof command !== "object") {
+    throw new Error("Invalid MCP command definition: definition must be an object");
   }
-  const opts = options && typeof options === "object" ? options : {};
-  const maxDepth =
-    Number.isFinite(Number(opts.maxDepth)) && Number(opts.maxDepth) >= 1
-      ? Math.floor(Number(opts.maxDepth))
-      : 3;
-  const maxPropertiesPerObject =
-    Number.isFinite(Number(opts.maxPropertiesPerObject)) &&
-    Number(opts.maxPropertiesPerObject) >= 1
-      ? Math.floor(Number(opts.maxPropertiesPerObject))
-      : 12;
-  const maxCombinatorItems =
-    Number.isFinite(Number(opts.maxCombinatorItems)) &&
-    Number(opts.maxCombinatorItems) >= 1
-      ? Math.floor(Number(opts.maxCombinatorItems))
-      : 4;
-  const result = {};
-
-  for (const key of SCHEMA_BASE_KEYS) {
-    if (!Object.prototype.hasOwnProperty.call(node, key)) {
-      continue;
-    }
-    result[key] = copySchemaScalarValue(node[key]);
-  }
-
-  if (depth >= maxDepth) {
-    return result;
-  }
-
-  if (isObject(node.properties)) {
-    const rawKeys = Object.keys(node.properties);
-    const required = Array.isArray(result.required) ? result.required : [];
-    const importantKeySet = new Set(
-      required.filter((item) => typeof item === "string")
+  const name = normalizeName(command.name) || "<unknown>";
+  const turnServiceMethod =
+    typeof command.turnServiceMethod === "string"
+      ? command.turnServiceMethod.trim()
+      : "";
+  if (!turnServiceMethod) {
+    throw new Error(
+      `Invalid MCP command definition '${name}': turnServiceMethod is required`
     );
-    for (const combinatorKey of ["oneOf", "anyOf", "allOf"]) {
-      if (!Array.isArray(node[combinatorKey])) {
-        continue;
-      }
-      for (const branch of node[combinatorKey]) {
-        if (!isObject(branch) || !Array.isArray(branch.required)) {
-          continue;
-        }
-        for (const item of branch.required) {
-          if (typeof item === "string" && item.trim()) {
-            importantKeySet.add(item.trim());
-          }
-        }
-      }
-    }
-    const prioritizedKeys = [
-      ...rawKeys.filter((key) => importantKeySet.has(key)),
-      ...rawKeys.filter((key) => !importantKeySet.has(key)),
-    ];
-    const selectedKeys = prioritizedKeys.slice(0, maxPropertiesPerObject);
-    const compactProperties = {};
-    for (const propertyName of selectedKeys) {
-      const compactProperty = compactSchemaNode(
-        node.properties[propertyName],
-        opts,
-        depth + 1
-      );
-      if (compactProperty && typeof compactProperty === "object") {
-        compactProperties[propertyName] = compactProperty;
-      }
-    }
-    if (Object.keys(compactProperties).length > 0) {
-      result.properties = compactProperties;
-    }
   }
-
-  if (Object.prototype.hasOwnProperty.call(node, "items")) {
-    if (isObject(node.items)) {
-      const compactItems = compactSchemaNode(node.items, opts, depth + 1);
-      if (compactItems && typeof compactItems === "object") {
-        result.items = compactItems;
-      }
-    } else {
-      result.items = copySchemaScalarValue(node.items);
-    }
+  if (typeof command.validate !== "function") {
+    throw new Error(
+      `Invalid MCP command definition '${name}': validate function is required`
+    );
   }
-
-  for (const combinatorKey of ["oneOf", "anyOf", "allOf"]) {
-    if (!Array.isArray(node[combinatorKey])) {
-      continue;
-    }
-    const compactCombinator = node[combinatorKey]
-      .slice(0, maxCombinatorItems)
-      .map((entry) =>
-        isObject(entry)
-          ? compactSchemaNode(entry, opts, depth + 1)
-          : copySchemaScalarValue(entry)
-      )
-      .filter((entry) => !!entry);
-    if (compactCombinator.length > 0) {
-      result[combinatorKey] = compactCombinator;
-    }
+  if (hasOwn(command, "execute") || hasOwn(command, "handler")) {
+    throw new Error(
+      `Invalid MCP command definition '${name}': legacy execute/handler entry is not allowed`
+    );
   }
-
-  for (const [key, value] of Object.entries(node)) {
-    if (
-      SCHEMA_BASE_KEYS.includes(key) ||
-      key === "properties" ||
-      key === "items" ||
-      key === "oneOf" ||
-      key === "anyOf" ||
-      key === "allOf" ||
-      SCHEMA_STRIP_KEYS.has(key)
-    ) {
-      continue;
-    }
-    if (
-      typeof value === "string" ||
-      typeof value === "number" ||
-      typeof value === "boolean" ||
-      value === null
-    ) {
-      result[key] = value;
-    }
-  }
-
-  return result;
-}
-
-function buildToolsListSchema(command, fullSchema) {
-  const kind = normalizeName(command && command.kind).toLowerCase();
-  const profile =
-    kind === "write"
-      ? {
-          maxDepth: 3,
-          maxPropertiesPerObject: 8,
-          maxCombinatorItems: 3,
-        }
-      : {
-          maxDepth: 3,
-          maxPropertiesPerObject: 12,
-          maxCombinatorItems: 4,
-        };
-  const compact =
-    compactSchemaNode(fullSchema, profile, 0) || { type: "object", properties: {} };
-  return deepFreeze(compact);
 }
 
 class McpCommandRegistry {
@@ -249,7 +83,10 @@ class McpCommandRegistry {
     const source = Array.isArray(definitions) ? definitions : [];
     this._commands = source
       .filter((item) => item && typeof item === "object")
-      .map((item) => Object.freeze({ ...item }));
+      .map((item) => {
+        validateCommandDefinitionContract(item);
+        return Object.freeze({ ...item });
+      });
     this._byName = new Map();
     this._byHttpSignature = new Map();
     for (const command of this._commands) {
@@ -273,7 +110,6 @@ class McpCommandRegistry {
             command.mcp && command.mcp.inputSchema
               ? deepFreeze(cloneJson(command.mcp.inputSchema))
               : deepFreeze({ type: "object", properties: {} });
-          const toolsListSchema = buildToolsListSchema(command, fullSchema);
           const template = Object.freeze({
             name: command.name,
             kind: normalizeName(command.kind).toLowerCase(),
@@ -297,7 +133,6 @@ class McpCommandRegistry {
                   }),
             descriptionSource: command.mcp.description,
             fullSchema,
-            toolsListSchema,
           });
           this._toolTemplateByName.set(template.name, template);
           return template;
@@ -347,29 +182,17 @@ class McpCommandRegistry {
 
   getToolsListCache(context) {
     const ctx = context && typeof context === "object" ? context : {};
-    const schemaMode = ctx.toolsListSchemaMode === "full" ? "full" : "compact";
-    const includeCompactSchemaGuidance =
-      ctx.includeCompactSchemaGuidance !== false && schemaMode !== "full";
     return this._toolsListTemplateCache.map((template) => {
       const descriptionSource = template.descriptionSource;
       const description =
         typeof descriptionSource === "function"
           ? descriptionSource(ctx)
           : String(descriptionSource || "");
-      const withGuidance =
-        includeCompactSchemaGuidance &&
-        template.kind === "write" &&
-        template.name !== "get_tool_schema"
-          ? `${description} ${TOOLS_LIST_SCHEMA_COMPACT_GUIDANCE}`.trim()
-          : description;
       return {
         name: template.name,
         description:
-          typeof withGuidance === "string"
-            ? withGuidance
-            : String(withGuidance || ""),
-        inputSchema:
-          schemaMode === "full" ? template.fullSchema : template.toolsListSchema,
+          typeof description === "string" ? description : String(description || ""),
+        inputSchema: template.fullSchema,
       };
     });
   }
@@ -409,7 +232,7 @@ class McpCommandRegistry {
         query_key: template.http.queryKey,
       },
       input_schema: template.fullSchema,
-      tools_list_input_schema: template.toolsListSchema,
+      tools_list_input_schema: template.fullSchema,
     };
   }
 
@@ -484,13 +307,21 @@ class McpCommandRegistry {
             error_code:
               validation && typeof validation.errorCode === "string"
                 ? validation.errorCode
-                : "E_SCHEMA_INVALID",
+                : "E_SSOT_SCHEMA_INVALID",
             message:
               validation && typeof validation.message === "string"
                 ? validation.message
                 : "Request schema invalid",
           },
         };
+      }
+      if (
+        validation &&
+        typeof validation === "object" &&
+        Object.prototype.hasOwnProperty.call(validation, "value") &&
+        validation.value !== undefined
+      ) {
+        payload = validation.value;
       }
     }
 
@@ -501,8 +332,6 @@ class McpCommandRegistry {
             : ""
         ]
       : payload;
-    const execute =
-      typeof command.execute === "function" ? command.execute : null;
     const methodName =
       typeof command.turnServiceMethod === "string"
         ? command.turnServiceMethod.trim()
@@ -511,7 +340,7 @@ class McpCommandRegistry {
       methodName && typeof turnService[methodName] === "function"
         ? turnService[methodName].bind(turnService)
         : null;
-    if (!execute && !serviceHandler) {
+    if (!serviceHandler) {
       return {
         statusCode: 500,
         body: {
@@ -520,35 +349,7 @@ class McpCommandRegistry {
         },
       };
     }
-
-    const context = {
-      command,
-      commandName: command.name,
-      commandRegistry: this,
-      turnService,
-      capabilityStore: turnService.capabilityStore,
-      queryCoordinator: turnService.queryCoordinator,
-      snapshotService: turnService.unitySnapshotService,
-      nowIso:
-        typeof turnService.nowIso === "function"
-          ? turnService.nowIso.bind(turnService)
-          : () => new Date().toISOString(),
-      logger: p.logger && typeof p.logger === "object" ? p.logger : console,
-      captureCompositeEnabled: turnService.captureCompositeEnabled === true,
-      captureCompositeRuntime:
-        turnService.captureCompositeRuntime &&
-        typeof turnService.captureCompositeRuntime === "object"
-          ? turnService.captureCompositeRuntime
-          : null,
-      requestMeta: {
-        method: normalizeMethod(p.method),
-        path: normalizePath(p.path),
-      },
-      requestUrl: p.url || null,
-    };
-    const outcome = execute
-      ? await Promise.resolve(execute(context, args))
-      : await Promise.resolve(serviceHandler(args));
+    const outcome = await Promise.resolve(serviceHandler(args));
     if (
       outcome &&
       typeof outcome === "object" &&

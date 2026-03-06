@@ -11,23 +11,13 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries
         string QueryType { get; }
 
         Task<UnityQueryHandlerResult> ExecuteAsync(
-            UnityPulledQuery pulledQuery,
+            UnityAI.Editor.Codex.Domain.UnityPulledQuery pulledQuery,
             UnityQueryExecutionContext context);
     }
 
     public static class UnityQueryTypes
     {
-        public const string ListAssetsInFolder = "list_assets_in_folder";
-        public const string GetSceneRoots = "get_scene_roots";
-        public const string FindObjectsByComponent = "find_objects_by_component";
-        public const string QueryPrefabInfo = "query_prefab_info";
-        public const string CaptureSceneScreenshot = "capture_scene_screenshot";
-        public const string GetUiOverlayReport = "get_ui_overlay_report";
-        public const string GetUiTree = "get_ui_tree";
-        public const string GetSerializedPropertyTree = "get_serialized_property_tree";
-        public const string HitTestUiAtScreenPoint = "hit_test_ui_at_screen_point";
-        public const string HitTestUiAtViewportPoint = "hit_test_ui_at_viewport_point";
-        public const string ValidateUiLayout = "validate_ui_layout";
+        public const string SsotRequest = "ssot.request";
     }
 
     public sealed class UnityQueryHandlerResult
@@ -113,7 +103,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries
             return string.IsNullOrEmpty(value) ? string.Empty : value.Trim();
         }
 
-        public TPayload GetQueryPayloadOrDefault<TPayload>(UnityPulledQuery pulledQuery)
+        public TPayload GetQueryPayloadOrDefault<TPayload>(UnityAI.Editor.Codex.Domain.UnityPulledQuery pulledQuery)
             where TPayload : class, new()
         {
             if (pulledQuery == null)
@@ -125,16 +115,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries
             if (TryDeserializeQueryPayload(pulledQuery.query_payload_json, out parsed))
             {
                 return parsed;
-            }
-
-            var legacyPayload = pulledQuery.payload;
-            if (legacyPayload != null)
-            {
-                var legacyJson = SerializeLegacyPayload(legacyPayload);
-                if (TryDeserializeQueryPayload(legacyJson, out parsed))
-                {
-                    return parsed;
-                }
             }
 
             return new TPayload();
@@ -158,23 +138,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries
             {
                 payload = null;
                 return false;
-            }
-        }
-
-        private static string SerializeLegacyPayload(UnityPulledQueryPayload payload)
-        {
-            if (payload == null)
-            {
-                return string.Empty;
-            }
-
-            try
-            {
-                return JsonUtility.ToJson(payload);
-            }
-            catch
-            {
-                return string.Empty;
             }
         }
     }

@@ -1,48 +1,21 @@
 "use strict";
 
 module.exports = function buildDefinition(deps) {
-  const {
-    validateGetActionCatalog,
-    executeGetActionCatalog,
-    validateGetActionSchema,
-    executeGetActionSchema,
-    validateGetToolSchema,
-    executeGetToolSchema,
-    validateGetWriteContractBundle,
-    executeGetWriteContractBundle,
-    validatePreflightValidateWritePayload,
-    executePreflightValidateWritePayload,
-    validateSetupCursorMcp,
-    executeSetupCursorMcp,
-    validateVerifyMcpSetup,
-    executeVerifyMcpSetup,
-    validateListAssetsInFolder,
-    validateGetSceneRoots,
-    validateFindObjectsByComponent,
-    validateQueryPrefabInfo,
-    validateCaptureSceneScreenshot,
-    executeCaptureSceneScreenshot,
-    validateGetUiOverlayReport,
-    executeGetUiOverlayReport,
-    validateGetUiTree,
-    executeGetUiTree,
-    validateGetSerializedPropertyTree,
-    executeGetSerializedPropertyTree,
-    validateHitTestUiAtViewportPoint,
-    executeHitTestUiAtViewportPoint,
-    validateUiLayout,
-    executeValidateUiLayout,
-    executeSetUiProperties,
-    executeSetSerializedProperty,
-    validateHitTestUiAtScreenPoint,
-    executeHitTestUiAtScreenPoint,
-    normalizeBody,
-    buildVisualActionsDescription,
-    readEnvBoolean,
-    isCompositeCaptureEnabledForManifest,
-    buildCaptureSceneScreenshotDescription,
-    validateGetUnityTaskStatusArgs,
-  } = deps;
+  const source = deps && typeof deps === "object" ? deps : {};
+  const validateGetUnityTaskStatus =
+    typeof source.validateGetUnityTaskStatus === "function"
+      ? source.validateGetUnityTaskStatus
+      : null;
+  const getSsotInputSchemaForTool =
+    typeof source.getSsotInputSchemaForTool === "function"
+      ? source.getSsotInputSchemaForTool
+      : null;
+  const getSsotToolDescriptionForTool =
+    typeof source.getSsotToolDescriptionForTool === "function"
+      ? source.getSsotToolDescriptionForTool
+      : null;
+  const fallbackDescription =
+    "Query one Unity task status by job_id via SSOT-generated schema.";
 
   return {
     name: "get_unity_task_status",
@@ -54,22 +27,20 @@ module.exports = function buildDefinition(deps) {
       source: "query",
       queryKey: "job_id",
     },
-    turnServiceMethod: "getUnityTaskStatus",
-    validate: validateGetUnityTaskStatusArgs,
+    turnServiceMethod: "getUnityTaskStatusForMcp",
+    validate: validateGetUnityTaskStatus,
     mcp: {
       expose: true,
-      description:
-        "Get the current status of a Unity task. Keep polling this endpoint after submit until terminal status (succeeded/failed/cancelled). accepted/queued/pending/running are non-terminal. This is a fallback query endpoint; SSE can be used for real-time updates.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          job_id: {
-            type: "string",
-            description: "Job identifier returned from submit_unity_task",
+      description: getSsotToolDescriptionForTool
+        ? getSsotToolDescriptionForTool("get_unity_task_status", fallbackDescription)
+        : fallbackDescription,
+      inputSchema: getSsotInputSchemaForTool
+        ? getSsotInputSchemaForTool("get_unity_task_status")
+        : {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-        },
-        required: ["job_id"],
-      },
     },
   };
 };

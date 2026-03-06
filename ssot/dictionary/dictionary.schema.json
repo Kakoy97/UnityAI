@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unityai.local/ssot/dictionary.schema.json",
+  "title": "Unity SSOT Dictionary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "tools"],
+  "properties": {
+    "version": {
+      "oneOf": [
+        { "type": "integer", "minimum": 1 },
+        { "type": "string", "minLength": 1 }
+      ]
+    },
+    "_definitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mixins": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": { "$ref": "#/$defs/mixinDef" }
+          }
+        }
+      }
+    },
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "merge": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "strategy": {
+              "type": "string",
+              "enum": ["deep_merge"]
+            },
+            "required_union": { "type": "boolean" },
+            "properties_union": { "type": "boolean" },
+            "apply_mixins_for_kind": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "write": { "$ref": "#/$defs/stringArray" },
+                "read": { "$ref": "#/$defs/stringArray" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/toolDef" }
+    }
+  },
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "primitiveValue": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "integer" },
+        { "type": "boolean" },
+        { "type": "null" }
+      ]
+    },
+    "schemaProperty": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "integer", "boolean", "object", "array"]
+        },
+        "description": { "type": "string" },
+        "enum": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/primitiveValue" }
+        },
+        "const": { "$ref": "#/$defs/primitiveValue" },
+        "case_insensitive": { "type": "boolean" },
+        "default": { "$ref": "#/$defs/primitiveValue" },
+        "minLength": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 0 },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minItems": { "type": "integer", "minimum": 0 },
+        "maxItems": { "type": "integer", "minimum": 0 },
+        "items": { "$ref": "#/$defs/schemaProperty" },
+        "required": { "$ref": "#/$defs/stringArray" },
+        "properties": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-zA-Z_][a-zA-Z0-9_]*$": { "$ref": "#/$defs/schemaProperty" }
+          }
+        },
+        "additionalProperties": { "type": "boolean" }
+      }
+    },
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "object" },
+        "description": { "type": "string" },
+        "additionalProperties": { "type": "boolean" },
+        "required": { "$ref": "#/$defs/stringArray" },
+        "properties": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-zA-Z_][a-zA-Z0-9_]*$": { "$ref": "#/$defs/schemaProperty" }
+          }
+        }
+      }
+    },
+    "mixinDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input"],
+      "properties": {
+        "description": { "type": "string" },
+        "input": { "$ref": "#/$defs/inputSchema" }
+      }
+    },
+    "toolExample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "user_intent": { "type": "string" },
+        "request_business_only": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "request": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "expected_outcome": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "toolDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "input"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["write", "read"],
+          "default": "write"
+        },
+        "lifecycle": {
+          "type": "string",
+          "enum": ["stable", "experimental", "deprecated"],
+          "default": "stable"
+        },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "mixins": { "$ref": "#/$defs/stringArray" },
+        "input": { "$ref": "#/$defs/inputSchema" },
+        "examples": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/toolExample" }
+        }
+      }
+    }
+  }
+}
+

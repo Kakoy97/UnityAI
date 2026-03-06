@@ -165,27 +165,6 @@ namespace UnityAI.Editor.Codex.UI
                 EditorGUILayout.HelpBox("Last compile contains errors. Report Compile Failure instead of Success.", MessageType.Warning);
             }
 
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                using (new EditorGUI.DisabledScope(!_controller.CanConfirmPendingAction || _controller.IsEditorCompiling))
-                {
-                    if (GUILayout.Button("Approve Action", GUILayout.Height(22)))
-                    {
-                        _ = _controller.ConfirmPendingActionAsync(Selection.activeGameObject);
-                    }
-
-                    if (GUILayout.Button("Reject Action", GUILayout.Height(22)))
-                    {
-                        _ = _controller.RejectPendingActionAsync(Selection.activeGameObject);
-                    }
-                }
-            }
-
-            if (_controller.CanConfirmPendingAction && _controller.IsEditorCompiling)
-            {
-                EditorGUILayout.HelpBox("Unity is compiling. Wait for compile to complete, then approve action.", MessageType.Warning);
-            }
-
             EditorGUILayout.HelpBox("Status: " + _controller.GetStatusText(GetNowSeconds()), MessageType.Info);
 
             EditorGUILayout.Space(8);

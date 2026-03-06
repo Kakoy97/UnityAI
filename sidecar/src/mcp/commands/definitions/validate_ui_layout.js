@@ -1,48 +1,19 @@
 "use strict";
 
 module.exports = function buildDefinition(deps) {
-  const {
-    validateGetActionCatalog,
-    executeGetActionCatalog,
-    validateGetActionSchema,
-    executeGetActionSchema,
-    validateGetToolSchema,
-    executeGetToolSchema,
-    validateGetWriteContractBundle,
-    executeGetWriteContractBundle,
-    validatePreflightValidateWritePayload,
-    executePreflightValidateWritePayload,
-    validateSetupCursorMcp,
-    executeSetupCursorMcp,
-    validateVerifyMcpSetup,
-    executeVerifyMcpSetup,
-    validateListAssetsInFolder,
-    validateGetSceneRoots,
-    validateFindObjectsByComponent,
-    validateQueryPrefabInfo,
-    validateCaptureSceneScreenshot,
-    executeCaptureSceneScreenshot,
-    validateGetUiOverlayReport,
-    executeGetUiOverlayReport,
-    validateGetUiTree,
-    executeGetUiTree,
-    validateGetSerializedPropertyTree,
-    executeGetSerializedPropertyTree,
-    validateHitTestUiAtViewportPoint,
-    executeHitTestUiAtViewportPoint,
-    validateUiLayout,
-    executeValidateUiLayout,
-    executeSetUiProperties,
-    executeSetSerializedProperty,
-    validateHitTestUiAtScreenPoint,
-    executeHitTestUiAtScreenPoint,
-    normalizeBody,
-    buildVisualActionsDescription,
-    readEnvBoolean,
-    isCompositeCaptureEnabledForManifest,
-    buildCaptureSceneScreenshotDescription,
-    validateGetUnityTaskStatusArgs,
-  } = deps;
+  const source = deps && typeof deps === "object" ? deps : {};
+  const validateUiLayout =
+    typeof source.validateUiLayout === "function" ? source.validateUiLayout : null;
+  const getSsotInputSchemaForTool =
+    typeof source.getSsotInputSchemaForTool === "function"
+      ? source.getSsotInputSchemaForTool
+      : null;
+  const getSsotToolDescriptionForTool =
+    typeof source.getSsotToolDescriptionForTool === "function"
+      ? source.getSsotToolDescriptionForTool
+      : null;
+  const fallbackDescription =
+    "Validate UI layout issues via SSOT isolated query pipeline.";
 
   return {
     name: "validate_ui_layout",
@@ -53,81 +24,21 @@ module.exports = function buildDefinition(deps) {
       path: "/mcp/validate_ui_layout",
       source: "body",
     },
+    turnServiceMethod: "validateUiLayoutForMcp",
     validate: validateUiLayout,
-    execute: executeValidateUiLayout,
     mcp: {
       expose: true,
-      description:
-        "Validate UI layout across resolutions and return structured issues (OUT_OF_BOUNDS/OVERLAP/NOT_CLICKABLE/TEXT_OVERFLOW). Optional specialist mode can emit deterministic repair_plan suggestions mapped to Phase-2 primitives.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          scope: {
+      description: getSsotToolDescriptionForTool
+        ? getSsotToolDescriptionForTool("validate_ui_layout", fallbackDescription)
+        : fallbackDescription,
+      inputSchema: getSsotInputSchemaForTool
+        ? getSsotInputSchemaForTool("validate_ui_layout")
+        : {
             type: "object",
             additionalProperties: false,
-            properties: {
-              root_path: { type: "string" },
-            },
+            properties: {},
           },
-          resolutions: {
-            type: "array",
-            items: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                name: { type: "string" },
-                width: { type: "integer" },
-                height: { type: "integer" },
-              },
-              required: ["width", "height"],
-            },
-          },
-          checks: {
-            type: "array",
-            items: {
-              type: "string",
-              enum: [
-                "OUT_OF_BOUNDS",
-                "OVERLAP",
-                "NOT_CLICKABLE",
-                "TEXT_OVERFLOW",
-              ],
-            },
-          },
-          max_issues: {
-            type: "integer",
-            description: "Optional issue cap (>=1).",
-          },
-          time_budget_ms: {
-            type: "integer",
-            description: "Optional in-validator budget (>=1).",
-          },
-          layout_refresh_mode: {
-            type: "string",
-            enum: ["scoped_roots_only", "full_tree"],
-            description: "Layout refresh strategy before checks.",
-          },
-          include_repair_plan: {
-            type: "boolean",
-            description:
-              "When true, response may include specialist_summary + repair_plan suggestions.",
-          },
-          max_repair_suggestions: {
-            type: "integer",
-            description: "Optional cap for repair_plan suggestions (>=1).",
-          },
-          repair_style: {
-            type: "string",
-            enum: ["conservative", "balanced", "aggressive"],
-            description: "Repair strategy preference used by specialist planner.",
-          },
-          timeout_ms: {
-            type: "integer",
-            description: "Optional query timeout in milliseconds (>=1000).",
-          },
-        },
-      },
     },
   };
 };
+

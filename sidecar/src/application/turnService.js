@@ -7,38 +7,66 @@
  */
 
 const {
-  validateFileActionsApply,
   validateUnitySelectionSnapshot,
-  validateUnityConsoleSnapshot,
   validateUnityCapabilitiesReport,
+  validateUnityRuntimePing,
 } = require("../domain/validators");
 const {
   normalizeSelectionComponentIndex,
-  normalizeConsoleSnapshotErrors,
 } = require("../utils/turnUtils");
 const { ResponseCacheService } = require("./responseCacheService");
 const { UnitySnapshotService } = require("./unitySnapshotService");
-const { PreconditionService } = require("./preconditionService");
-const { McpGateway } = require("./mcpGateway/mcpGateway");
-const { McpEyesService } = require("./mcpGateway/mcpEyesService");
 const { QueryStore } = require("./queryRuntime/queryStore");
 const { QueryCoordinator } = require("./queryCoordinator");
 const { CapabilityStore } = require("./capabilityStore");
 const {
   normalizeRequestId,
-  normalizeString,
-  isObject,
-  buildUnityActionRequestEnvelopeWithIds:
-    buildUnityActionRequestEnvelopeWithIdsHelper,
   buildValidationErrorResponse: buildValidationErrorResponseHelper,
-  normalizeWriteOutcome: normalizeWriteOutcomeHelper,
-  mapFileErrorToStatus: mapFileErrorToStatusHelper,
 } = require("./turnServiceWriteSupport");
 const {
   createCaptureCompositeRuntime,
 } = require("./captureCompositeRuntime");
+const { dispatchSsotRequest } = require("./ssotRuntime/dispatchSsotRequest");
+const {
+  getValidatorRegistrySingleton,
+} = require("./ssotRuntime/validatorRegistry");
+const {
+  getSsotTokenRegistrySingleton,
+} = require("./ssotRuntime/ssotTokenRegistry");
+const {
+  getSsotRevisionStateSingleton,
+} = require("./ssotRuntime/ssotRevisionState");
+const { validateSsotWriteToken } = require("./ssotRuntime/ssotWriteTokenGuard");
+const {
+  getActionCatalogView,
+  getActionSchemaView,
+  getToolSchemaView,
+  getWriteContractBundleView,
+} = require("./ssotRuntime/staticContractViews");
+const {
+  setupCursorMcp,
+  verifyCursorMcpSetup,
+} = require("./cursorMcpSetupService");
+const { withMcpErrorFeedback } = require("./errorFeedback/mcpErrorFeedback");
 
 const SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
+
+function mapSetupCursorMcpErrorToStatusCode(errorCode) {
+  const code =
+    typeof errorCode === "string" && errorCode.trim()
+      ? errorCode.trim().toUpperCase()
+      : "";
+  if (code === "E_SCHEMA_INVALID" || code === "E_SSOT_SCHEMA_INVALID") {
+    return 400;
+  }
+  if (code === "E_CURSOR_MCP_PATH_NOT_ALLOWED") {
+    return 409;
+  }
+  if (code === "E_CURSOR_MCP_SERVER_NOT_FOUND") {
+    return 500;
+  }
+  return 500;
+}
 
 class TurnService {
   constructor(deps) {
@@ -49,7 +77,6 @@ class TurnService {
       Number(deps.sessionCacheTtlMs) > 0
         ? Number(deps.sessionCacheTtlMs)
         : SESSION_CACHE_TTL_MS;
-    this.enableMcpEyes = deps.enableMcpEyes === true;
     this.v1PolishMetricsCollector =
       deps.v1PolishMetricsCollector &&
       typeof deps.v1PolishMetricsCollector === "object"
@@ -78,55 +105,6 @@ class TurnService {
       nowIso: this.nowIso,
       capabilityStaleAfterMs: deps.mcpCapabilityStaleAfterMs,
     });
-    this.mcpGateway = new McpGateway({
-      nowIso: this.nowIso,
-      enableMcpAdapter: deps.enableMcpAdapter,
-      unitySnapshotService: this.unitySnapshotService,
-      resolveUnityConnectionState: () =>
-        this.capabilityStore.getSnapshot().unity_connection_state,
-      mcpMaxQueue: deps.mcpMaxQueue,
-      mcpJobTtlMs: deps.mcpJobTtlMs,
-      mcpStreamMaxEvents: deps.mcpStreamMaxEvents,
-      mcpStreamMaxSubscribers: deps.mcpStreamMaxSubscribers,
-      mcpStreamRecoveryJobsMax: deps.mcpStreamRecoveryJobsMax,
-      mcpLeaseHeartbeatTimeoutMs: deps.mcpLeaseHeartbeatTimeoutMs,
-      mcpLeaseMaxRuntimeMs: deps.mcpLeaseMaxRuntimeMs,
-      mcpRebootWaitTimeoutMs: deps.mcpRebootWaitTimeoutMs,
-      mcpLeaseJanitorIntervalMs: deps.mcpLeaseJanitorIntervalMs,
-      legacyAnchorMode: deps.legacyAnchorMode,
-      legacyAnchorDenySignoff: deps.legacyAnchorDenySignoff,
-      mcpSnapshotStore: deps.mcpSnapshotStore,
-      fileActionExecutor: this.fileActionExecutor,
-      v1PolishMetricsCollector: this.v1PolishMetricsCollector,
-      getCaptureCompositeMetricsSnapshot: () =>
-        this.captureCompositeRuntime.getMetricsSnapshot(Date.now()),
-      getProtocolGovernanceMetricsSnapshot: () =>
-        this.mcpEyesService &&
-        typeof this.mcpEyesService.getProtocolGovernanceMetricsSnapshot ===
-          "function"
-          ? this.mcpEyesService.getProtocolGovernanceMetricsSnapshot()
-          : null,
-    });
-    this.preconditionService = new PreconditionService({
-      turnStore: this.turnStore,
-      unitySnapshotService: this.unitySnapshotService,
-      mcpGateway: this.mcpGateway,
-    });
-    this.mcpEyesService = new McpEyesService({
-      nowIso: this.nowIso,
-      enableMcpEyes: this.enableMcpEyes,
-      unitySnapshotService: this.unitySnapshotService,
-      preconditionService: this.preconditionService,
-      mcpGateway: this.mcpGateway,
-      capabilityStore: this.capabilityStore,
-      enqueueAndWaitForUnityQuery: this.enqueueAndWaitForUnityQuery.bind(this),
-      submitUnityQueryAndWait: this.submitUnityQueryAndWait.bind(this),
-      queryContractVersion: this.unityQueryContractVersion,
-      v1PolishMetricsCollector: this.v1PolishMetricsCollector,
-      retryFuseEnabled: deps.retryFuseEnabled,
-      retryFuseWindowMs: deps.retryFuseWindowMs,
-      retryFuseMaxAttempts: deps.retryFuseMaxAttempts,
-    });
     this.queryStore = new QueryStore({
       terminalRetentionMs: deps.unityQueryTerminalRetentionMs,
       maxEntries: deps.unityQueryMaxEntries,
@@ -138,9 +116,13 @@ class TurnService {
       maxTimeoutMs: deps.unityQueryMaxTimeoutMs,
       defaultQueryContractVersion: this.unityQueryContractVersion,
     });
-
-    // Compatibility alias for existing tests/harness.
-    this.mcpService = this.mcpGateway;
+    this.ssotValidatorRegistry = getValidatorRegistrySingleton();
+    this.ssotTokenRegistry = getSsotTokenRegistrySingleton({
+      nowIso: this.nowIso,
+    });
+    this.ssotRevisionState = getSsotRevisionStateSingleton({
+      nowIso: this.nowIso,
+    });
   }
 
   getHealthPayload() {
@@ -149,13 +131,14 @@ class TurnService {
     }
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
-    this.refreshMcpJobs({ drainQueue: true });
+    const queryRuntime = this.getQueryRuntimeSnapshot();
     return {
       ok: true,
       service: "codex-unity-sidecar-mvp",
       timestamp: this.nowIso(),
-      active_request_id: this.mcpGateway.lockManager.getRunningJobId(),
-      active_state: this.mcpGateway.lockManager.hasRunningJob() ? "running" : "",
+      active_request_id: "",
+      active_state: "",
+      active_query_count: Number(queryRuntime.total) || 0,
       unity_connection_state:
         this.capabilityStore.getSnapshot().unity_connection_state,
     };
@@ -167,7 +150,7 @@ class TurnService {
     }
     this.cleanupSessionCache();
     this.cleanupFileActionCache();
-    this.refreshMcpJobs({ drainQueue: true });
+    const queryRuntime = this.getQueryRuntimeSnapshot();
     const turnSnapshot =
       this.turnStore && typeof this.turnStore.getSnapshot === "function"
         ? this.turnStore.getSnapshot()
@@ -175,159 +158,13 @@ class TurnService {
     return {
       ...turnSnapshot,
       mcp_runtime: {
-        running_job_id: this.mcpGateway.lockManager.getRunningJobId(),
-        queued_job_ids: this.mcpGateway.jobQueue.list(),
-        jobs: this.mcpGateway.jobStore.listJobs(),
+        running_job_id: "",
+        queued_job_ids: [],
+        jobs: [],
         capabilities: this.capabilityStore.getSnapshot(),
+        query_runtime: queryRuntime,
       },
     };
-  }
-
-  startSession(body) {
-    return {
-      statusCode: 410,
-      body: {
-        error_code: "E_GONE",
-        message: "session.start is removed in gateway mode",
-      },
-    };
-  }
-
-  sendTurn() {
-    return {
-      statusCode: 410,
-      body: {
-        error_code: "E_GONE",
-        message: "turn.send is removed in gateway mode",
-      },
-    };
-  }
-
-  getTurnStatus() {
-    return {
-      statusCode: 410,
-      body: {
-        error_code: "E_GONE",
-        message: "turn.status is removed in gateway mode",
-      },
-    };
-  }
-
-  cancelTurn() {
-    return {
-      statusCode: 410,
-      body: {
-        error_code: "E_GONE",
-        message: "turn.cancel is removed in gateway mode",
-      },
-    };
-  }
-
-  applyFileActions(body) {
-    if (this.turnStore && typeof this.turnStore.sweep === "function") {
-      this.turnStore.sweep();
-    }
-    this.cleanupSessionCache();
-    this.cleanupFileActionCache();
-    this.refreshMcpJobs({ drainQueue: true });
-
-    const validation = validateFileActionsApply(body);
-    if (!validation.ok) {
-      return this.validationError(validation);
-    }
-    const requestId = normalizeRequestId(body.request_id);
-    const existing = this.responseCacheService.getFileActionReceipt(requestId);
-    if (existing) {
-      return {
-        statusCode: existing.statusCode,
-        body: {
-          ...existing.body,
-          replay: true,
-        },
-      };
-    }
-    if (!this.fileActionExecutor || typeof this.fileActionExecutor.execute !== "function") {
-      return {
-        statusCode: 500,
-        body: {
-          error_code: "E_INTERNAL",
-          message: "fileActionExecutor is not configured",
-        },
-      };
-    }
-
-    const execution = this.fileActionExecutor.execute(body.payload.file_actions);
-    if (!execution || execution.ok !== true) {
-      const statusCode = this.mapFileErrorToStatus(execution && execution.errorCode);
-      const errorBody = {
-        event: "turn.error",
-        request_id: body.request_id,
-        thread_id: body.thread_id,
-        turn_id: body.turn_id,
-        timestamp: this.nowIso(),
-        payload: {
-          error_code: (execution && execution.errorCode) || "E_FILE_WRITE_FAILED",
-          error_message:
-            (execution && execution.message) || "File action execution failed",
-          files_changed:
-            execution && Array.isArray(execution.changes) ? execution.changes : [],
-        },
-        error_code: (execution && execution.errorCode) || "E_FILE_WRITE_FAILED",
-        message: (execution && execution.message) || "File action execution failed",
-      };
-      this.responseCacheService.cacheFileActionReceipt(requestId, statusCode, errorBody);
-      return {
-        statusCode,
-        body: errorBody,
-      };
-    }
-
-    const responseBody = {
-      event: "files.changed",
-      request_id: body.request_id,
-      thread_id: body.thread_id,
-      turn_id: body.turn_id,
-      timestamp: this.nowIso(),
-      replay: false,
-      payload: {
-        changes: execution.changes || [],
-        compile_request: {
-          event: "unity.compile.request",
-          request_id: body.request_id,
-          thread_id: body.thread_id,
-          turn_id: body.turn_id,
-          reason: "file_actions_applied",
-          refresh_assets: true,
-        },
-      },
-    };
-    this.responseCacheService.cacheFileActionReceipt(requestId, 200, responseBody);
-    return {
-      statusCode: 200,
-      body: responseBody,
-    };
-  }
-
-  reportCompileResult(body) {
-    this.capabilityStore.markUnitySignal();
-    const normalizedBody =
-      this.mcpGateway &&
-      typeof this.mcpGateway.normalizeUnityCompileResultBody === "function"
-        ? this.mcpGateway.normalizeUnityCompileResultBody(body)
-        : body;
-    this.unitySnapshotService.captureLatestCompileSnapshot(normalizedBody);
-    return this.mcpGateway.handleUnityCompileResult(normalizedBody);
-  }
-
-  reportUnityActionResult(body) {
-    this.capabilityStore.markUnitySignal();
-    const normalizedBody =
-      this.mcpGateway &&
-      typeof this.mcpGateway.normalizeUnityActionResultBody === "function"
-        ? this.mcpGateway.normalizeUnityActionResultBody(body)
-        : body;
-    this.unitySnapshotService.captureLatestActionErrorSnapshot(normalizedBody);
-    return this.mcpGateway.handleUnityActionResult(normalizedBody);
   }
 
   pullUnityQuery(body) {
@@ -335,26 +172,7 @@ class TurnService {
   }
 
   reportUnityQuery(body) {
-    const normalizedBody =
-      this.mcpGateway &&
-      typeof this.mcpGateway.normalizeUnityQueryReportBody === "function"
-        ? this.mcpGateway.normalizeUnityQueryReportBody(body)
-        : body;
-    return this.queryCoordinator.reportQueryResult(normalizedBody);
-  }
-
-  submitUnityQueryAndWait(queryType, payload, options) {
-    const opts = options && typeof options === "object" ? options : {};
-    return this.enqueueAndWaitForUnityQuery({
-      queryType,
-      payload: payload && typeof payload === "object" ? payload : {},
-      timeoutMs: opts.timeout_ms,
-      requestId: opts.request_id,
-      threadId: opts.thread_id,
-      turnId: opts.turn_id,
-      queryContractVersion: opts.query_contract_version,
-      queryPayloadJson: opts.query_payload_json,
-    });
+    return this.queryCoordinator.reportQueryResult(body);
   }
 
   enqueueAndWaitForUnityQuery(options) {
@@ -369,16 +187,6 @@ class TurnService {
       queryContractVersion: input.queryContractVersion,
       queryPayloadJson: input.queryPayloadJson,
     });
-  }
-
-  reportUnityQueryComponentsResult() {
-    return {
-      statusCode: 410,
-      body: {
-        error_code: "E_GONE",
-        message: "unity.query.components.result is removed in gateway mode",
-      },
-    };
   }
 
   reportUnitySelectionSnapshot(body) {
@@ -444,42 +252,23 @@ class TurnService {
     };
   }
 
-  reportUnityConsoleSnapshot(body) {
-    const validation = validateUnityConsoleSnapshot(body);
+  reportUnityRuntimePing(body) {
+    const validation = validateUnityRuntimePing(body);
     if (!validation.ok) {
       return this.validationError(validation);
     }
-    const payload = body && body.payload && typeof body.payload === "object"
-      ? body.payload
-      : {};
-    const reason =
-      typeof payload.reason === "string" && payload.reason.trim()
-        ? payload.reason.trim()
-        : "unknown";
-    const errors = normalizeConsoleSnapshotErrors(payload.errors);
-    this.unitySnapshotService.setLatestConsoleSnapshot({
-      source: "unity.console.snapshot",
-      captured_at: this.nowIso(),
-      request_id: normalizeRequestId(body.request_id),
-      thread_id: typeof body.thread_id === "string" ? body.thread_id : "",
-      turn_id: typeof body.turn_id === "string" ? body.turn_id : "",
-      reason,
-      errors,
-    });
+    this.capabilityStore.markUnitySignal();
     return {
       statusCode: 200,
       body: {
         ok: true,
-        event: "unity.console.snapshot.accepted",
-        reason,
-        total_errors: errors.length,
+        event: "unity.runtime.pong",
+        recovered: false,
+        message: "No active job to recover",
+        stage: "idle",
+        state: "idle",
       },
     };
-  }
-
-  reportUnityRuntimePing(body) {
-    this.capabilityStore.markUnitySignal();
-    return this.mcpGateway.handleUnityRuntimePing(body);
   }
 
   reportUnityCapabilities(body) {
@@ -504,78 +293,611 @@ class TurnService {
     };
   }
 
-  submitUnityTask(body) {
-    return this.normalizeWriteOutcome(this.mcpGateway.submitUnityTask(body));
+  setupCursorMcpForMcp(body) {
+    const payload =
+      body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    try {
+      const result = setupCursorMcp({
+        mode:
+          typeof payload.mode === "string"
+            ? payload.mode.trim().toLowerCase()
+            : "native",
+        sidecarBaseUrl:
+          typeof payload.sidecar_base_url === "string"
+            ? payload.sidecar_base_url.trim()
+            : undefined,
+        dryRun: payload.dry_run === true,
+      });
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          data: result,
+          captured_at:
+            typeof this.nowIso === "function"
+              ? this.nowIso()
+              : new Date().toISOString(),
+        },
+      };
+    } catch (error) {
+      const errorCode =
+        error && typeof error.errorCode === "string" && error.errorCode.trim()
+          ? error.errorCode.trim()
+          : "E_CURSOR_MCP_SETUP_FAILED";
+      const message =
+        error && typeof error.message === "string" && error.message.trim()
+          ? error.message.trim()
+          : "setup_cursor_mcp execution failed";
+      return {
+        statusCode: mapSetupCursorMcpErrorToStatusCode(errorCode),
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: errorCode,
+          message,
+        }),
+      };
+    }
   }
 
-  getUnityTaskStatus(jobId) {
-    return this.normalizeWriteOutcome(this.mcpGateway.getUnityTaskStatus(jobId));
+  verifyMcpSetupForMcp(body) {
+    const payload =
+      body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    try {
+      const report = verifyCursorMcpSetup({
+        mode:
+          typeof payload.mode === "string"
+            ? payload.mode.trim().toLowerCase()
+            : "auto",
+      });
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          data: report,
+          captured_at:
+            typeof this.nowIso === "function"
+              ? this.nowIso()
+              : new Date().toISOString(),
+        },
+      };
+    } catch (error) {
+      const errorCode =
+        error && typeof error.errorCode === "string" && error.errorCode.trim()
+          ? error.errorCode.trim()
+          : "E_CURSOR_MCP_VERIFY_FAILED";
+      const message =
+        error && typeof error.message === "string" && error.message.trim()
+          ? error.message.trim()
+          : "verify_mcp_setup execution failed";
+      return {
+        statusCode:
+          errorCode === "E_SCHEMA_INVALID" ||
+          errorCode === "E_SSOT_SCHEMA_INVALID"
+            ? 400
+            : 500,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: errorCode,
+          message,
+        }),
+      };
+    }
   }
 
-  cancelUnityTask(body) {
-    return this.normalizeWriteOutcome(this.mcpGateway.cancelUnityTask(body));
+  getUnityTaskStatusForMcp(jobId) {
+    return this.dispatchSsotToolForMcp("get_unity_task_status", {
+      job_id: jobId,
+    });
   }
 
-  heartbeatMcp(body) {
-    return this.mcpGateway.heartbeat(body);
+  getActionCatalogForMcp(body) {
+    return getActionCatalogView(body);
   }
 
-  applyScriptActionsForMcp(body) {
-    return this.normalizeWriteOutcome(this.mcpEyesService.applyScriptActions(body));
+  getActionSchemaForMcp(body) {
+    return getActionSchemaView(body);
   }
 
-  applyVisualActionsForMcp(body) {
-    return this.normalizeWriteOutcome(this.mcpEyesService.applyVisualActions(body));
+  getToolSchemaForMcp(body) {
+    return getToolSchemaView(body);
   }
 
-  setUiPropertiesForMcp(body) {
-    return this.normalizeWriteOutcome(this.mcpEyesService.setUiProperties(body));
+  getWriteContractBundleForMcp(body) {
+    return getWriteContractBundleView(body);
+  }
+
+  async submitUnityTaskForMcp(body) {
+    return this.dispatchSsotToolForMcp("submit_unity_task", body);
+  }
+
+  async cancelUnityTaskForMcp(body) {
+    return this.dispatchSsotToolForMcp("cancel_unity_task", body);
+  }
+
+  async applyScriptActionsForMcp(body) {
+    return this.dispatchSsotToolForMcp("apply_script_actions", body);
+  }
+
+  async applyVisualActionsForMcp(body) {
+    return this.dispatchSsotToolForMcp("apply_visual_actions", body);
+  }
+
+  async setUiPropertiesForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_ui_properties", body);
+  }
+
+  async dispatchSsotToolForMcp(toolName, body) {
+    const normalizedToolName =
+      typeof toolName === "string" && toolName.trim() ? toolName.trim() : "";
+    if (!normalizedToolName) {
+      return {
+        statusCode: 400,
+        body: {
+          status: "failed",
+          error_code: "E_SSOT_ROUTE_FAILED",
+          message: "SSOT tool name is required",
+        },
+      };
+    }
+
+    const payload =
+      body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    const toolMetadata =
+      this.ssotValidatorRegistry &&
+      typeof this.ssotValidatorRegistry.getToolMetadata === "function"
+        ? this.ssotValidatorRegistry.getToolMetadata(normalizedToolName)
+        : null;
+    if (toolMetadata && toolMetadata.kind === "write") {
+      const tokenValidation = this.validateSsotTokenForMcp(
+        payload.based_on_read_token
+      );
+      if (!tokenValidation.ok) {
+        return {
+          statusCode: tokenValidation.statusCode,
+          body: {
+            status: "failed",
+            error_code: tokenValidation.error_code,
+            message: tokenValidation.message,
+            suggestion: tokenValidation.suggestion,
+          },
+        };
+      }
+    }
+
+    try {
+      const unityResponse = await dispatchSsotRequest({
+        enqueueAndWaitForUnityQuery: this.enqueueAndWaitForUnityQuery.bind(this),
+        toolName: normalizedToolName,
+        payload,
+        threadId: typeof payload.thread_id === "string" ? payload.thread_id : "",
+        requestId: normalizeRequestId(payload.request_id || payload.idempotency_key),
+        turnId: typeof payload.turn_id === "string" ? payload.turn_id : "",
+        validatorRegistry: this.ssotValidatorRegistry,
+        tokenRegistry: this.ssotTokenRegistry,
+        revisionState: this.ssotRevisionState,
+      });
+
+      if (!unityResponse || typeof unityResponse !== "object") {
+        return {
+          statusCode: 502,
+          body: {
+            status: "failed",
+            error_code: "E_SSOT_ROUTE_FAILED",
+            message: "Unity SSOT query response is invalid",
+          },
+        };
+      }
+
+      if (unityResponse.ok !== true) {
+        const errorCode =
+          typeof unityResponse.error_code === "string" &&
+          unityResponse.error_code.trim()
+            ? unityResponse.error_code.trim()
+            : "E_SSOT_ROUTE_FAILED";
+        const errorMessage =
+          typeof unityResponse.error_message === "string" &&
+          unityResponse.error_message.trim()
+            ? unityResponse.error_message.trim()
+            : typeof unityResponse.message === "string" &&
+                unityResponse.message.trim()
+              ? unityResponse.message.trim()
+              : "Unity SSOT query failed";
+        return {
+          statusCode: 409,
+          body: {
+            status: "failed",
+            error_code: errorCode,
+            message: errorMessage,
+          },
+        };
+      }
+
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          query_type: "ssot.request",
+          tool_name: normalizedToolName,
+          data:
+            unityResponse.data && typeof unityResponse.data === "object"
+              ? unityResponse.data
+              : unityResponse,
+        },
+      };
+    } catch (error) {
+      const errorCode =
+        error &&
+        typeof error === "object" &&
+        typeof error.error_code === "string" &&
+        error.error_code.trim()
+          ? error.error_code.trim()
+          : "E_SSOT_ROUTE_FAILED";
+      return {
+        statusCode: 409,
+        body: {
+          status: "failed",
+            error_code: errorCode,
+            message:
+              error && typeof error.message === "string" && error.message.trim()
+                ? error.message.trim()
+                : "Unity SSOT dispatch failed",
+        },
+      };
+    }
+  }
+
+  async modifyUiLayoutForMcp(body) {
+    return this.dispatchSsotToolForMcp("modify_ui_layout", body);
+  }
+
+  async setComponentPropertiesForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_component_properties", body);
+  }
+
+  async addComponentForMcp(body) {
+    return this.dispatchSsotToolForMcp("add_component", body);
+  }
+
+  async removeComponentForMcp(body) {
+    return this.dispatchSsotToolForMcp("remove_component", body);
+  }
+
+  async replaceComponentForMcp(body) {
+    return this.dispatchSsotToolForMcp("replace_component", body);
+  }
+
+  async createObjectForMcp(body) {
+    return this.dispatchSsotToolForMcp("create_object", body);
+  }
+
+  async duplicateObjectForMcp(body) {
+    return this.dispatchSsotToolForMcp("duplicate_object", body);
+  }
+
+  async deleteObjectForMcp(body) {
+    return this.dispatchSsotToolForMcp("delete_object", body);
+  }
+
+  async renameObjectForMcp(body) {
+    return this.dispatchSsotToolForMcp("rename_object", body);
+  }
+
+  async setActiveForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_active", body);
+  }
+
+  async setParentForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_parent", body);
+  }
+
+  async setSiblingIndexForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_sibling_index", body);
+  }
+
+  async setLocalPositionForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_local_position", body);
+  }
+
+  async setLocalRotationForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_local_rotation", body);
+  }
+
+  async setLocalScaleForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_local_scale", body);
+  }
+
+  async setWorldPositionForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_world_position", body);
+  }
+
+  async setWorldRotationForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_world_rotation", body);
+  }
+
+  async resetTransformForMcp(body) {
+    return this.dispatchSsotToolForMcp("reset_transform", body);
+  }
+
+  async setRectAnchoredPositionForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_rect_anchored_position", body);
+  }
+
+  async setRectSizeDeltaForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_rect_size_delta", body);
+  }
+
+  async setRectPivotForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_rect_pivot", body);
+  }
+
+  async setRectAnchorsForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_rect_anchors", body);
+  }
+
+  async setCanvasGroupAlphaForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_canvas_group_alpha", body);
+  }
+
+  async setLayoutElementForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_layout_element", body);
+  }
+
+  async setUiImageColorForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_ui_image_color", body);
+  }
+
+  async setUiImageRaycastTargetForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_ui_image_raycast_target", body);
+  }
+
+  async setUiTextContentForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_ui_text_content", body);
+  }
+
+  async setUiTextColorForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_ui_text_color", body);
+  }
+
+  async setUiTextFontSizeForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_ui_text_font_size", body);
+  }
+
+  async executeUnityTransactionForMcp(body) {
+    return this.dispatchSsotToolForMcp("execute_unity_transaction", body);
+  }
+
+  async setSerializedPropertyForMcp(body) {
+    return this.dispatchSsotToolForMcp("set_serialized_property", body);
+  }
+
+  async getSceneSnapshotForWriteForMcp(body) {
+    return this.dispatchSsotToolForMcp("get_scene_snapshot_for_write", body);
+  }
+
+  async getCurrentSelectionSsotForMcp(body) {
+    return this.dispatchSsotToolForMcp("get_current_selection", body);
+  }
+
+  async getGameObjectComponentsSsotForMcp(body) {
+    return this.dispatchSsotToolForMcp("get_gameobject_components", body);
+  }
+
+  async getHierarchySubtreeSsotForMcp(body) {
+    return this.dispatchSsotToolForMcp("get_hierarchy_subtree", body);
   }
 
   preflightValidateWritePayloadForMcp(body) {
-    return this.normalizeWriteOutcome(
-      this.mcpEyesService.preflightValidateWritePayload(body)
+    const source = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    const toolName =
+      typeof source.tool_name === "string" && source.tool_name.trim()
+        ? source.tool_name.trim()
+        : "";
+    const payload =
+      source.payload && typeof source.payload === "object" && !Array.isArray(source.payload)
+        ? source.payload
+        : {};
+    if (!toolName) {
+      return {
+        statusCode: 400,
+        body: {
+          ok: false,
+          error_code: "E_SSOT_SCHEMA_INVALID",
+          message: "tool_name is required for SSOT preflight",
+        },
+      };
+    }
+
+    const ssotRegistry =
+      this.ssotValidatorRegistry &&
+      typeof this.ssotValidatorRegistry.getToolMetadata === "function" &&
+      typeof this.ssotValidatorRegistry.validateToolInput === "function"
+        ? this.ssotValidatorRegistry
+        : null;
+    if (!ssotRegistry) {
+      return {
+        statusCode: 500,
+        body: {
+          ok: false,
+          error_code: "E_SSOT_SCHEMA_UNAVAILABLE",
+          message: "SSOT validator registry is unavailable",
+        },
+      };
+    }
+
+    const toolMetadata = ssotRegistry.getToolMetadata(toolName);
+    if (!toolMetadata) {
+      return {
+        statusCode: 404,
+        body: {
+          ok: false,
+          error_code: "E_TOOL_SCHEMA_NOT_FOUND",
+          message: `Tool schema not found for '${toolName}'`,
+        },
+      };
+    }
+    if (toolMetadata.kind !== "write") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          lifecycle: "stable",
+          preflight: {
+            valid: false,
+            tool_name: toolName,
+            blocking_errors: [
+              {
+                error_code: "E_SSOT_WRITE_TOOL_REQUIRED",
+                message:
+                  "preflight_validate_write_payload only supports SSOT write tools",
+              },
+            ],
+            token_validation: {
+              ok: false,
+              error_code: "E_SSOT_WRITE_TOOL_REQUIRED",
+              message:
+                "preflight_validate_write_payload only supports SSOT write tools",
+            },
+          },
+        },
+      };
+    }
+
+    const tokenValidation = this.validateSsotTokenForMcp(
+      payload.based_on_read_token
     );
+    if (!tokenValidation.ok) {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          lifecycle: "stable",
+          preflight: {
+            valid: false,
+            tool_name: toolName,
+            blocking_errors: [
+              {
+                error_code: tokenValidation.error_code,
+                message: tokenValidation.message,
+              },
+            ],
+            token_validation: {
+              ok: false,
+              error_code: tokenValidation.error_code,
+              message: tokenValidation.message,
+            },
+          },
+        },
+      };
+    }
+
+    const schemaValidation = ssotRegistry.validateToolInput(toolName, payload);
+    if (!schemaValidation || schemaValidation.ok !== true) {
+      const firstError =
+        schemaValidation &&
+        Array.isArray(schemaValidation.errors) &&
+        schemaValidation.errors.length > 0 &&
+        schemaValidation.errors[0] &&
+        typeof schemaValidation.errors[0] === "object"
+          ? schemaValidation.errors[0]
+          : null;
+      const path =
+        firstError && typeof firstError.instancePath === "string" && firstError.instancePath
+          ? firstError.instancePath
+          : "/";
+      const message =
+        firstError && typeof firstError.message === "string" && firstError.message
+          ? firstError.message
+          : "Request schema invalid";
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          lifecycle: "stable",
+          preflight: {
+            valid: false,
+            tool_name: toolName,
+            blocking_errors: [
+              {
+                error_code: "E_SSOT_SCHEMA_INVALID",
+                message: `Request schema invalid at ${path}: ${message}`,
+              },
+            ],
+            token_validation: {
+              ok: true,
+            },
+          },
+        },
+      };
+    }
+
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        lifecycle: "stable",
+        preflight: {
+          valid: true,
+          tool_name: toolName,
+          blocking_errors: [],
+          token_validation: {
+            ok: true,
+          },
+        },
+      },
+    };
   }
 
-  getCurrentSelectionForMcp() {
-    return this.mcpEyesService.getCurrentSelection();
-  }
-
-  getGameObjectComponentsForMcp(body) {
-    return this.mcpEyesService.getGameObjectComponents(body);
-  }
-
-  getHierarchySubtreeForMcp(body) {
-    return this.mcpEyesService.getHierarchySubtree(body);
-  }
-
-  getPrefabInfoForMcp(body) {
-    return this.mcpEyesService.getPrefabInfo(body);
-  }
-
-  getCompileStateForMcp() {
-    return this.mcpEyesService.getCompileState();
-  }
-
-  getConsoleErrorsForMcp(body) {
-    return this.mcpEyesService.getConsoleErrors(body);
+  validateSsotTokenForMcp(tokenValue) {
+    return validateSsotWriteToken({
+      tokenRegistry: this.ssotTokenRegistry,
+      revisionState: this.ssotRevisionState,
+      token: tokenValue,
+    });
   }
 
   async listAssetsInFolderForMcp(body) {
-    return this.mcpEyesService.listAssetsInFolder(body);
+    return this.dispatchSsotToolForMcp("list_assets_in_folder", body);
   }
 
   async getSceneRootsForMcp(body) {
-    return this.mcpEyesService.getSceneRoots(body);
+    return this.dispatchSsotToolForMcp("get_scene_roots", body);
   }
 
   async findObjectsByComponentForMcp(body) {
-    return this.mcpEyesService.findObjectsByComponent(body);
+    return this.dispatchSsotToolForMcp("find_objects_by_component", body);
   }
 
   async queryPrefabInfoForMcp(body) {
-    return this.mcpEyesService.queryPrefabInfo(body);
+    return this.dispatchSsotToolForMcp("query_prefab_info", body);
+  }
+
+  async getUiTreeForMcp(body) {
+    return this.dispatchSsotToolForMcp("get_ui_tree", body);
+  }
+
+  async getUiOverlayReportForMcp(body) {
+    return this.dispatchSsotToolForMcp("get_ui_overlay_report", body);
+  }
+
+  async hitTestUiAtViewportPointForMcp(body) {
+    return this.dispatchSsotToolForMcp("hit_test_ui_at_viewport_point", body);
+  }
+
+  async hitTestUiAtScreenPointForMcp(body) {
+    return this.dispatchSsotToolForMcp("hit_test_ui_at_screen_point", body);
+  }
+
+  async validateUiLayoutForMcp(body) {
+    return this.dispatchSsotToolForMcp("validate_ui_layout", body);
+  }
+
+  async getSerializedPropertyTreeForMcp(body) {
+    return this.dispatchSsotToolForMcp("get_serialized_property_tree", body);
+  }
+
+  async captureSceneScreenshotForMcp(body) {
+    return this.dispatchSsotToolForMcp("capture_scene_screenshot", body);
   }
 
   getCapabilitiesForMcp() {
@@ -588,21 +910,6 @@ class TurnService {
     };
   }
 
-  listMcpResources() {
-    return this.mcpEyesService.listResources();
-  }
-
-  readMcpResource(uri) {
-    return this.mcpEyesService.readResource(uri);
-  }
-
-  getMcpMetrics() {
-    return {
-      statusCode: 200,
-      body: this.mcpGateway.getMcpMetrics(),
-    };
-  }
-
   recordMcpToolInvocation(input) {
     if (
       this.v1PolishMetricsCollector &&
@@ -612,36 +919,8 @@ class TurnService {
     }
   }
 
-  registerMcpStreamSubscriber(options) {
-    return this.mcpGateway.registerMcpStreamSubscriber(options);
-  }
-
-  unregisterMcpStreamSubscriber(subscriberId) {
-    this.mcpGateway.unregisterMcpStreamSubscriber(subscriberId);
-  }
-
-  refreshMcpJobs(options) {
-    return this.mcpGateway.refreshJobs(options);
-  }
-
-  drainMcpQueue() {
-    return this.mcpGateway.refreshJobs({ drainQueue: true });
-  }
-
-  resolveTurnApprovalMode(requestId) {
-    return this.mcpGateway.resolveApprovalModeByRequestId(requestId);
-  }
-
   recordLatestSelectionContext(context, metadata) {
     this.unitySnapshotService.recordLatestSelectionContext(context, metadata);
-  }
-
-  captureLatestCompileSnapshot(body) {
-    this.unitySnapshotService.captureLatestCompileSnapshot(body);
-  }
-
-  captureLatestActionErrorSnapshot(body) {
-    this.unitySnapshotService.captureLatestActionErrorSnapshot(body);
   }
 
   cleanupSessionCache() {
@@ -652,59 +931,25 @@ class TurnService {
     this.responseCacheService.cleanupFileActionCache();
   }
 
-  buildUnityActionRequestEnvelope(body, action) {
-    return this.buildUnityActionRequestEnvelopeWithIds(
-      body && body.request_id,
-      body && body.thread_id,
-      body && body.turn_id,
-      action
-    );
-  }
-
-  buildUnityActionRequestEnvelopeWithIds(requestId, threadId, turnId, action) {
-    return buildUnityActionRequestEnvelopeWithIdsHelper({
-      requestId,
-      threadId,
-      turnId,
-      action,
-      nowIso: this.nowIso,
-      resolveApprovalMode: (normalizedRequestId) =>
-        this.resolveTurnApprovalMode(normalizedRequestId),
-    });
+  getQueryRuntimeSnapshot() {
+    return this.queryCoordinator &&
+      typeof this.queryCoordinator.getStats === "function"
+      ? this.queryCoordinator.getStats()
+      : {
+          total: 0,
+          pending: 0,
+          dispatched: 0,
+          terminal: 0,
+          waiters: 0,
+          default_timeout_ms: 0,
+          max_timeout_ms: 0,
+        };
   }
 
   validationError(validation) {
     return buildValidationErrorResponseHelper(validation);
   }
 
-  normalizeWriteOutcome(outcome) {
-    return normalizeWriteOutcomeHelper(outcome, {
-      resolveRequestIdFromFailureBody: (failureBody) =>
-        this.resolveRequestIdFromFailureBody(failureBody),
-    });
-  }
-
-  resolveRequestIdFromFailureBody(body) {
-    if (!isObject(body)) {
-      return "";
-    }
-    const jobId = normalizeString(body.job_id);
-    if (!jobId || !this.mcpGateway || !this.mcpGateway.jobStore) {
-      return "";
-    }
-    const job =
-      typeof this.mcpGateway.jobStore.getJob === "function"
-        ? this.mcpGateway.jobStore.getJob(jobId)
-        : null;
-    if (!job || typeof job !== "object") {
-      return "";
-    }
-    return normalizeString(job.request_id);
-  }
-
-  mapFileErrorToStatus(errorCode) {
-    return mapFileErrorToStatusHelper(errorCode);
-  }
 }
 
 module.exports = {

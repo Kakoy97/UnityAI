@@ -1,64 +1,49 @@
 "use strict";
 
+function fallbackSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {},
+  };
+}
+
 module.exports = function buildDefinition(deps) {
-  const {
-    validateGetActionCatalog,
-    executeGetActionCatalog,
-    validateGetActionSchema,
-    executeGetActionSchema,
-    validateGetToolSchema,
-    executeGetToolSchema,
-    validateGetWriteContractBundle,
-    executeGetWriteContractBundle,
-    validatePreflightValidateWritePayload,
-    executePreflightValidateWritePayload,
-    validateSetupCursorMcp,
-    executeSetupCursorMcp,
-    validateVerifyMcpSetup,
-    executeVerifyMcpSetup,
-    validateListAssetsInFolder,
-    validateGetSceneRoots,
-    validateFindObjectsByComponent,
-    validateQueryPrefabInfo,
-    validateCaptureSceneScreenshot,
-    executeCaptureSceneScreenshot,
-    validateGetUiOverlayReport,
-    executeGetUiOverlayReport,
-    validateGetUiTree,
-    executeGetUiTree,
-    validateGetSerializedPropertyTree,
-    executeGetSerializedPropertyTree,
-    validateHitTestUiAtViewportPoint,
-    executeHitTestUiAtViewportPoint,
-    validateUiLayout,
-    executeValidateUiLayout,
-    executeSetUiProperties,
-    executeSetSerializedProperty,
-    validateHitTestUiAtScreenPoint,
-    executeHitTestUiAtScreenPoint,
-    normalizeBody,
-    buildVisualActionsDescription,
-    readEnvBoolean,
-    isCompositeCaptureEnabledForManifest,
-    buildCaptureSceneScreenshotDescription,
-    validateGetUnityTaskStatusArgs,
-  } = deps;
+  const source = deps && typeof deps === "object" ? deps : {};
+  const validateGetCurrentSelection =
+    typeof source.validateGetCurrentSelection === "function"
+      ? source.validateGetCurrentSelection
+      : null;
+  const getSsotInputSchemaForTool =
+    typeof source.getSsotInputSchemaForTool === "function"
+      ? source.getSsotInputSchemaForTool
+      : null;
+  const getSsotToolDescriptionForTool =
+    typeof source.getSsotToolDescriptionForTool === "function"
+      ? source.getSsotToolDescriptionForTool
+      : null;
+  const fallbackDescription =
+    "Read current Unity selection snapshot and return SSOT read-token candidate from isolated query pipeline.";
 
   return {
     name: "get_current_selection",
     kind: "read",
     lifecycle: "experimental",
-    http: { method: "POST", path: "/mcp/get_current_selection", source: "body" },
-    turnServiceMethod: "getCurrentSelectionForMcp",
+    http: {
+      method: "POST",
+      path: "/mcp/get_current_selection",
+      source: "body",
+    },
+    turnServiceMethod: "getCurrentSelectionSsotForMcp",
+    validate: validateGetCurrentSelection,
     mcp: {
       expose: true,
-      description:
-        "Read latest Unity selection snapshot and return a write-ready read_token for OCC flow. This is step-1 of the shortest write sequence: get_current_selection -> apply_visual_actions -> get_unity_task_status(until terminal).",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {},
-      },
+      description: getSsotToolDescriptionForTool
+        ? getSsotToolDescriptionForTool("get_current_selection", fallbackDescription)
+        : fallbackDescription,
+      inputSchema: getSsotInputSchemaForTool
+        ? getSsotInputSchemaForTool("get_current_selection")
+        : fallbackSchema(),
     },
   };
 };

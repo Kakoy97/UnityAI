@@ -1,0 +1,2354 @@
+{
+  "version": 1,
+  "_definitions": {
+    "mixins": {
+      "write_envelope": {
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "execution_mode",
+            "idempotency_key",
+            "based_on_read_token",
+            "write_anchor_object_id",
+            "write_anchor_path"
+          ],
+          "properties": {
+            "execution_mode": {
+              "type": "string",
+              "enum": ["validate", "execute"],
+              "case_insensitive": true
+            },
+            "thread_id": {
+              "type": "string"
+            },
+            "idempotency_key": {
+              "type": "string",
+              "minLength": 8
+            },
+            "based_on_read_token": {
+              "type": "string",
+              "minLength": 1
+            },
+            "write_anchor_object_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "write_anchor_path": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "read_envelope": {
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "thread_id": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "compiler": {
+    "merge": {
+      "strategy": "deep_merge",
+      "required_union": true,
+      "properties_union": true,
+      "apply_mixins_for_kind": {
+        "write": ["write_envelope"],
+        "read": ["read_envelope"]
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "modify_ui_layout",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Modify RectTransform geometry only (position and size fields such as anchored_x, anchored_y, width, height). Strictly do NOT use this tool for color, text, sprite, material, animation, gameplay values, or non-UI objects. If the target is not a valid UI node with RectTransform, the request must fail fast without implicit fallback or auto-repair.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "anchored_x",
+          "anchored_y",
+          "width",
+          "height"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "anchored_x": { "type": "number" },
+          "anchored_y": { "type": "number" },
+          "width": { "type": "number", "minimum": 0 },
+          "height": { "type": "number", "minimum": 0 }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_button_layout",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "anchored_x": 100,
+            "anchored_y": 100,
+            "width": 160,
+            "height": 48
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_component_properties",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set one explicit component property on one explicit target object. Use this only for scalar/component property writes. Strictly do NOT use this tool to create/delete objects, move hierarchy, or edit UI RectTransform geometry; those must use create_object/instantiate_prefab/delete_object/modify_ui_layout.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "component_type",
+          "property_path",
+          "value_kind"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "component_type": { "type": "string", "minLength": 1 },
+          "property_path": { "type": "string", "minLength": 1 },
+          "value_kind": {
+            "type": "string",
+            "enum": ["string", "number", "boolean"]
+          },
+          "value_string": { "type": "string" },
+          "value_number": { "type": "number" },
+          "value_boolean": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_image_alpha",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Panel/Image",
+            "component_type": "UnityEngine.UI.Image, UnityEngine.UI",
+            "property_path": "m_Color.a",
+            "value_kind": "number",
+            "value_number": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "add_component",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Add one explicit component to one explicit target object. Use this only for component attachment. Strictly do NOT use this tool for property writes, component removal, object hierarchy changes, or UI rect edits.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "component_type"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "component_type": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "add_canvas_group_component",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Panel",
+            "component_type": "UnityEngine.CanvasGroup, UnityEngine.UI"
+          }
+        }
+      ]
+    },
+    {
+      "name": "remove_component",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Remove one explicit component from one explicit target object. Use this only for component removal. Strictly do NOT use this tool for property writes, adding components, object deletion, or hierarchy parenting changes.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "component_type"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "component_type": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "remove_canvas_group_component",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Panel",
+            "component_type": "UnityEngine.CanvasGroup, UnityEngine.UI"
+          }
+        }
+      ]
+    },
+    {
+      "name": "replace_component",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Replace one explicit source component on one explicit target object with one explicit new component type. Use this only for component type replacement. Do NOT use this tool for scalar property edits or hierarchy operations.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "source_component_type",
+          "new_component_type"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "source_component_type": { "type": "string", "minLength": 1 },
+          "new_component_type": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "replace_text_with_tmp_text",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Label",
+            "source_component_type": "UnityEngine.UI.Text, UnityEngine.UI",
+            "new_component_type": "TMPro.TextMeshProUGUI, Unity.TextMeshPro"
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_object",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Create a new empty object or predefined UI object under an explicit parent anchor. Strictly do NOT use this tool for prefab instantiation or deleting existing objects; use instantiate_prefab/delete_object for those operations.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "parent_object_id",
+          "parent_path",
+          "new_object_name",
+          "object_kind",
+          "set_active"
+        ],
+        "properties": {
+          "parent_object_id": { "type": "string", "minLength": 1 },
+          "parent_path": { "type": "string", "minLength": 1 },
+          "new_object_name": { "type": "string", "minLength": 1 },
+          "object_kind": {
+            "type": "string",
+            "enum": ["empty", "ui_button", "ui_panel", "camera", "light"]
+          },
+          "set_active": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "create_ui_button_under_panel",
+          "request_business_only": {
+            "parent_object_id": "mock_parent_object_id",
+            "parent_path": "Scene/Canvas/Panel",
+            "new_object_name": "StartButton",
+            "object_kind": "ui_button",
+            "set_active": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "instantiate_prefab",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "deprecated",
+      "description": "Instantiate one prefab asset under one explicit parent. Strictly do NOT use this tool for plain empty object creation, value patching, or UI rect edits; those must use create_object/set_component_properties/modify_ui_layout.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "parent_object_id",
+          "parent_path",
+          "prefab_asset_path"
+        ],
+        "properties": {
+          "parent_object_id": { "type": "string", "minLength": 1 },
+          "parent_path": { "type": "string", "minLength": 1 },
+          "prefab_asset_path": { "type": "string", "minLength": 1 },
+          "instance_name": { "type": "string" },
+          "world_position_stays": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "instantiate_enemy_prefab",
+          "request_business_only": {
+            "parent_object_id": "mock_parent_object_id",
+            "parent_path": "Scene/Enemies",
+            "prefab_asset_path": "Assets/Prefabs/Enemy.prefab",
+            "instance_name": "Enemy_01",
+            "world_position_stays": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "delete_object",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Delete one explicit target object by anchor. Strictly do NOT use this tool to disable/hide objects or clear values; if object should remain in scene, use set_component_properties or dedicated active-state tools instead.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "delete_debug_node",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/DebugPanel"
+          }
+        }
+      ]
+    },
+    {
+      "name": "rename_object",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Rename one explicit target object to one explicit new_name. Use this only for object name mutation. Do NOT use this tool for hierarchy changes, active-state toggles, or transform/UI edits.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "new_name"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "new_name": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "rename_canvas_button",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "new_name": "StartButton"
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_active",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set active state for one explicit target object. Use this only for visibility/activation toggle. Do NOT use this tool to delete objects, rename objects, or reparent hierarchy.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "active"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "active": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "disable_canvas_button",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_parent",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Reparent one explicit target object under one explicit parent object. Use this only for hierarchy parenting changes. Do NOT use this tool for rename/active-state/property edits.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "parent_object_id",
+          "parent_path"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "parent_object_id": { "type": "string", "minLength": 1 },
+          "parent_path": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "reparent_button_under_panel",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "parent_object_id": "mock_parent_object_id",
+            "parent_path": "Scene/Canvas/Panel"
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_sibling_index",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set the sibling index for one explicit target object under its current parent. Use this only for order changes among siblings. Do NOT use this tool for reparenting, renaming, deleting, or value/property writes.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "sibling_index"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "sibling_index": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "examples": [
+        {
+          "name": "move_button_to_first_sibling",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "sibling_index": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_local_position",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set local position of one explicit target transform. Use this only for local space translation. Do NOT use this tool for world-space transform writes, hierarchy parenting, or UI RectTransform geometry writes.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "z": { "type": "number" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_local_position_to_origin",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_local_rotation",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set local Euler rotation of one explicit target transform. Use this only for local-space rotation writes. Do NOT use this tool for world rotation, hierarchy parenting, or non-transform property edits.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "z": { "type": "number" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_local_rotation_zero",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_local_scale",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set local scale of one explicit target transform. Use this only for local scale writes. Do NOT use this tool for position/rotation/world-space edits or hierarchy operations.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "z": { "type": "number" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_local_scale_identity",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 1,
+            "y": 1,
+            "z": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_world_position",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set world position of one explicit target transform. Use this only for world-space translation. Do NOT use this tool for local-space transform edits, hierarchy parenting, or UI RectTransform layout changes.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "z": { "type": "number" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_world_position_origin",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_world_rotation",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set world Euler rotation of one explicit target transform. Use this only for world-space rotation writes. Do NOT use this tool for local rotation, hierarchy parenting, or non-transform property updates.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "z": { "type": "number" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_world_rotation_zero",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 0,
+            "y": 0,
+            "z": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "reset_transform",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Reset local transform of one explicit target object to identity-like defaults (localPosition=0, localRotation=identity, localScale=1). Do NOT use this tool for selective partial transform edits; use dedicated set_local_* or set_world_* tools.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "reset_button_transform",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button"
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_rect_anchored_position",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set RectTransform anchored position of one explicit UI target. Use this only for anchored position (x/y) writes. Do NOT use this tool for width/height or pivot/anchor changes; use dedicated UI geometry tools for those fields.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "x": { "type": "number" },
+          "y": { "type": "number" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_button_anchored_position",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 100,
+            "y": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_rect_size_delta",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set RectTransform sizeDelta of one explicit UI target. Use this only for width/height-like sizeDelta writes. Do NOT use this tool for anchored position, pivot, anchors, or non-RectTransform fields.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "x": { "type": "number" },
+          "y": { "type": "number" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_button_size_delta",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 160,
+            "y": 48
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_rect_pivot",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set RectTransform pivot of one explicit UI target. x and y must be in [0,1]. Do NOT use this tool for anchored position, sizeDelta, anchors, or non-RectTransform fields.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "x": { "type": "number", "minimum": 0, "maximum": 1 },
+          "y": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_button_pivot_center",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "x": 0.5,
+            "y": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_rect_anchors",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set RectTransform anchorMin/anchorMax of one explicit UI target. min/max values must be in [0,1] and min must not exceed max per axis. Do NOT use this tool for pivot or size/position fields.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "min_x",
+          "min_y",
+          "max_x",
+          "max_y"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "min_x": { "type": "number", "minimum": 0, "maximum": 1 },
+          "min_y": { "type": "number", "minimum": 0, "maximum": 1 },
+          "max_x": { "type": "number", "minimum": 0, "maximum": 1 },
+          "max_y": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_button_stretch_anchors",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "min_x": 0,
+            "min_y": 0,
+            "max_x": 1,
+            "max_y": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_canvas_group_alpha",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set CanvasGroup alpha on one explicit UI target object. Use this only for CanvasGroup transparency. Do NOT use this tool for Image color, text content, text style, RectTransform geometry, or hierarchy changes.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "alpha"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "alpha": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_panel_alpha_half",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Panel",
+            "alpha": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_layout_element",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set LayoutElement sizing fields on one explicit UI target object. Use this only for LayoutElement constraints. Do NOT use this tool for Image/Text visual style, RectTransform anchor/pivot/size changes, or hierarchy edits.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "min_width",
+          "min_height",
+          "preferred_width",
+          "preferred_height",
+          "flexible_width",
+          "flexible_height",
+          "ignore_layout"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "min_width": { "type": "number", "minimum": -1 },
+          "min_height": { "type": "number", "minimum": -1 },
+          "preferred_width": { "type": "number", "minimum": -1 },
+          "preferred_height": { "type": "number", "minimum": -1 },
+          "flexible_width": { "type": "number", "minimum": -1 },
+          "flexible_height": { "type": "number", "minimum": -1 },
+          "ignore_layout": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_button_layout_element_constraints",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "min_width": 120,
+            "min_height": 32,
+            "preferred_width": 160,
+            "preferred_height": 48,
+            "flexible_width": 0,
+            "flexible_height": 0,
+            "ignore_layout": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_image_color",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set UnityEngine.UI.Image color on one explicit target object. Use this only for Image RGBA color. Do NOT use this tool for text color/content, CanvasGroup alpha, RectTransform geometry, or hierarchy operations.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "r",
+          "g",
+          "b",
+          "a"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "r": { "type": "number", "minimum": 0, "maximum": 1 },
+          "g": { "type": "number", "minimum": 0, "maximum": 1 },
+          "b": { "type": "number", "minimum": 0, "maximum": 1 },
+          "a": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_button_image_color_red",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button/Image",
+            "r": 1,
+            "g": 0,
+            "b": 0,
+            "a": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_image_raycast_target",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set UnityEngine.UI.Image raycastTarget flag on one explicit target object. Use this only for Image input hit-testing behavior. Do NOT use this tool for color/text/layout/transform changes.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "raycast_target"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "raycast_target": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "disable_image_raycast_target",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button/Image",
+            "raycast_target": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_text_content",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set UI text content on one explicit target object (Text or TMP_Text). Use this only for text string changes. Do NOT use this tool for color/font size/layout/transform/hierarchy changes.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "text"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "text": { "type": "string" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_button_label_text",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button/Label",
+            "text": "Start"
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_text_color",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set UI text color on one explicit target object (Text or TMP_Text). Use this only for text RGBA color. Do NOT use this tool for content/font size/layout/transform/hierarchy changes.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "r",
+          "g",
+          "b",
+          "a"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "r": { "type": "number", "minimum": 0, "maximum": 1 },
+          "g": { "type": "number", "minimum": 0, "maximum": 1 },
+          "b": { "type": "number", "minimum": 0, "maximum": 1 },
+          "a": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_label_color_white",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button/Label",
+            "r": 1,
+            "g": 1,
+            "b": 1,
+            "a": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_text_font_size",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Set UI text font size on one explicit target object (Text or TMP_Text). Use this only for font size changes. Do NOT use this tool for text content/color/layout/transform/hierarchy changes.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "font_size"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "font_size": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_label_font_size_24",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button/Label",
+            "font_size": 24
+          }
+        }
+      ]
+    },
+    {
+      "name": "execute_unity_transaction",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "experimental",
+      "description": "Execute multiple SSOT write steps atomically in one Undo transaction. Provide a transaction_id and steps_json (JSON array string) where each step includes tool_name and payload_json. Do NOT use this tool for read operations or legacy action payloads.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "transaction_id",
+          "steps_json"
+        ],
+        "properties": {
+          "transaction_id": { "type": "string", "minLength": 1 },
+          "steps_json": { "type": "string", "minLength": 2 }
+        }
+      },
+      "examples": [
+        {
+          "name": "atomic_rename_and_disable",
+          "request_business_only": {
+            "transaction_id": "txn_rename_disable_001",
+            "steps_json": "[{\"tool_name\":\"rename_object\",\"payload_json\":\"{\\\"target_object_id\\\":\\\"mock_target_object_id\\\",\\\"target_path\\\":\\\"Scene/Canvas/Button\\\",\\\"new_name\\\":\\\"Button_Main\\\"}\"},{\"tool_name\":\"set_active\",\"payload_json\":\"{\\\"target_object_id\\\":\\\"mock_target_object_id\\\",\\\"target_path\\\":\\\"Scene/Canvas/Button_Main\\\",\\\"active\\\":false}\"}]"
+          }
+        }
+      ]
+    },
+    {
+      "name": "duplicate_object",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Duplicate one explicit target object and place the clone under the same parent. Use this only for object duplication. Do NOT use this tool for renaming existing objects, reparenting hierarchy, or component/property edits.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "duplicate_name": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "duplicate_button_node",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "duplicate_name": "Button_Copy"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_scene_snapshot_for_write",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Get scene roots summary and a write token candidate.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scope_path": { "type": "string" }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_scene_snapshot_for_write_from_canvas_scope",
+          "request_business_only": {
+            "scope_path": "Scene/Canvas"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_current_selection",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Read the current Unity selection snapshot and return a write-ready read token candidate. Use this as the first step before any write workflow when you need deterministic target anchors. Do NOT use this tool to inspect deep hierarchy trees or component details; use get_hierarchy_subtree or get_gameobject_components for those tasks.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "examples": [
+        {
+          "name": "read_current_selection_snapshot",
+          "request_business_only": {}
+        }
+      ]
+    },
+    {
+      "name": "get_gameobject_components",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Read the component list of one explicit target object. target_object_id and target_path are both required and must resolve to the same object. Do NOT use this tool for hierarchy traversal or layout diagnosis; use get_hierarchy_subtree or validate_ui_layout instead.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_components_by_explicit_anchor",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_hierarchy_subtree",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Read hierarchy subtree from one explicit target root. target_object_id and target_path are both required and must resolve to the same object. This tool can consume large token budget when depth/node_budget/char_budget are high: start with depth<=2, node_budget<=200, char_budget<=12000 and only increase when necessary. Do NOT use this tool to fetch component internals; use get_gameobject_components for component lists.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "depth": { "type": "integer", "minimum": 0, "maximum": 6 },
+          "node_budget": { "type": "integer", "minimum": 1, "maximum": 5000 },
+          "char_budget": { "type": "integer", "minimum": 256, "maximum": 200000 }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_hierarchy_subtree_budgeted",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas",
+            "depth": 2,
+            "node_budget": 200,
+            "char_budget": 12000
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_scene_roots",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Read root GameObjects from loaded scenes and return deterministic anchors (object_id/path). Use this tool when you need a stable scene-level entry point before any hierarchy traversal or write planning. Do NOT use this for deep subtree/component inspection; use get_hierarchy_subtree or get_gameobject_components for those.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scene_path": { "type": "string", "minLength": 1 },
+          "include_inactive": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_scene_roots_default",
+          "request_business_only": {}
+        },
+        {
+          "name": "read_scene_roots_for_scene",
+          "request_business_only": {
+            "scene_path": "Assets/Scenes/SampleScene.unity",
+            "include_inactive": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "list_assets_in_folder",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "List Unity assets under one explicit folder path. folder_path is required. Use this before prefab/script path selection to avoid path hallucination. Do NOT use this to inspect scene hierarchy or runtime object components; use get_scene_roots/get_hierarchy_subtree/get_gameobject_components for runtime targets.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "folder_path"
+        ],
+        "properties": {
+          "folder_path": { "type": "string", "minLength": 1 },
+          "recursive": { "type": "boolean" },
+          "include_meta": { "type": "boolean" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 5000 }
+        }
+      },
+      "examples": [
+        {
+          "name": "list_prefabs_in_folder",
+          "request_business_only": {
+            "folder_path": "Assets/Prefabs",
+            "recursive": true,
+            "include_meta": false,
+            "limit": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "find_objects_by_component",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Find scene objects by component query and return explicit anchors for deterministic follow-up calls. component_query is required. Use this when object names are unknown but component identity is known. Do NOT use this as a replacement for full hierarchy dump; use get_hierarchy_subtree when structure context is required.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "component_query"
+        ],
+        "properties": {
+          "component_query": { "type": "string", "minLength": 1 },
+          "scene_path": { "type": "string", "minLength": 1 },
+          "under_path": { "type": "string", "minLength": 1 },
+          "include_inactive": { "type": "boolean" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 5000 }
+        }
+      },
+      "examples": [
+        {
+          "name": "find_ui_buttons_under_canvas",
+          "request_business_only": {
+            "component_query": "Button",
+            "under_path": "Scene/Canvas",
+            "include_inactive": true,
+            "limit": 100
+          }
+        }
+      ]
+    },
+    {
+      "name": "query_prefab_info",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Inspect prefab hierarchy structure with explicit depth and budget controls. prefab_path and max_depth are required. Use this tool for prefab tree analysis before instantiate/edit operations. Do NOT use this for runtime scene hierarchy; use get_scene_roots/get_hierarchy_subtree for scene objects.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "prefab_path",
+          "max_depth"
+        ],
+        "properties": {
+          "prefab_path": { "type": "string", "minLength": 1 },
+          "max_depth": { "type": "integer", "minimum": 0, "maximum": 32 },
+          "node_budget": { "type": "integer", "minimum": 1, "maximum": 10000 },
+          "char_budget": { "type": "integer", "minimum": 256, "maximum": 200000 },
+          "include_components": { "type": "boolean" },
+          "include_missing_scripts": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "inspect_prefab_tree_budgeted",
+          "request_business_only": {
+            "prefab_path": "Assets/Prefabs/UI/MainPanel.prefab",
+            "max_depth": 4,
+            "node_budget": 400,
+            "char_budget": 24000,
+            "include_components": true,
+            "include_missing_scripts": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_ui_tree",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Read structured UI tree for deterministic targeting and diagnosis. Use this tool to inspect UI node hierarchy, layout, interaction and text metrics budgets. Do NOT use this as a write operation; it is read-only and should not be used to mutate UI state.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ui_system": {
+            "type": "string",
+            "enum": ["auto", "ugui", "uitk"]
+          },
+          "root_path": { "type": "string", "minLength": 1 },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "root_path": { "type": "string", "minLength": 1 }
+            }
+          },
+          "include_inactive": { "type": "boolean" },
+          "include_components": { "type": "boolean" },
+          "include_layout": { "type": "boolean" },
+          "include_interaction": { "type": "boolean" },
+          "include_text_metrics": { "type": "boolean" },
+          "max_depth": { "type": "integer", "minimum": 0, "maximum": 32 },
+          "node_budget": { "type": "integer", "minimum": 1, "maximum": 10000 },
+          "char_budget": { "type": "integer", "minimum": 256, "maximum": 200000 },
+          "resolution": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "width": { "type": "integer", "minimum": 1, "maximum": 16384 },
+              "height": { "type": "integer", "minimum": 1, "maximum": 16384 }
+            }
+          },
+          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_ui_tree_budgeted",
+          "request_business_only": {
+            "ui_system": "ugui",
+            "root_path": "Scene/Canvas",
+            "include_inactive": false,
+            "include_components": true,
+            "include_layout": true,
+            "include_interaction": true,
+            "include_text_metrics": false,
+            "max_depth": 3,
+            "node_budget": 300,
+            "char_budget": 20000
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_ui_overlay_report",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Inspect ScreenSpaceOverlay coverage and overlay diagnostics for screenshot strategy decisions. Use this before image verification when UI overlay may hide render output. Do NOT use this tool to inspect non-overlay hierarchy details; use get_ui_tree for full structural tree.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "root_path": { "type": "string", "minLength": 1 },
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "root_path": { "type": "string", "minLength": 1 }
+            }
+          },
+          "include_inactive": { "type": "boolean" },
+          "include_children_summary": { "type": "boolean" },
+          "max_nodes": { "type": "integer", "minimum": 1, "maximum": 20000 },
+          "max_children_per_canvas": { "type": "integer", "minimum": 1, "maximum": 2000 },
+          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_overlay_report",
+          "request_business_only": {
+            "root_path": "Scene/Canvas",
+            "include_inactive": true,
+            "include_children_summary": true,
+            "max_nodes": 500,
+            "max_children_per_canvas": 30,
+            "timeout_ms": 3000
+          }
+        }
+      ]
+    },
+    {
+      "name": "hit_test_ui_at_viewport_point",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Hit test UI from deterministic viewport coordinates and return ordered hit stack. Use this when clickability/path targeting must be validated at specific points. Do NOT use this as a layout validator; use validate_ui_layout for structural issues.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["x", "y"],
+        "properties": {
+          "view": { "type": "string", "enum": ["game"] },
+          "coord_space": {
+            "type": "string",
+            "enum": ["viewport_px", "normalized"]
+          },
+          "coord_origin": {
+            "type": "string",
+            "enum": ["bottom_left", "top_left"]
+          },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "resolution_width": { "type": "integer", "minimum": 1, "maximum": 16384 },
+          "resolution_height": { "type": "integer", "minimum": 1, "maximum": 16384 },
+          "scope_root_path": { "type": "string", "minLength": 1 },
+          "max_results": { "type": "integer", "minimum": 1, "maximum": 1000 },
+          "include_non_interactable": { "type": "boolean" },
+          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+        }
+      },
+      "examples": [
+        {
+          "name": "hit_test_button_center",
+          "request_business_only": {
+            "coord_space": "viewport_px",
+            "coord_origin": "bottom_left",
+            "x": 360,
+            "y": 220,
+            "resolution_width": 1280,
+            "resolution_height": 720,
+            "scope_root_path": "Scene/Canvas",
+            "max_results": 8
+          }
+        }
+      ]
+    },
+    {
+      "name": "validate_ui_layout",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Validate UI layout issues across target resolution and return issue list. Use this for OUT_OF_BOUNDS/OVERLAP/NOT_CLICKABLE/TEXT_OVERFLOW diagnostics. Do NOT use this tool for writing/fixing values directly.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scope_root_path": { "type": "string", "minLength": 1 },
+          "resolution_name": { "type": "string", "minLength": 1 },
+          "resolution_width": { "type": "integer", "minimum": 1, "maximum": 16384 },
+          "resolution_height": { "type": "integer", "minimum": 1, "maximum": 16384 },
+          "checks_csv": { "type": "string", "minLength": 1 },
+          "max_issues": { "type": "integer", "minimum": 1, "maximum": 10000 },
+          "time_budget_ms": { "type": "integer", "minimum": 1, "maximum": 300000 },
+          "layout_refresh_mode": {
+            "type": "string",
+            "enum": ["scoped_roots_only", "full_tree"]
+          },
+          "include_repair_plan": { "type": "boolean" },
+          "max_repair_suggestions": { "type": "integer", "minimum": 1, "maximum": 1000 },
+          "repair_style": {
+            "type": "string",
+            "enum": ["conservative", "balanced", "aggressive"]
+          },
+          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+        }
+      },
+      "examples": [
+        {
+          "name": "validate_canvas_layout",
+          "request_business_only": {
+            "scope_root_path": "Scene/Canvas",
+            "resolution_name": "HD",
+            "resolution_width": 1280,
+            "resolution_height": 720,
+            "checks_csv": "OUT_OF_BOUNDS,OVERLAP,NOT_CLICKABLE,TEXT_OVERFLOW",
+            "max_issues": 100,
+            "layout_refresh_mode": "scoped_roots_only",
+            "include_repair_plan": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_serialized_property_tree",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Read serialized property tree for one explicit component on one explicit target. target_object_id/target_path/component_assembly_qualified_name are required. Do NOT use this for hierarchy traversal; use get_hierarchy_subtree.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "component_assembly_qualified_name"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "component_assembly_qualified_name": { "type": "string", "minLength": 1 },
+          "component_index": { "type": "integer", "minimum": 0, "maximum": 256 },
+          "root_property_path": { "type": "string" },
+          "depth": { "type": "integer", "minimum": 0, "maximum": 64 },
+          "after_property_path": { "type": "string" },
+          "page_size": { "type": "integer", "minimum": 1, "maximum": 4096 },
+          "node_budget": { "type": "integer", "minimum": 1, "maximum": 100000 },
+          "char_budget": { "type": "integer", "minimum": 256, "maximum": 2000000 },
+          "include_value_summary": { "type": "boolean" },
+          "include_non_visible": { "type": "boolean" },
+          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_transform_serialized_tree",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "component_assembly_qualified_name": "UnityEngine.RectTransform, UnityEngine.CoreModule",
+            "component_index": 0,
+            "root_property_path": "m_AnchoredPosition",
+            "depth": 1,
+            "page_size": 128,
+            "node_budget": 512,
+            "char_budget": 24000,
+            "include_value_summary": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "capture_scene_screenshot",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Capture Unity visual output for verification. Use this tool for render snapshots and visual evidence collection. Do NOT use this to modify scene state or infer deep hierarchy/component data; use read structure tools for those.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "view_mode": {
+            "type": "string",
+            "enum": ["auto", "scene", "game"]
+          },
+          "capture_mode": {
+            "type": "string",
+            "enum": ["render_output", "composite", "final_pixels", "editor_view"]
+          },
+          "output_mode": {
+            "type": "string",
+            "enum": ["artifact_uri", "inline_base64"]
+          },
+          "image_format": {
+            "type": "string",
+            "enum": ["png", "jpg"]
+          },
+          "width": { "type": "integer", "minimum": 64, "maximum": 4096 },
+          "height": { "type": "integer", "minimum": 64, "maximum": 4096 },
+          "jpeg_quality": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "max_base64_bytes": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 },
+          "include_ui": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "capture_game_render_output",
+          "request_business_only": {
+            "view_mode": "game",
+            "capture_mode": "render_output",
+            "output_mode": "artifact_uri",
+            "image_format": "png",
+            "width": 1280,
+            "height": 720,
+            "timeout_ms": 3000,
+            "include_ui": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_action_catalog",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Deprecated in SSOT mode. This tool returns a static deprecation response and does not provide runtime action discovery.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "domain": { "type": "string", "minLength": 1 },
+          "tier": { "type": "string", "minLength": 1 },
+          "lifecycle": { "type": "string", "minLength": 1 },
+          "cursor": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 1000 },
+          "catalog_version": { "type": "string", "minLength": 1 },
+          "if_none_match": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_action_catalog_page",
+          "request_business_only": {
+            "domain": "ui",
+            "tier": "core",
+            "lifecycle": "stable",
+            "cursor": 0,
+            "limit": 10
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_action_schema",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Deprecated in SSOT mode. This tool returns a static deprecation response and does not provide runtime action schema payloads.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action_type"],
+        "properties": {
+          "action_type": { "type": "string", "minLength": 1 },
+          "catalog_version": { "type": "string", "minLength": 1 },
+          "if_none_match": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_action_schema",
+          "request_business_only": {
+            "action_type": "set_ui_text_content"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_tool_schema",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Get static SSOT tool input schema by tool_name from compiled artifacts. tool_name is required. Use this to inspect authoritative parameters and required fields before composing requests. Do NOT use this tool as an execution endpoint.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tool_name"],
+        "properties": {
+          "tool_name": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_tool_schema",
+          "request_business_only": {
+            "tool_name": "modify_ui_layout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_write_contract_bundle",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "experimental",
+      "description": "Aggregate write-contract guidance from SSOT compiled artifacts for a known tool_name. Use this for payload authoring and validation preparation only. Do NOT use this endpoint as an execution API.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool_name": { "type": "string", "minLength": 1 },
+          "action_type": { "type": "string", "minLength": 1 },
+          "catalog_version": { "type": "string", "minLength": 1 },
+          "budget_chars": { "type": "integer", "minimum": 1, "maximum": 200000 },
+          "include_error_fix_map": { "type": "boolean" },
+          "include_canonical_examples": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "read_write_contract_bundle",
+          "request_business_only": {
+            "tool_name": "modify_ui_layout",
+            "action_type": "rename_object",
+            "budget_chars": 3600,
+            "include_error_fix_map": true,
+            "include_canonical_examples": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "preflight_validate_write_payload",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Validate one SSOT write-tool payload without dispatching to Unity execution. tool_name and payload are required. This endpoint only accepts tools that are classified as write in SSOT compiled metadata. Do NOT use this for legacy pipeline payloads or as an execution API.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tool_name", "payload"],
+        "properties": {
+          "tool_name": { "type": "string", "minLength": 1 },
+          "payload": { "type": "object" }
+        }
+      },
+      "examples": [
+        {
+          "name": "preflight_modify_ui_layout_payload",
+          "request_business_only": {
+            "tool_name": "modify_ui_layout",
+            "payload": {
+              "based_on_read_token": "rt_mock",
+              "idempotency_key": "idem_preflight_mock_001",
+              "execution_mode": "execute",
+              "write_anchor_object_id": "GlobalObjectId_V1-mock",
+              "write_anchor_path": "Scene/Canvas",
+              "target_object_id": "GlobalObjectId_V1-target",
+              "target_path": "Scene/Canvas/Button",
+              "anchored_x": 100,
+              "anchored_y": 100,
+              "width": 160,
+              "height": 48
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "setup_cursor_mcp",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "experimental",
+      "description": "Write or update Cursor MCP config for unity-sidecar (native/cline path whitelist only). Use this for onboarding or reconfiguration of MCP client wiring. Do NOT use this tool to change Unity scene objects or to diagnose Unity runtime status.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["native", "cline"],
+            "case_insensitive": true
+          },
+          "sidecar_base_url": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^https?://"
+          },
+          "dry_run": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "setup_cursor_mcp_native_dry_run",
+          "request_business_only": {
+            "mode": "native",
+            "dry_run": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "verify_mcp_setup",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "experimental",
+      "description": "Verify Cursor MCP onboarding readiness and return structured diagnostics for native/cline config. Use this after setup_cursor_mcp to confirm configuration health. Do NOT use this tool to mutate any scene state or as a replacement for Unity health checks.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["auto", "native", "cline"],
+            "case_insensitive": true
+          }
+        }
+      },
+      "examples": [
+        {
+          "name": "verify_mcp_setup_auto",
+          "request_business_only": {
+            "mode": "auto"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_unity_task_status",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Get the current status of one Unity task by job_id. Poll this tool until terminal state (succeeded/failed/cancelled). Do NOT use this tool to submit writes or infer schema contracts.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["job_id"],
+        "properties": {
+          "job_id": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "poll_unity_task_status",
+          "request_business_only": {
+            "job_id": "job_mock_123"
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancel_unity_task",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "stable",
+      "description": "Cancel one running or queued Unity task by job_id. Use this only for task cancellation control. Do NOT use this tool to submit new writes or inspect schema contracts.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["job_id"],
+        "properties": {
+          "job_id": { "type": "string", "minLength": 1 }
+        }
+      },
+      "examples": [
+        {
+          "name": "cancel_unity_task_by_job_id",
+          "request_business_only": {
+            "job_id": "job_mock_123"
+          }
+        }
+      ]
+    },
+    {
+      "name": "submit_unity_task",
+      "kind": "write",
+      "lifecycle": "stable",
+      "description": "Submit an asynchronous Unity write task. This tool enqueues a job and returns job status handles; it does not guarantee immediate terminal completion. Do NOT use this for direct one-step scene mutation when a dedicated write tool exists.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "thread_id",
+          "idempotency_key",
+          "user_intent",
+          "based_on_read_token",
+          "write_anchor"
+        ],
+        "oneOf": [
+          {
+            "required": ["file_actions"],
+            "properties": {
+              "file_actions": {
+                "type": "array",
+                "items": { "type": "object" }
+              }
+            }
+          },
+          {
+            "required": ["visual_layer_actions"],
+            "properties": {
+              "visual_layer_actions": {
+                "type": "array",
+                "items": { "type": "object" }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "thread_id": { "type": "string", "minLength": 1 },
+          "idempotency_key": { "type": "string", "minLength": 1 },
+          "approval_mode": {
+            "type": "string",
+            "enum": ["auto", "require_user"]
+          },
+          "user_intent": { "type": "string", "minLength": 1 },
+          "based_on_read_token": { "type": "string", "minLength": 1 },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["object_id", "path"],
+            "properties": {
+              "object_id": { "type": "string", "minLength": 1 },
+              "path": { "type": "string", "minLength": 1 }
+            }
+          },
+          "context": { "type": "object" },
+          "file_actions": {
+            "type": "array",
+            "items": { "type": "object" }
+          },
+          "visual_layer_actions": {
+            "type": "array",
+            "items": { "type": "object" }
+          }
+        }
+      },
+      "examples": [
+        {
+          "name": "submit_unity_task_with_file_actions",
+          "request_business_only": {
+            "thread_id": "thread_mock_1",
+            "idempotency_key": "idem_mock_1",
+            "user_intent": "Create one script file",
+            "based_on_read_token": "rt_mock",
+            "write_anchor": {
+              "object_id": "GlobalObjectId_V1-mock",
+              "path": "Scene/Canvas"
+            },
+            "file_actions": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "apply_script_actions",
+      "kind": "write",
+      "lifecycle": "stable",
+      "description": "Apply structured file/script actions in one write request. Requires based_on_read_token and top-level write_anchor. Do NOT use this tool for visual hierarchy/component mutations; use dedicated visual/write tools instead.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["based_on_read_token", "write_anchor", "actions"],
+        "properties": {
+          "based_on_read_token": { "type": "string", "minLength": 1 },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["object_id", "path"],
+            "properties": {
+              "object_id": { "type": "string", "minLength": 1 },
+              "path": { "type": "string", "minLength": 1 }
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": { "type": "object" }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": { "type": "object" }
+          },
+          "dry_run": { "type": "boolean" },
+          "thread_id": { "type": "string" },
+          "idempotency_key": { "type": "string" },
+          "user_intent": { "type": "string" },
+          "approval_mode": {
+            "type": "string",
+            "enum": ["auto", "require_user"]
+          }
+        }
+      },
+      "examples": [
+        {
+          "name": "apply_script_actions_dry_run",
+          "request_business_only": {
+            "based_on_read_token": "rt_mock",
+            "write_anchor": {
+              "object_id": "GlobalObjectId_V1-mock",
+              "path": "Scene/Canvas"
+            },
+            "actions": [],
+            "dry_run": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "apply_visual_actions",
+      "kind": "write",
+      "lifecycle": "stable",
+      "description": "Apply structured Unity visual actions with explicit anchors and action payloads. Use this tool only for action-array based visual writes.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["based_on_read_token", "write_anchor", "actions"],
+        "properties": {
+          "based_on_read_token": { "type": "string", "minLength": 1 },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["object_id", "path"],
+            "properties": {
+              "object_id": { "type": "string", "minLength": 1 },
+              "path": { "type": "string", "minLength": 1 }
+            }
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type"],
+              "properties": {
+                "type": { "type": "string", "minLength": 1 },
+                "target_anchor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["object_id", "path"],
+                  "properties": {
+                    "object_id": { "type": "string", "minLength": 1 },
+                    "path": { "type": "string", "minLength": 1 }
+                  }
+                },
+                "parent_anchor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["object_id", "path"],
+                  "properties": {
+                    "object_id": { "type": "string", "minLength": 1 },
+                    "path": { "type": "string", "minLength": 1 }
+                  }
+                },
+                "action_data": {
+                  "type": "object"
+                }
+              },
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "target_anchor": {}
+                  },
+                  "required": ["target_anchor"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "parent_anchor": {}
+                  },
+                  "required": ["parent_anchor"]
+                }
+              ]
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": { "type": "object" }
+          },
+          "dry_run": { "type": "boolean" },
+          "thread_id": { "type": "string" },
+          "idempotency_key": { "type": "string" },
+          "user_intent": { "type": "string" },
+          "approval_mode": {
+            "type": "string",
+            "enum": ["auto", "require_user"]
+          }
+        }
+      },
+      "examples": [
+        {
+          "name": "apply_visual_actions_rename_object",
+          "request_business_only": {
+            "based_on_read_token": "rt_mock",
+            "write_anchor": {
+              "object_id": "GlobalObjectId_V1-mock",
+              "path": "Scene/Canvas"
+            },
+            "actions": [
+              {
+                "type": "rename_object",
+                "target_anchor": {
+                  "object_id": "GlobalObjectId_V1-target",
+                  "path": "Scene/Canvas/Button"
+                },
+                "action_data": {
+                  "name": "Button_Renamed"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_ui_properties",
+      "kind": "write",
+      "lifecycle": "stable",
+      "description": "Set common UI properties with a deterministic operation contract. This endpoint maps to legacy visual actions while enforcing SSOT schema validation at L2. Do NOT use this for non-UI component writes; use set_component_properties or set_serialized_property.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["based_on_read_token", "write_anchor", "operations"],
+        "properties": {
+          "based_on_read_token": { "type": "string", "minLength": 1 },
+          "write_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["object_id", "path"],
+            "properties": {
+              "object_id": { "type": "string", "minLength": 1 },
+              "path": { "type": "string", "minLength": 1 }
+            }
+          },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["target_anchor"],
+              "properties": {
+                "target_anchor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["object_id", "path"],
+                  "properties": {
+                    "object_id": { "type": "string", "minLength": 1 },
+                    "path": { "type": "string", "minLength": 1 }
+                  }
+                },
+                "rect_transform": { "type": "object" },
+                "image": { "type": "object" },
+                "text": { "type": "object" },
+                "layout_element": { "type": "object" }
+              },
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "rect_transform": {}
+                  },
+                  "required": ["rect_transform"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "image": {}
+                  },
+                  "required": ["image"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "text": {}
+                  },
+                  "required": ["text"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "layout_element": {}
+                  },
+                  "required": ["layout_element"]
+                }
+              ]
+            }
+          },
+          "atomic": { "type": "boolean" },
+          "preconditions": {
+            "type": "array",
+            "items": { "type": "object" }
+          },
+          "dry_run": { "type": "boolean" },
+          "thread_id": { "type": "string" },
+          "idempotency_key": { "type": "string" },
+          "user_intent": { "type": "string" },
+          "approval_mode": {
+            "type": "string",
+            "enum": ["auto", "require_user"]
+          }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_ui_properties_rect_transform",
+          "request_business_only": {
+            "based_on_read_token": "rt_mock",
+            "write_anchor": {
+              "object_id": "GlobalObjectId_V1-mock",
+              "path": "Scene/Canvas"
+            },
+            "operations": [
+              {
+                "target_anchor": {
+                  "object_id": "GlobalObjectId_V1-target",
+                  "path": "Scene/Canvas/Button"
+                },
+                "rect_transform": {
+                  "anchored_position": { "x": 100, "y": 100 },
+                  "size_delta": { "x": 160, "y": 48 }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_serialized_property",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "experimental",
+      "description": "Set one explicit SerializedProperty path on one explicit component instance. Use this as low-level precise write when dedicated high-level tools are not suitable. Do NOT use this as a generic fallback for hierarchy or transform workflows.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path",
+          "component_type",
+          "property_path",
+          "value_kind"
+        ],
+        "properties": {
+          "target_object_id": { "type": "string", "minLength": 1 },
+          "target_path": { "type": "string", "minLength": 1 },
+          "component_type": { "type": "string", "minLength": 1 },
+          "component_index": { "type": "integer", "minimum": 0 },
+          "property_path": { "type": "string", "minLength": 1 },
+          "value_kind": {
+            "type": "string",
+            "enum": ["integer", "float", "string", "bool"]
+          },
+          "int_value": { "type": "integer" },
+          "float_value": { "type": "number" },
+          "string_value": { "type": "string" },
+          "bool_value": { "type": "boolean" },
+          "dry_run": { "type": "boolean" }
+        }
+      },
+      "examples": [
+        {
+          "name": "set_rect_anchored_x",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "component_type": "UnityEngine.RectTransform, UnityEngine.CoreModule",
+            "component_index": 0,
+            "property_path": "m_AnchoredPosition.x",
+            "value_kind": "float",
+            "float_value": 120
+          }
+        }
+      ]
+    },
+    {
+      "name": "hit_test_ui_at_screen_point",
+      "kind": "read",
+      "mixins": ["read_envelope"],
+      "lifecycle": "deprecated",
+      "description": "Hit test UGUI from deterministic screen-space coordinates. This command is currently disabled in runtime stabilization closure and may return E_COMMAND_DISABLED. Do NOT use this as a write API.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["x", "y"],
+        "properties": {
+          "view_mode": {
+            "type": "string",
+            "enum": ["auto", "game"]
+          },
+          "x": { "type": "integer", "minimum": 0 },
+          "y": { "type": "integer", "minimum": 0 },
+          "reference_width": { "type": "integer", "minimum": 1 },
+          "reference_height": { "type": "integer", "minimum": 1 },
+          "max_results": { "type": "integer", "minimum": 1 },
+          "timeout_ms": { "type": "integer", "minimum": 1000 }
+        }
+      },
+      "examples": [
+        {
+          "name": "hit_test_ui_at_screen_point_basic",
+          "request_business_only": {
+            "view_mode": "game",
+            "x": 640,
+            "y": 360,
+            "reference_width": 1280,
+            "reference_height": 720
+          }
+        }
+      ]
+    }
+  ]
+}

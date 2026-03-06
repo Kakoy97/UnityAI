@@ -1,4 +1,4 @@
-# Unity AI 架构自检报告（基于代码事实）
+﻿# Unity AI 架构自检报告（基于代码事实）
 
 审计范围：
 - L2（Sidecar / MCP Command / Queue / OCC / Error Policy）
@@ -173,11 +173,11 @@ L1 tool call (e.g. get_ui_tree)
 ### 4.4 Action 数据承载扩展性（action_data 透传与字段丢失）
 
 - 支持扩展：
-  - L2 要求 `action_data` 为对象（`validators.js:216-224`），并禁止外部直接传 `action_data_json`（`228-234`）。
-  - L2->L3 会构建 `action_data_json`（`runtimeUtils.js:427-430`，`turnPayloadBuilders.js:157-168`）。
-  - L3 handler 统一反序列化 `action_data_json`（`McpVisualActionContext.cs:45-67`）。
+  - L2 要求 `action_data` 为对象（`validators.js:216-224`），并禁止外部直接传 `legacy_stringified_action_data`（`228-234`）。
+  - L2->L3 会构建 `legacy_stringified_action_data`（`runtimeUtils.js:427-430`，`turnPayloadBuilders.js:157-168`）。
+  - L3 handler 统一反序列化 `legacy_stringified_action_data`（`McpVisualActionContext.cs:45-67`）。
 - 仍有 legacy 双轨：
-  - `resolveVisualActionData` 会从 top-level 旧字段回退构建 `action_data_json`（`turnPayloadBuilders.js:73-116`）。
+  - `resolveVisualActionData` 会从 top-level 旧字段回退构建 `legacy_stringified_action_data`（`turnPayloadBuilders.js:73-116`）。
   - DTO 仍保留 legacy 字段（`SidecarContracts.cs:282-295`）。
 
 ### 4.5 Action 扩展性评分
@@ -221,7 +221,7 @@ L1 tool call (e.g. get_ui_tree)
 
 ### F5
 症状：Action legacy 桥接仍在主路径（legacy anchor 与 top-level action 字段回退）。  
-证据：`runtimeUtils.js:23-30,319-337`（legacy anchor fallback）；`turnPayloadBuilders.js:73-116`（legacy 字段打包 `action_data_json`）；`validators.js:81-91`（字段回退读取）。  
+证据：`runtimeUtils.js:23-30,319-337`（legacy anchor fallback）；`turnPayloadBuilders.js:73-116`（legacy 字段打包 `legacy_stringified_action_data`）；`validators.js:81-91`（字段回退读取）。  
 影响：协议语义长期双轨，扩展动作时易出现“到底该写 action_data 还是旧字段”的歧义。  
 建议：加 telemetry 后分阶段关停 legacy fallback（warn -> deny -> remove）。  
 优先级：**P0**
@@ -423,4 +423,5 @@ L1 tool call (e.g. get_ui_tree)
 
 补充归一入口：
 - `sidecar/src/application/mcpGateway/mcpErrorFeedback.js`（`withMcpErrorFeedback` / `validationError`）
+
 

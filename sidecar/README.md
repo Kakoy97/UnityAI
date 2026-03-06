@@ -1,4 +1,4 @@
-# Codex Unity Sidecar (R10 Action Governance Baseline)
+﻿# Codex Unity Sidecar (R10 Action Governance Baseline)
 
 This sidecar is the L2 gateway in the Codex-Unity architecture.
 R10 baseline keeps extensibility decoupling and adds governance/composite/token-budget guards.
@@ -67,7 +67,7 @@ Examples: `/session/start`, `/turn/send`, `/turn/status`, `/turn/cancel`, and ot
 
 ## Composite/Schema Guardrails (R10)
 
-- External payload must use JSON object `action_data`; external `action_data_json` is rejected.
+- External payload must use JSON object `action_data`; external `legacy_stringified_action_data` is rejected.
 - Composite payload enforces:
   - max steps / budget limits
   - alias naming and no forward reference
@@ -202,3 +202,4 @@ For normal new visual actions, use only this path:
 4. Add Unity EditMode tests.
 
 Do not reintroduce static action enum/schema coupling in sidecar validators or MCP tool declarations.
+

@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
 using UnityAI.Editor.Codex.Domain;
-using UnityAI.Editor.Codex.Infrastructure.Actions;
 
 namespace UnityAI.Editor.Codex.Application
 {
@@ -24,7 +23,7 @@ namespace UnityAI.Editor.Codex.Application
                 ThreadId = "t_default";
             }
 
-            var capabilities = McpActionRegistryBootstrap.GetCapabilities();
+            var capabilities = BuildCapabilityActionItems();
             var capabilityVersion = BuildCapabilityVersion(capabilities);
             if (!force &&
                 !string.IsNullOrEmpty(_lastReportedCapabilityVersion) &&
@@ -48,7 +47,7 @@ namespace UnityAI.Editor.Codex.Application
                 payload = new UnityCapabilitiesReportPayload
                 {
                     capability_version = capabilityVersion,
-                    actions = BuildCapabilityActionItems(capabilities),
+                    actions = capabilities,
                 },
             };
 

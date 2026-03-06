@@ -24,8 +24,7 @@ namespace UnityAI.Editor.Codex.Infrastructure
                 new HttpSidecarGateway(),
                 new SidecarProcessManager(),
                 new UnitySelectionContextBuilder(),
-                new EditorPrefsConversationStateStore(),
-                new UnityVisualActionExecutor());
+                new EditorPrefsConversationStateStore());
 
             SharedController.SidecarUrl = EditorPrefs.GetString(SidecarUrlEditorPrefKey, DefaultSidecarUrl);
             SharedController.ThreadId = EditorPrefs.GetString(ThreadIdEditorPrefKey, DefaultThreadId);

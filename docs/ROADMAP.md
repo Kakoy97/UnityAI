@@ -1,4 +1,4 @@
-# UnityAI 产品路线图
+﻿# UnityAI 产品路线图
 
 版本：v1.1  
 更新时间：2026-03-03  
@@ -33,8 +33,8 @@
 ### 1.1 三层混合架构底座（V1-BASE）
 
 **Phase 0 — 基础设施护航** ⚠️ 主体完成，原子覆盖有缺口
-- ✅ 外部协议收口：`action_data_json` / `action_data_marshaled` 对 LLM 完全隐藏
-- ✅ L2→L3 线缆升级：`action_data_marshaled`（base64url）主链路 + `action_data_json` 回退双栈
+- ✅ 外部协议收口：`legacy_stringified_action_data` / `legacy_marshaled_action_data` 对 LLM 完全隐藏
+- ✅ L2→L3 线缆升级：`legacy_marshaled_action_data`（base64url）主链路 + `legacy_stringified_action_data` 回退双栈
 - ✅ 原子测试基座：`AtomicActionTestBase` 覆盖成功/回滚/fail-closed 三类断言
 - ✅ 门禁脚本：`r16-wire-guard.js` 可检查线缆外泄 + 原子覆盖缺口
 - ⚠️ 原子覆盖仍需持续提升：`gate:r16-wire` 报告的历史缺口已在 V1-POLISH 完成高优先级补齐，后续在 V1-CAPTURE/V2 阶段持续收敛
@@ -83,7 +83,7 @@
 | # | 问题 | 影响 | 定位文件 | 状态 |
 |---|------|------|---------|------|
 | HOT-001 | `bool` kind 缺失 | `set_serialized_property` 无法写入 boolean 字段（如 `enabled`、`raycastTarget` 等高频属性） | `SerializedPropertyActionHandler.cs` L146-L347 + `sidecar validator ALLOWED_VALUE_KINDS` | ✅ 已关闭（R17-POLISH-P0-01） |
-| HOT-002 | `CloneAction` 遗漏 `action_data_marshaled` | `composite_visual_action` 步骤克隆时丢失 marshaled 数据，导致 L3 回退到 `action_data_json` 解析路径，线缆升级形同虚设 | `BuiltInVisualActionHandlers.cs` L15-L28 | ✅ 已关闭（R17-POLISH-P0-02） |
+| HOT-002 | `CloneAction` 遗漏 `legacy_marshaled_action_data` | `composite_visual_action` 步骤克隆时丢失 marshaled 数据，导致 L3 回退到 `legacy_stringified_action_data` 解析路径，线缆升级形同虚设 | `BuiltInVisualActionHandlers.cs` L15-L28 | ✅ 已关闭（R17-POLISH-P0-02） |
 | HOT-003 | `max_patches_per_action` 无硬限制 | 恶意或失控的 LLM 可发送超大 patch 数组，导致 L3 长时间阻塞 | `SerializedPropertyActionHandler.cs` + `sidecar validator` | ✅ 已关闭（R17-POLISH-P0-03） |
 
 ---
@@ -496,3 +496,4 @@ V1-VISION     ✅ ──┤
 ---
 
 *本文档为全局路线图，各阶段的详细设计方案将在启动时单独产出。*
+

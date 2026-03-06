@@ -11,10 +11,8 @@ const {
   resolveSchemaIssueClassification,
 } = require("./schemaIssueClassifier");
 const { buildRetryPolicyForErrorCode } = require("./retryPolicy");
-const {
-  ERROR_SCHEMA_HINT_MAX_CHARS,
-  buildValidationSchemaCompensation: buildValidationSchemaCompensationImpl,
-} = require("./turnPolicySchemaCompensation");
+
+const ERROR_SCHEMA_HINT_MAX_CHARS = 0;
 
 const ANCHOR_RETRY_SUGGESTION =
   "请先调用读工具获取目标 object_id 与 path，再重试写操作。";
@@ -187,14 +185,6 @@ const MCP_ERROR_FEEDBACK_TEMPLATES = Object.freeze({
     recoverable: true,
     suggestion: ANCHOR_RETRY_SUGGESTION,
   }),
-  E_RESOURCE_NOT_FOUND: Object.freeze({
-    recoverable: false,
-    suggestion: "Check resources/list and use a valid resource URI.",
-  }),
-  E_MCP_EYES_DISABLED: Object.freeze({
-    recoverable: true,
-    suggestion: "Enable MCP read tools with ENABLE_MCP_EYES=true and restart sidecar.",
-  }),
   E_JOB_CONFLICT: Object.freeze({
     recoverable: true,
     suggestion:
@@ -334,21 +324,6 @@ const MCP_ERROR_FEEDBACK_TEMPLATES = Object.freeze({
     recoverable: false,
     suggestion: "Verify job_id and thread scope before polling or cancelling.",
   }),
-  E_JOB_RECOVERY_STALE: Object.freeze({
-    recoverable: true,
-    suggestion:
-      "Recovered stale pending job. Resubmit with a new idempotency_key if the task is still needed.",
-  }),
-  E_STREAM_SUBSCRIBERS_EXCEEDED: Object.freeze({
-    recoverable: true,
-    suggestion:
-      "Too many active stream subscribers. Close stale streams and reconnect, or increase MCP_STREAM_MAX_SUBSCRIBERS.",
-  }),
-  E_NOT_FOUND: Object.freeze({
-    recoverable: false,
-    suggestion:
-      "Enable MCP adapter (ENABLE_MCP_ADAPTER=true) or fallback to local direct endpoints.",
-  }),
 });
 const MCP_ERROR_FEEDBACK_DEFAULT = Object.freeze({
   recoverable: false,
@@ -357,10 +332,6 @@ const MCP_ERROR_FEEDBACK_DEFAULT = Object.freeze({
   fallbackSuggestion:
     "Inspect error_code/error_message, adjust task payload, then retry if safe.",
 });
-
-function buildValidationSchemaCompensation(validation, options) {
-  return buildValidationSchemaCompensationImpl(validation, options);
-}
 
 function withAbortTimeout(promise, controller, timeoutMs, message) {
   const ms = Number(timeoutMs);
@@ -478,7 +449,6 @@ module.exports = {
   isAnchorValidationErrorCode,
   isAutoCancelErrorCode,
   resolveAutoCancelErrorMessage,
-  buildValidationSchemaCompensation,
   resolveSchemaIssueClassification,
   ERROR_SCHEMA_HINT_MAX_CHARS,
   getMcpErrorFeedbackTemplate,

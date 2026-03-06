@@ -7,7 +7,7 @@ const {
   withMcpErrorFeedback,
   getMcpErrorFeedbackMetricsSnapshot,
   resetMcpErrorFeedbackMetrics,
-} = require("../../src/application/mcpGateway/mcpErrorFeedback");
+} = require("../../src/application/errorFeedback/mcpErrorFeedback");
 const {
   ANCHOR_RETRY_SUGGESTION,
   OCC_STALE_SNAPSHOT_SUGGESTION,

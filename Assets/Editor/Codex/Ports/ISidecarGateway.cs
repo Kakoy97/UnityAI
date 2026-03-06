@@ -14,8 +14,6 @@ namespace UnityAI.Editor.Codex.Ports
         Task<GatewayResponse<UnityCapabilitiesReportResponse>> ReportUnityCapabilitiesAsync(string baseUrl, UnityCapabilitiesReportRequest request);
         // Compile/action callbacks must preserve stable error_code/error_message semantics.
         Task<GatewayResponse<UnityCompileReportResponse>> ReportCompileResultAsync(string baseUrl, UnityCompileResultRequest request);
-        Task<GatewayResponse<UnityActionReportResponse>> ReportUnityActionResultAsync(string baseUrl, UnityActionResultRequest request);
-        Task<GatewayResponse<UnityQueryComponentsReportResponse>> ReportUnityComponentsQueryResultAsync(string baseUrl, UnityQueryComponentsResultRequest request);
         Task<GatewayResponse<UnityQueryPullResponse>> PullQueriesAsync(string baseUrl);
         Task<GatewayResponse<UnityQueryReportResponse>> ReportQueryResultAsync(string baseUrl, string queryId, object payload);
     }

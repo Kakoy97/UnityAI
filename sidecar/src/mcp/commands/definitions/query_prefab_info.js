@@ -1,48 +1,21 @@
 "use strict";
 
 module.exports = function buildDefinition(deps) {
-  const {
-    validateGetActionCatalog,
-    executeGetActionCatalog,
-    validateGetActionSchema,
-    executeGetActionSchema,
-    validateGetToolSchema,
-    executeGetToolSchema,
-    validateGetWriteContractBundle,
-    executeGetWriteContractBundle,
-    validatePreflightValidateWritePayload,
-    executePreflightValidateWritePayload,
-    validateSetupCursorMcp,
-    executeSetupCursorMcp,
-    validateVerifyMcpSetup,
-    executeVerifyMcpSetup,
-    validateListAssetsInFolder,
-    validateGetSceneRoots,
-    validateFindObjectsByComponent,
-    validateQueryPrefabInfo,
-    validateCaptureSceneScreenshot,
-    executeCaptureSceneScreenshot,
-    validateGetUiOverlayReport,
-    executeGetUiOverlayReport,
-    validateGetUiTree,
-    executeGetUiTree,
-    validateGetSerializedPropertyTree,
-    executeGetSerializedPropertyTree,
-    validateHitTestUiAtViewportPoint,
-    executeHitTestUiAtViewportPoint,
-    validateUiLayout,
-    executeValidateUiLayout,
-    executeSetUiProperties,
-    executeSetSerializedProperty,
-    validateHitTestUiAtScreenPoint,
-    executeHitTestUiAtScreenPoint,
-    normalizeBody,
-    buildVisualActionsDescription,
-    readEnvBoolean,
-    isCompositeCaptureEnabledForManifest,
-    buildCaptureSceneScreenshotDescription,
-    validateGetUnityTaskStatusArgs,
-  } = deps;
+  const source = deps && typeof deps === "object" ? deps : {};
+  const validateQueryPrefabInfo =
+    typeof source.validateQueryPrefabInfo === "function"
+      ? source.validateQueryPrefabInfo
+      : null;
+  const getSsotInputSchemaForTool =
+    typeof source.getSsotInputSchemaForTool === "function"
+      ? source.getSsotInputSchemaForTool
+      : null;
+  const getSsotToolDescriptionForTool =
+    typeof source.getSsotToolDescriptionForTool === "function"
+      ? source.getSsotToolDescriptionForTool
+      : null;
+  const fallbackDescription =
+    "Inspect prefab hierarchy structure with explicit depth and budget controls via SSOT isolated query pipeline.";
 
   return {
     name: "query_prefab_info",
@@ -53,43 +26,16 @@ module.exports = function buildDefinition(deps) {
     validate: validateQueryPrefabInfo,
     mcp: {
       expose: true,
-      description:
-        "Inspect prefab tree structure and components with explicit depth budget. When parsing nested prefab hierarchies, call this tool and pass max_depth deliberately based on complexity. Do not guess deep structure without querying it.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          prefab_path: {
-            type: "string",
-            description:
-              "Required prefab asset path, e.g. Assets/Prefabs/UI/MainPanel.prefab.",
+      description: getSsotToolDescriptionForTool
+        ? getSsotToolDescriptionForTool("query_prefab_info", fallbackDescription)
+        : fallbackDescription,
+      inputSchema: getSsotInputSchemaForTool
+        ? getSsotInputSchemaForTool("query_prefab_info")
+        : {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          max_depth: {
-            type: "integer",
-            description:
-              "Required traversal depth budget (>=0). Must be explicitly provided each call.",
-          },
-          node_budget: {
-            type: "integer",
-            description: "Optional max node budget (>=1).",
-          },
-          char_budget: {
-            type: "integer",
-            description: "Optional output character budget (>=256).",
-          },
-          include_components: {
-            type: "boolean",
-            description:
-              "Whether component descriptors are included. Default true if omitted.",
-          },
-          include_missing_scripts: {
-            type: "boolean",
-            description:
-              "Whether missing-script placeholders are included. Default true if omitted.",
-          },
-        },
-        required: ["prefab_path", "max_depth"],
-      },
     },
   };
 };

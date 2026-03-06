@@ -3,60 +3,6 @@ using System;
 namespace UnityAI.Editor.Codex.Domain
 {
     [Serializable]
-    public sealed class UnityQueryComponentsRequestEnvelope
-    {
-        public string @event;
-        public string request_id;
-        public string thread_id;
-        public string turn_id;
-        public string timestamp;
-        public UnityQueryComponentsRequestPayload payload;
-    }
-
-
-    [Serializable]
-    public sealed class UnityQueryComponentsRequestPayload
-    {
-        public string query_id;
-        public string target_path;
-    }
-
-
-    [Serializable]
-    public sealed class UnityQueryComponentsResultRequest
-    {
-        public string @event;
-        public string request_id;
-        public string thread_id;
-        public string turn_id;
-        public string timestamp;
-        public UnityQueryComponentsResultPayload payload;
-    }
-
-
-    [Serializable]
-    public sealed class UnityQueryComponentsResultPayload
-    {
-        public string query_id;
-        public string target_path;
-        public UnityComponentDescriptor[] components;
-        public string error_code;
-        public string error_message;
-    }
-
-
-    [Serializable]
-    public sealed class UnityQueryComponentsReportResponse
-    {
-        public bool ok;
-        public string request_id;
-        public string query_id;
-        public int components_count;
-        public string error_code;
-    }
-
-
-    [Serializable]
     public sealed class UnityQueryPullRequest
     {
         public string[] accepted_query_types;
@@ -85,77 +31,6 @@ namespace UnityAI.Editor.Codex.Domain
         public string created_at;
         public int pull_count;
         public string query_payload_json;
-        public UnityPulledQueryPayload payload;
-    }
-
-
-    [Serializable]
-    public sealed class UnityPulledQueryPayload
-    {
-        public string folder_path;
-        public bool recursive;
-        public bool include_meta;
-        public int limit;
-
-        public string scene_path;
-        public bool include_inactive;
-
-        public string component_query;
-        public string under_path;
-
-        public string prefab_path;
-        public int max_depth;
-        public int node_budget;
-        public int char_budget;
-        public bool include_components;
-        public bool include_missing_scripts;
-        public string ui_system;
-        public string root_path;
-        public bool include_layout;
-        public bool include_interaction;
-        public bool include_text_metrics;
-        public bool include_children_summary;
-        public int max_nodes;
-        public int max_children_per_canvas;
-
-        public string view_mode;
-        public string capture_mode;
-        public string output_mode;
-        public string image_format;
-        public int width;
-        public int height;
-        public int jpeg_quality;
-        public int max_base64_bytes;
-        public int timeout_ms;
-        public bool include_ui;
-
-        public int x;
-        public int y;
-        public int reference_width;
-        public int reference_height;
-        public int max_results;
-
-        public string coord_space;
-        public string coord_origin;
-        public UnityQueryResolution resolution;
-        public UnityQueryScope scope;
-        public bool include_non_interactable;
-
-        public UnityQueryResolutionItem[] resolutions;
-        public string[] checks;
-        public int max_issues;
-        public int time_budget_ms;
-        public string layout_refresh_mode;
-
-        public UnityObjectAnchor target_anchor;
-        public SerializedPropertyComponentSelector component_selector;
-        public SerializedPropertyComponentSelector[] component_selectors;
-        public string root_property_path;
-        public int depth;
-        public string after_property_path;
-        public int page_size;
-        public bool include_value_summary;
-        public bool include_non_visible;
     }
 
 

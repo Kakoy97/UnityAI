@@ -1,48 +1,21 @@
 "use strict";
 
 module.exports = function buildDefinition(deps) {
-  const {
-    validateGetActionCatalog,
-    executeGetActionCatalog,
-    validateGetActionSchema,
-    executeGetActionSchema,
-    validateGetToolSchema,
-    executeGetToolSchema,
-    validateGetWriteContractBundle,
-    executeGetWriteContractBundle,
-    validatePreflightValidateWritePayload,
-    executePreflightValidateWritePayload,
-    validateSetupCursorMcp,
-    executeSetupCursorMcp,
-    validateVerifyMcpSetup,
-    executeVerifyMcpSetup,
-    validateListAssetsInFolder,
-    validateGetSceneRoots,
-    validateFindObjectsByComponent,
-    validateQueryPrefabInfo,
-    validateCaptureSceneScreenshot,
-    executeCaptureSceneScreenshot,
-    validateGetUiOverlayReport,
-    executeGetUiOverlayReport,
-    validateGetUiTree,
-    executeGetUiTree,
-    validateGetSerializedPropertyTree,
-    executeGetSerializedPropertyTree,
-    validateHitTestUiAtViewportPoint,
-    executeHitTestUiAtViewportPoint,
-    validateUiLayout,
-    executeValidateUiLayout,
-    executeSetUiProperties,
-    executeSetSerializedProperty,
-    validateHitTestUiAtScreenPoint,
-    executeHitTestUiAtScreenPoint,
-    normalizeBody,
-    buildVisualActionsDescription,
-    readEnvBoolean,
-    isCompositeCaptureEnabledForManifest,
-    buildCaptureSceneScreenshotDescription,
-    validateGetUnityTaskStatusArgs,
-  } = deps;
+  const source = deps && typeof deps === "object" ? deps : {};
+  const validatePreflightValidateWritePayload =
+    typeof source.validatePreflightValidateWritePayload === "function"
+      ? source.validatePreflightValidateWritePayload
+      : null;
+  const getSsotInputSchemaForTool =
+    typeof source.getSsotInputSchemaForTool === "function"
+      ? source.getSsotInputSchemaForTool
+      : null;
+  const getSsotToolDescriptionForTool =
+    typeof source.getSsotToolDescriptionForTool === "function"
+      ? source.getSsotToolDescriptionForTool
+      : null;
+  const fallbackDescription =
+    "Validate write payload preflight via SSOT schema without Unity dispatch.";
 
   return {
     name: "preflight_validate_write_payload",
@@ -53,34 +26,23 @@ module.exports = function buildDefinition(deps) {
       path: "/mcp/preflight_validate_write_payload",
       source: "body",
     },
+    turnServiceMethod: "preflightValidateWritePayloadForMcp",
     validate: validatePreflightValidateWritePayload,
-    execute: executePreflightValidateWritePayload,
     mcp: {
       expose: true,
-      description:
-        "Stable preflight entry: validate + normalize write payloads without Unity dispatch. dry_run remains supported as a deprecated compatibility alias on write tools.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          tool_name: {
-            type: "string",
-            enum: [
-              "apply_script_actions",
-              "apply_visual_actions",
-              "set_ui_properties",
-            ],
-            default: "apply_visual_actions",
-            description: "Target write tool name for preflight validation.",
-          },
-          payload: {
+      description: getSsotToolDescriptionForTool
+        ? getSsotToolDescriptionForTool(
+            "preflight_validate_write_payload",
+            fallbackDescription
+          )
+        : fallbackDescription,
+      inputSchema: getSsotInputSchemaForTool
+        ? getSsotInputSchemaForTool("preflight_validate_write_payload")
+        : {
             type: "object",
-            description:
-              "Exact request payload for the target write tool. Preflight validates this payload and may return normalized_payload/suggested_patch.",
+            additionalProperties: false,
+            properties: {},
           },
-        },
-        required: ["payload"],
-      },
     },
   };
 };

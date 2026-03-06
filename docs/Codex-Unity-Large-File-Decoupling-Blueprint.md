@@ -1,4 +1,4 @@
-# Codex-Unity 大文件解耦收口蓝图（R15-SPLIT）
+﻿# Codex-Unity 大文件解耦收口蓝图（R15-SPLIT）
 ## 0. 目标与边界
 
 ### 0.1 目标
@@ -156,7 +156,7 @@
 4. `Assets/Editor/Codex/Application/Conversation/QueryPollingCoordinator.cs`（新增）
 5. `Assets/Editor/Codex/Application/Conversation/CapabilityReporter.cs`（新增）
 6. `Assets/Editor/Codex/Infrastructure/UnityVisualActionExecutor.cs`（改为 dispatch）
-7. `Assets/Editor/Codex/Infrastructure/Actions/LegacyPrimitiveActionHandlers.cs`（新增，承接 RunXxx）
+7. `Assets/Editor/Codex/Infrastructure/Actions/LegacyPrimitiveHandlersDeprecated.cs`（新增，承接 RunXxx）
 8. `Assets/Editor/Codex/Infrastructure/Actions/McpActionRegistryBootstrap.cs`（补注册）
 
 ### 验收标准
@@ -255,3 +255,4 @@
 1. 先做 `R15-SPLIT-L2-01` 和 `R15-SPLIT-L2-02`，这两项可最快降低耦合且回归成本最低。
 2. 然后推进 `R15-SPLIT-L3-01`，优先把 `UnityRagReadService` 降维，减少后续 UI 能力扯皮。
 3. 最后做 contracts 分域与资产收口，避免中途快照抖动影响迭代效率。
+

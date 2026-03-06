@@ -52,92 +52,6 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         }
 
         [Test]
-        public void UnityActionResultPayload_FieldSnapshot_RemainsStable()
-        {
-            AssertFieldSnapshot(
-                typeof(UnityActionResultPayload),
-                "action_type",
-                "target",
-                "target_object_path",
-                "target_object_id",
-                "object_id",
-                "component_assembly_qualified_name",
-                "source_component_assembly_qualified_name",
-                "created_object_path",
-                "created_object_id",
-                "name",
-                "parent_object_path",
-                "parent_object_id",
-                "primitive_type",
-                "ui_type",
-                "success",
-                "error_code",
-                "error_message",
-                "field_path",
-                "anchor_snapshot",
-                "duration_ms",
-                "result_data",
-                "write_receipt");
-            AssertFieldSnapshot(
-                typeof(UnityActionAnchorSnapshot),
-                "write_anchor",
-                "target_anchor",
-                "parent_anchor");
-            AssertFieldSnapshot(
-                typeof(UnityWriteReceipt),
-                "schema_version",
-                "captured_at",
-                "success",
-                "error_code",
-                "target_resolution",
-                "scene_diff",
-                "target_delta",
-                "created_object_delta",
-                "property_changes",
-                "console_snapshot");
-            AssertFieldSnapshot(
-                typeof(UnityWriteSceneDiff),
-                "dirty_scene_count_before",
-                "dirty_scene_count_after",
-                "added_dirty_scene_paths",
-                "cleared_dirty_scene_paths",
-                "dirty_scene_set_changed");
-            AssertFieldSnapshot(
-                typeof(UnityWriteTargetDelta),
-                "before",
-                "after",
-                "changed_fields");
-            AssertFieldSnapshot(
-                typeof(UnityWriteTargetSnapshot),
-                "exists",
-                "object_id",
-                "path",
-                "name",
-                "active",
-                "parent_path",
-                "component_count",
-                "child_count");
-            AssertFieldSnapshot(
-                typeof(UnityWriteConsoleSnapshot),
-                "captured_at",
-                "window_start_at",
-                "window_end_at",
-                "window_seconds",
-                "max_entries",
-                "total_errors",
-                "truncated",
-                "errors");
-            AssertFieldSnapshot(
-                typeof(UnityWriteConsoleEntry),
-                "timestamp",
-                "log_type",
-                "error_code",
-                "condition",
-                "file",
-                "line");
-        }
-
-        [Test]
         public void UnityCaptureSceneScreenshotContracts_FieldSnapshot_RemainsStable()
         {
             AssertFieldSnapshot(
@@ -505,8 +419,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "timeout_ms",
                 "created_at",
                 "pull_count",
-                "query_payload_json",
-                "payload");
+                "query_payload_json");
         }
 
         private static void AssertFieldSnapshot(Type target, params string[] expectedFields)

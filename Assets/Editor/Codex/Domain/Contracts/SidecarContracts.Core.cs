@@ -6,7 +6,6 @@ namespace UnityAI.Editor.Codex.Domain
     {
         Idle,
         CompilePending,
-        ActionConfirmPending,
         ActionExecuting,
         Completed,
         Cancelled,

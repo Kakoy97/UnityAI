@@ -180,7 +180,7 @@ namespace UnityAI.Editor.Codex.Infrastructure
 
             if (string.Equals(stage, "action_confirm_pending", StringComparison.OrdinalIgnoreCase))
             {
-                return TurnRuntimeState.ActionConfirmPending;
+                return TurnRuntimeState.ActionExecuting;
             }
 
             if (string.Equals(stage, "action_executing", StringComparison.OrdinalIgnoreCase) ||
@@ -204,7 +204,7 @@ namespace UnityAI.Editor.Codex.Infrastructure
 
             if (string.Equals(stage, "action_confirm_pending", StringComparison.OrdinalIgnoreCase))
             {
-                return "Action Confirmation";
+                return "Action Executing";
             }
 
             if (string.Equals(stage, "waiting_for_unity_reboot", StringComparison.OrdinalIgnoreCase))

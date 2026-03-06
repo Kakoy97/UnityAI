@@ -5,7 +5,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using UnityAI.Editor.Codex.Domain;
-using UnityAI.Editor.Codex.Infrastructure.Actions;
 using UnityAI.Editor.Codex.Infrastructure;
 using UnityEditor;
 using UnityEngine;
@@ -14,12 +13,12 @@ namespace UnityAI.Editor.Codex.Application
 {
     public sealed partial class ConversationController
     {
-        private static string BuildCapabilityVersion(IReadOnlyList<McpActionCapability> capabilities)
+        private static string BuildCapabilityVersion(UnityCapabilityActionItem[] capabilities)
         {
             var sb = new StringBuilder();
             if (capabilities != null)
             {
-                for (var i = 0; i < capabilities.Count; i++)
+                for (var i = 0; i < capabilities.Length; i++)
                 {
                     var item = capabilities[i];
                     if (item == null)
@@ -27,23 +26,23 @@ namespace UnityAI.Editor.Codex.Application
                         continue;
                     }
 
-                    sb.Append(item.ActionType ?? string.Empty);
+                    sb.Append(item.type ?? string.Empty);
                     sb.Append('|');
-                    sb.Append(item.AnchorPolicy ?? string.Empty);
+                    sb.Append(item.anchor_policy ?? string.Empty);
                     sb.Append('|');
-                    sb.Append(item.Description ?? string.Empty);
+                    sb.Append(item.description ?? string.Empty);
                     sb.Append('|');
-                    sb.Append(item.ActionDataSchemaJson ?? "{}");
+                    sb.Append(item.domain ?? string.Empty);
                     sb.Append('|');
-                    sb.Append(item.Domain ?? string.Empty);
+                    sb.Append(item.tier ?? string.Empty);
                     sb.Append('|');
-                    sb.Append(item.Tier ?? string.Empty);
+                    sb.Append(item.lifecycle ?? string.Empty);
                     sb.Append('|');
-                    sb.Append(item.Lifecycle ?? string.Empty);
+                    sb.Append(item.undo_safety ?? string.Empty);
                     sb.Append('|');
-                    sb.Append(item.UndoSafety ?? string.Empty);
+                    sb.Append(item.replacement_action_type ?? string.Empty);
                     sb.Append('|');
-                    sb.Append(item.ReplacementActionType ?? string.Empty);
+                    sb.Append(item.action_data_schema == null ? "object" : item.action_data_schema.type ?? "object");
                     sb.Append('\n');
                 }
             }
@@ -62,74 +61,42 @@ namespace UnityAI.Editor.Codex.Application
             }
         }
 
-        private static UnityCapabilityActionItem[] BuildCapabilityActionItems(
-            IReadOnlyList<McpActionCapability> capabilities)
+        private static UnityCapabilityActionItem[] BuildCapabilityActionItems()
         {
-            if (capabilities == null || capabilities.Count == 0)
+            return new[]
             {
-                return new UnityCapabilityActionItem[0];
-            }
-
-            var items = new List<UnityCapabilityActionItem>(capabilities.Count);
-            for (var i = 0; i < capabilities.Count; i++)
-            {
-                var capability = capabilities[i];
-                if (capability == null || string.IsNullOrWhiteSpace(capability.ActionType))
+                new UnityCapabilityActionItem
                 {
-                    continue;
-                }
-
-                items.Add(
-                    new UnityCapabilityActionItem
+                    type = "ssot.request",
+                    description = "SSOT-only dispatcher entrypoint.",
+                    anchor_policy = "ssot_dispatch",
+                    domain = "general",
+                    tier = "core",
+                    lifecycle = "stable",
+                    undo_safety = "atomic_safe",
+                    replacement_action_type = string.Empty,
+                    action_data_schema = new UnityActionDataSchema
                     {
-                        type = capability.ActionType,
-                        description = capability.Description ?? string.Empty,
-                        anchor_policy = capability.AnchorPolicy ?? string.Empty,
-                        domain = capability.Domain ?? string.Empty,
-                        tier = capability.Tier ?? string.Empty,
-                        lifecycle = capability.Lifecycle ?? string.Empty,
-                        undo_safety = capability.UndoSafety ?? string.Empty,
-                        replacement_action_type = capability.ReplacementActionType ?? string.Empty,
-                        action_data_schema = ParseCapabilityActionDataSchema(
-                            capability.ActionDataSchemaJson),
-                    });
-            }
-
-            return items.ToArray();
-        }
-
-        private static UnityActionDataSchema ParseCapabilityActionDataSchema(string rawJson)
-        {
-            var json = string.IsNullOrWhiteSpace(rawJson)
-                ? "{}"
-                : rawJson.Trim();
-            UnityActionDataSchema parsed = null;
-            try
-            {
-                parsed = JsonUtility.FromJson<UnityActionDataSchema>(json);
-            }
-            catch
-            {
-                parsed = null;
-            }
-
-            if (parsed == null)
-            {
-                parsed = new UnityActionDataSchema();
-            }
-
-            parsed.type = string.IsNullOrWhiteSpace(parsed.type) ? "object" : parsed.type.Trim();
-            if (parsed.required == null)
-            {
-                parsed.required = new string[0];
-            }
-
-            if (parsed.properties == null)
-            {
-                parsed.properties = new UnityActionDataSchemaProperty[0];
-            }
-
-            return parsed;
+                        type = "object",
+                        required = new[] { "tool_name", "payload_json" },
+                        properties = new[]
+                        {
+                            new UnityActionDataSchemaProperty
+                            {
+                                name = "tool_name",
+                                type = "string",
+                                description = "SSOT tool name."
+                            },
+                            new UnityActionDataSchemaProperty
+                            {
+                                name = "payload_json",
+                                type = "string",
+                                description = "Serialized SSOT tool payload."
+                            }
+                        }
+                    }
+                }
+            };
         }
 
         private static string FirstNonEmpty(params string[] values)
@@ -631,6 +598,26 @@ namespace UnityAI.Editor.Codex.Application
             }
 
             return rawTypeName.Substring(lastDotIndex + 1);
+        }
+
+        private static string BuildAssemblyQualifiedName(Type type)
+        {
+            if (type == null)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrEmpty(type.AssemblyQualifiedName))
+            {
+                return type.AssemblyQualifiedName;
+            }
+
+            if (!string.IsNullOrEmpty(type.FullName))
+            {
+                return type.FullName;
+            }
+
+            return string.IsNullOrEmpty(type.Name) ? string.Empty : type.Name;
         }
     }
 }

@@ -1,111 +1,66 @@
 "use strict";
 
 const {
-  isObject,
-  isNonEmptyString,
-  validateAllowedKeys,
-  validateIntegerField,
-} = require("../_shared/validationUtils");
+  getValidatorRegistrySingleton,
+} = require("../../../application/ssotRuntime/validatorRegistry");
+
+const TOOL_NAME = "query_prefab_info";
+
+function summarizeValidationErrors(errors) {
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return "Request schema invalid.";
+  }
+  const first = errors[0] && typeof errors[0] === "object" ? errors[0] : {};
+  const path =
+    typeof first.instancePath === "string" && first.instancePath.trim()
+      ? first.instancePath
+      : "/";
+  const message =
+    typeof first.message === "string" && first.message.trim()
+      ? first.message.trim()
+      : "invalid value";
+  return `Request schema invalid at ${path}: ${message}`;
+}
 
 function validateQueryPrefabInfo(body) {
-  if (!isObject(body)) {
+  const payload =
+    body && typeof body === "object" && !Array.isArray(body) ? body : {};
+  let registry = null;
+  try {
+    registry = getValidatorRegistrySingleton();
+  } catch (error) {
     return {
       ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "Body must be a JSON object",
-      statusCode: 400,
+      errorCode: "E_SSOT_SCHEMA_UNAVAILABLE",
+      message:
+        error && typeof error.message === "string" && error.message.trim()
+          ? error.message.trim()
+          : "SSOT compiled schema registry is unavailable.",
+      statusCode: 500,
     };
   }
 
-  const keysValidation = validateAllowedKeys(
-    body,
-    new Set([
-      "prefab_path",
-      "max_depth",
-      "node_budget",
-      "char_budget",
-      "include_components",
-      "include_missing_scripts",
-    ]),
-    "body"
-  );
-  if (!keysValidation.ok) {
-    return keysValidation;
-  }
-
-  if (!isNonEmptyString(body.prefab_path)) {
+  const validation = registry.validateToolInput(TOOL_NAME, payload);
+  if (validation && validation.ok === true) {
     return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "prefab_path is required",
-      statusCode: 400,
+      ok: true,
+      value:
+        validation.value && typeof validation.value === "object"
+          ? validation.value
+          : payload,
     };
   }
 
-  if (!Object.prototype.hasOwnProperty.call(body, "max_depth")) {
-    return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "max_depth is required",
-      statusCode: 400,
-    };
-  }
-
-  const maxDepthValidation = validateIntegerField(body.max_depth, 0, "max_depth");
-  if (!maxDepthValidation.ok) {
-    return maxDepthValidation;
-  }
-
-  if (body.node_budget !== undefined) {
-    const nodeBudgetValidation = validateIntegerField(
-      body.node_budget,
-      1,
-      "node_budget"
-    );
-    if (!nodeBudgetValidation.ok) {
-      return nodeBudgetValidation;
-    }
-  }
-
-  if (body.char_budget !== undefined) {
-    const charBudgetValidation = validateIntegerField(
-      body.char_budget,
-      256,
-      "char_budget"
-    );
-    if (!charBudgetValidation.ok) {
-      return charBudgetValidation;
-    }
-  }
-
-  if (
-    body.include_components !== undefined &&
-    typeof body.include_components !== "boolean"
-  ) {
-    return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "include_components must be a boolean when provided",
-      statusCode: 400,
-    };
-  }
-
-  if (
-    body.include_missing_scripts !== undefined &&
-    typeof body.include_missing_scripts !== "boolean"
-  ) {
-    return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "include_missing_scripts must be a boolean when provided",
-      statusCode: 400,
-    };
-  }
-
-  return { ok: true };
+  return {
+    ok: false,
+    errorCode: "E_SSOT_SCHEMA_INVALID",
+    message: summarizeValidationErrors(validation && validation.errors),
+    statusCode: 400,
+    details:
+      validation && Array.isArray(validation.errors) ? validation.errors : [],
+  };
 }
 
 module.exports = {
   validateQueryPrefabInfo,
 };
-

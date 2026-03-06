@@ -1,94 +1,67 @@
-"use strict";
+﻿"use strict";
 
 const {
-  isObject,
-  validateAllowedKeys,
-} = require("../_shared/validationUtils");
+  getValidatorRegistrySingleton,
+} = require("../../../application/ssotRuntime/validatorRegistry");
 
-const ALLOWED_MODES = new Set(["native", "cline"]);
+const TOOL_NAME = "setup_cursor_mcp";
+
+function summarizeValidationErrors(errors) {
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return "Request schema invalid.";
+  }
+  const first = errors[0] && typeof errors[0] === "object" ? errors[0] : {};
+  const path =
+    typeof first.instancePath === "string" && first.instancePath.trim()
+      ? first.instancePath
+      : "/";
+  const message =
+    typeof first.message === "string" && first.message.trim()
+      ? first.message.trim()
+      : "invalid value";
+  return `Request schema invalid at ${path}: ${message}`;
+}
 
 function validateSetupCursorMcp(body) {
-  if (!isObject(body)) {
+  const payload =
+    body && typeof body === "object" && !Array.isArray(body) ? body : {};
+  let registry = null;
+  try {
+    registry = getValidatorRegistrySingleton();
+  } catch (error) {
     return {
       ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "Body must be a JSON object",
-      statusCode: 400,
+      errorCode: "E_SSOT_SCHEMA_UNAVAILABLE",
+      message:
+        error && typeof error.message === "string" && error.message.trim()
+          ? error.message.trim()
+          : "SSOT compiled schema registry is unavailable.",
+      statusCode: 500,
     };
   }
 
-  const keysValidation = validateAllowedKeys(
-    body,
-    new Set(["mode", "sidecar_base_url", "dry_run"]),
-    "body"
-  );
-  if (!keysValidation.ok) {
-    return keysValidation;
-  }
-
-  if (body.mode !== undefined) {
-    if (typeof body.mode !== "string") {
-      return {
-        ok: false,
-        errorCode: "E_SCHEMA_INVALID",
-        message: "mode must be a string when provided",
-        statusCode: 400,
-      };
-    }
-    const mode = body.mode.trim().toLowerCase();
-    if (!ALLOWED_MODES.has(mode)) {
-      return {
-        ok: false,
-        errorCode: "E_SCHEMA_INVALID",
-        message: "mode must be one of: native|cline",
-        statusCode: 400,
-      };
-    }
-  }
-
-  if (body.sidecar_base_url !== undefined) {
-    if (typeof body.sidecar_base_url !== "string") {
-      return {
-        ok: false,
-        errorCode: "E_SCHEMA_INVALID",
-        message: "sidecar_base_url must be a string when provided",
-        statusCode: 400,
-      };
-    }
-    const normalized = body.sidecar_base_url.trim();
-    let parsed = null;
-    try {
-      parsed = new URL(normalized);
-    } catch {
-      return {
-        ok: false,
-        errorCode: "E_SCHEMA_INVALID",
-        message: "sidecar_base_url must be a valid http(s) URL",
-        statusCode: 400,
-      };
-    }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return {
-        ok: false,
-        errorCode: "E_SCHEMA_INVALID",
-        message: "sidecar_base_url must use http or https protocol",
-        statusCode: 400,
-      };
-    }
-  }
-
-  if (body.dry_run !== undefined && typeof body.dry_run !== "boolean") {
+  const validation = registry.validateToolInput(TOOL_NAME, payload);
+  if (validation && validation.ok === true) {
     return {
-      ok: false,
-      errorCode: "E_SCHEMA_INVALID",
-      message: "dry_run must be a boolean when provided",
-      statusCode: 400,
+      ok: true,
+      value:
+        validation.value && typeof validation.value === "object"
+          ? validation.value
+          : payload,
     };
   }
 
-  return { ok: true };
+  return {
+    ok: false,
+    errorCode: "E_SSOT_SCHEMA_INVALID",
+    message: summarizeValidationErrors(validation && validation.errors),
+    statusCode: 400,
+    details:
+      validation && Array.isArray(validation.errors) ? validation.errors : [],
+  };
 }
 
 module.exports = {
   validateSetupCursorMcp,
 };
+

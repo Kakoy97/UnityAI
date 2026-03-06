@@ -455,7 +455,7 @@
      - `sidecar/src/domain/validators/legacyValidators.js:4290`  
      - `sidecar/src/domain/validators/legacyValidators.js:4298`  
    - L3：rename 执行前强制 `name` 必填  
-     - `Assets/Editor/Codex/Infrastructure/Actions/LegacyPrimitiveActionHandlers.cs:68`
+     - `Assets/Editor/Codex/Infrastructure/Actions/LegacyPrimitiveHandlersDeprecated.cs:68`
 2. L3 rename handler 只吃 `action_data.name`  
    - `action_data.name` 缺失会把 `action.name` 置空再执行，最终在 L3 报 `name is required`  
    - 证据：  
@@ -572,3 +572,4 @@
 6. `GOV-13`（补丁退役 + `legacyValidators`/`legacyCommandManifest` 结构化拆分）  
 7. `GOV-07`（指标采样）  
 8. `GOV-08`（lifecycle 收口）
+

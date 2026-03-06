@@ -2,7 +2,6 @@ using System;
 using System.Threading.Tasks;
 using UnityAI.Editor.Codex.Domain;
 using UnityAI.Editor.Codex.Infrastructure;
-using UnityAI.Editor.Codex.Infrastructure.Actions;
 using UnityEditor;
 using UnityEngine;
 
@@ -117,7 +116,6 @@ namespace UnityAI.Editor.Codex.Application
             _lastCompilePendingHeartbeatAt = EditorApplicationTimeFallback();
             _compileRefreshIssued = true;
             _lastCompileRefreshAt = EditorApplicationTimeFallback();
-            _pendingUnityActionRequest = null;
             SaveState();
             EmitChanged();
             AddLog(UiLogLevel.Info, "Compile gate opened. Step 2/3: refreshing assets and waiting Unity compile.");
@@ -208,17 +206,6 @@ namespace UnityAI.Editor.Codex.Application
             if (IsTerminalStatus(status))
             {
                 HandleTerminalStatus(status);
-                return;
-            }
-
-            if (TryCapturePendingUnityActionRequest(
-                    report.unity_action_request,
-                    "unity.compile.result",
-                    status != null ? status.request_id : string.Empty))
-            {
-                await HandleCapturedPendingActionAsync(
-                    "unity.compile.result",
-                    "Received unity.action.request. Waiting for confirmation.");
                 return;
             }
 

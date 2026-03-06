@@ -27,7 +27,6 @@ namespace UnityAI.Editor.Codex.Domain
         public bool lease_orphaned;
         public int pending_visual_action_count;
         public VisualLayerActionItem pending_visual_action;
-        public UnityActionRequestEnvelope unity_action_request;
     }
 
 
@@ -73,7 +72,6 @@ namespace UnityAI.Editor.Codex.Domain
         public string last_message;
         public string updated_at;
         public string pending_compile_request_id;
-        public string pending_action_request_id;
     }
 
 
@@ -135,7 +133,6 @@ namespace UnityAI.Editor.Codex.Domain
         public bool lease_orphaned;
         public int pending_visual_action_count;
         public VisualLayerActionItem pending_visual_action;
-        public UnityActionRequestEnvelope unity_action_request;
     }
 
 
@@ -293,7 +290,6 @@ namespace UnityAI.Editor.Codex.Domain
         public bool lease_orphaned;
         public int pending_visual_action_count;
         public VisualLayerActionItem pending_visual_action;
-        public UnityActionRequestEnvelope unity_action_request;
     }
 
 }

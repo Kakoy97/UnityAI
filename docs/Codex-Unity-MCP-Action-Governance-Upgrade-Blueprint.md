@@ -1,4 +1,4 @@
-# Codex-Unity MCP 动作治理与高价值动作包升级蓝图（R10）
+﻿# Codex-Unity MCP 动作治理与高价值动作包升级蓝图（R10）
 
 ## 0. 目标与硬约束
 
@@ -127,12 +127,12 @@
 ### 3.3 L2 -> L3 归一化 Payload 草案（JsonUtility 安全）
 1. 外部契约（LLM/L1）强制规则：
 - `action_data` 在 LLM 可见 schema 中必须始终是 JSON Object。
-- LLM 请求体中禁止出现任何字符串化 JSON 字段（如 `action_data_json`、`steps[*].action_data_json`）。
+- LLM 请求体中禁止出现任何字符串化 JSON 字段（如 `legacy_stringified_action_data`、`steps[*].legacy_stringified_action_data`）。
 - 若 L2 收到字符串化 JSON，必须硬拒绝：`E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED`。
 2. 内部桥接规则（仅 L2 -> L3）：
 - 仅允许 `turnPayloadBuilders.js` 在下发 Unity 的最后阶段执行 `JSON.stringify`。
-- `action_data_json` 属于内部线缆格式（wire-only），不得暴露到 tools/list 或对话示例。
-3. L3 侧统一使用 `TryDeserializeActionData<T>(action_data_json, ...)` 进入类型化 Handler。
+- `legacy_stringified_action_data` 属于内部线缆格式（wire-only），不得暴露到 tools/list 或对话示例。
+3. L3 侧统一使用 `TryDeserializeActionData<T>(legacy_stringified_action_data, ...)` 进入类型化 Handler。
 
 `turnPayloadBuilders.js` 归一化伪代码：
 ```js
@@ -145,7 +145,7 @@ function normalizeCompositeStepForUnity(step) {
     parent_anchor: step.parent_anchor,
     parent_anchor_ref: step.parent_anchor_ref,
     bind_outputs: step.bind_outputs,
-    action_data_json: JSON.stringify(step.action_data ?? {})
+    legacy_stringified_action_data: JSON.stringify(step.action_data ?? {})
   };
 }
 ```
@@ -155,7 +155,7 @@ L2->L3 线缆草案（示意）：
 {
   "type": "composite_visual_action",
   "target_anchor": { "object_id": "go_canvas", "path": "Scene/Canvas" },
-  "action_data_json": "<internal_stringified_json_generated_by_l2_only>"
+  "legacy_stringified_action_data": "<internal_stringified_json_generated_by_l2_only>"
 }
 ```
 
@@ -474,7 +474,7 @@ catch (Exception ex)
 
 ### 6.1 Sidecar 回归
 1. 组合动作 schema/alias 校验（重复绑定、前向引用、互斥字段）。  
-2. `action_data -> action_data_json` 归一化链路与回传一致性。  
+2. `action_data -> legacy_stringified_action_data` 归一化链路与回传一致性。  
 3. token 降维与懒加载接口（compact index、catalog 分页、schema 单查）。  
 4. capability 版本不一致恢复路径（`E_ACTION_CAPABILITY_MISMATCH`）。
 5. 外部字符串化 JSON 拒绝（`E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED`）。  
@@ -515,7 +515,7 @@ catch (Exception ex)
 | Phase 0 | R10-ARCH-04 | 耦合指标监控 | `sidecar/scripts/*`、`sidecar/package.json` | 新增 `gate:r10-responsibility`、`gate:r10-contract-snapshot` | CI 中可自动阻断职责漂移与契约漂移 |
 | Phase 0 | R10-ARCH-05 | Token 防线守卫 | `sidecar/src/mcp/mcpServer.js`、`sidecar/src/application/capabilityStore.js` | `tools/list` 与 `schema_hint` 双预算守卫 | 超预算自动降级，且可观测告警 |
 | Phase 1 | R10-L2-01 | 组合动作校验 | `sidecar/src/domain/validators.js`、`sidecar/src/domain/turnPolicies.js` | step/alias/预算校验、字符串化 JSON 硬拒绝、细分错误码 | 非法 payload 硬拒绝并可恢复 |
-| Phase 1 | R10-L2-02 | Payload 归一化桥接 | `sidecar/src/utils/runtimeUtils.js`、`sidecar/src/application/turnPayloadBuilders.js`、`sidecar/src/domain/contracts.js` | `action_data` 到 `action_data_json` 的统一转换（仅内部线缆） | Unity 端不再出现开放对象反序列化空值 |
+| Phase 1 | R10-L2-02 | Payload 归一化桥接 | `sidecar/src/utils/runtimeUtils.js`、`sidecar/src/application/turnPayloadBuilders.js`、`sidecar/src/domain/contracts.js` | `action_data` 到 `legacy_stringified_action_data` 的统一转换（仅内部线缆） | Unity 端不再出现开放对象反序列化空值 |
 | Phase 2 | R10-L3-02 | 组合动作上下文传递 | `Assets/Editor/Codex/Infrastructure/Actions/CompositeTransactionRunner.cs`、`Assets/Editor/Codex/Infrastructure/Actions/CompositeAliasTable.cs`、`Assets/Editor/Codex/Domain/SidecarContracts.cs` | Alias 绑定、`*_anchor_ref` 解引用、runtime alias ledger | 可引用前序创建对象且禁止前向引用 |
 | Phase 2 | R10-L3-03 | 组合动作原子回滚 | `Assets/Editor/Codex/Infrastructure/UnityVisualActionExecutor.cs`、`Assets/Editor/Codex/Infrastructure/Actions/UndoGuard.cs`、`Assets/Editor/Codex/Infrastructure/Actions/RollbackVerifier.cs` | UndoGroup 事务化执行、失败回滚与一致性校验 | 任一步失败全链无残留，失败时 fail-closed |
 | Phase 3 | R10-L2-05 | 错误驱动 Schema 补偿 | `sidecar/src/application/turnPolicies.js`、`sidecar/src/application/mcpErrorFeedback.js` | `E_COMPOSITE_PAYLOAD_INVALID` 回包附 `schema_hint/schema_ref` | LLM 无需额外读工具即可首轮自纠错 |
@@ -534,7 +534,7 @@ catch (Exception ex)
 
 1. Alias 机制通过四类用例：正常引用、未定义引用、重复绑定、前向引用拒绝。  
 2. UndoGroup 原子回滚通过：step 失败后对象无残留、dirty snapshot 不新增。  
-3. L2->L3 归一化链路通过：组合 step 的 `action_data_json` 可被稳定反序列化。  
+3. L2->L3 归一化链路通过：组合 step 的 `legacy_stringified_action_data` 可被稳定反序列化。  
 4. tools/list 在 30+ 动作下保持极简索引，不内嵌全量 schema，且 `get_action_schema` 可按需拉取。  
 5. LLM/L1 输入层 0 容忍 stringified JSON：出现即 `E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED`。  
 6. `E_COMPOSITE_PAYLOAD_INVALID` 默认返回可执行的 `schema_hint`（超预算降级为 `schema_ref`）。  
@@ -570,7 +570,7 @@ catch (Exception ex)
 - 只负责输入结构校验、互斥字段校验、上限预算校验。
 - 禁止承载业务修复逻辑、禁止执行 payload 重写。
 2. L2 `turnPayloadBuilders.js`：
-- 只负责标准对象 -> 内部线缆格式转换（含 `action_data_json` 生成）。
+- 只负责标准对象 -> 内部线缆格式转换（含 `legacy_stringified_action_data` 生成）。
 - 禁止做策略判断、禁止生成错误文案。
 3. L2 `turnPolicies.js`：
 - 只负责错误分级、恢复策略、`schema_hint` 注入决策。
@@ -590,7 +590,7 @@ catch (Exception ex)
 - capability 变更必须提升 `catalog_version`，并携带 `etag`。
 - L2 缓存命中旧版本时必须返回 `E_ACTION_CAPABILITY_MISMATCH`。
 3. 内部线缆隔离：
-- `action_data_json` 标记为 internal-only，禁止出现在 tools/list 与公开示例。
+- `legacy_stringified_action_data` 标记为 internal-only，禁止出现在 tools/list 与公开示例。
 - 对外输入出现 stringified JSON 一律拒绝（`E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED`）。
 4. 依赖方向约束：
 - L1/L2 依赖 capability 索引，不依赖具体 C# Handler 实现。
@@ -632,3 +632,4 @@ catch (Exception ex)
 3. 契约快照巡检通过：L2/L3 错误结构与 capability 结构一致。  
 4. 回滚一致性巡检通过：组合动作失败后零残留。  
 5. Token 预算巡检通过：`tools/list`、`schema_hint` 均在预算内。
+

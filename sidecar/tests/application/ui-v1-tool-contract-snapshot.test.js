@@ -114,27 +114,32 @@ test("UI-V1 schema key snapshots stay stable for mapping/runtime fields", () => 
     [...hitProps.coord_origin.enum].sort(),
     ["bottom_left", "top_left"]
   );
-  assert.deepEqual(
-    [...(hitProps.resolution.required || [])].sort(),
-    ["height", "width"]
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(hitProps, "resolution_width"),
+    true
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(hitProps, "resolution_height"),
+    true
   );
 
   const validate = registry.getToolMetadataByName("validate_ui_layout", {});
-  const validateChecks =
-    validate &&
-    validate.input_schema &&
-    validate.input_schema.properties &&
-    validate.input_schema.properties.checks &&
-    validate.input_schema.properties.checks.items &&
-    validate.input_schema.properties.checks.items.enum
-      ? validate.input_schema.properties.checks.items.enum
-      : [];
-  assert.deepEqual([...validateChecks].sort(), [
-    "NOT_CLICKABLE",
-    "OUT_OF_BOUNDS",
-    "OVERLAP",
-    "TEXT_OVERFLOW",
-  ]);
+  const validateProps =
+    validate && validate.input_schema && validate.input_schema.properties
+      ? validate.input_schema.properties
+      : {};
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(validateProps, "checks_csv"),
+    true
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(validateProps, "resolution_width"),
+    true
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(validateProps, "resolution_height"),
+    true
+  );
 
   const setUi = registry.getToolMetadataByName("set_ui_properties", {});
   const setProps = setUi.input_schema.properties;

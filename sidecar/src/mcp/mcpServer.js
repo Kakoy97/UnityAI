@@ -21,10 +21,6 @@ const {
   ROUTER_PROTOCOL_FREEZE_CONTRACT,
   MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
 } = require("../ports/contracts");
-const {
-  TOOLS_LIST_MAX_ACTION_HINTS,
-  TOOLS_LIST_MAX_DESCRIPTION_CHARS,
-} = require("../application/capabilityStore");
 
 function normalizeToolName(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -59,19 +55,6 @@ const MCP_DISABLED_TOOL_NAMES = Object.freeze(
     : []
 );
 const MCP_DISABLED_TOOL_NAME_SET = new Set(MCP_DISABLED_TOOL_NAMES);
-const MCP_DEFAULT_TOOLS_LIST_MAX_ACTION_HINTS =
-  Number.isFinite(Number(TOOLS_LIST_MAX_ACTION_HINTS)) &&
-  Number(TOOLS_LIST_MAX_ACTION_HINTS) > 0
-    ? Math.floor(Number(TOOLS_LIST_MAX_ACTION_HINTS))
-    : 12;
-const MCP_DEFAULT_TOOLS_LIST_MAX_DESCRIPTION_CHARS =
-  Number.isFinite(Number(TOOLS_LIST_MAX_DESCRIPTION_CHARS)) &&
-  Number(TOOLS_LIST_MAX_DESCRIPTION_CHARS) > 0
-    ? Math.floor(Number(TOOLS_LIST_MAX_DESCRIPTION_CHARS))
-    : 900;
-const MCP_TOOLS_LIST_MAX_DESCRIPTION_PER_TOOL =
-  MCP_DEFAULT_TOOLS_LIST_MAX_DESCRIPTION_CHARS;
-const MCP_TOOLS_LIST_MIN_DESCRIPTION_PER_TOOL = 80;
 
 function isToolAllowedByVisibilityContract(name) {
   const normalized = normalizeToolName(name);
@@ -88,21 +71,6 @@ function isToolAllowedByVisibilityContract(name) {
     return false;
   }
   return !MCP_DISABLED_TOOL_NAME_SET.has(normalized);
-}
-
-function truncateText(value, maxChars) {
-  const text = typeof value === "string" ? value.trim() : "";
-  const budget =
-    Number.isFinite(Number(maxChars)) && Number(maxChars) > 0
-      ? Math.floor(Number(maxChars))
-      : 0;
-  if (!text || budget <= 0 || text.length <= budget) {
-    return text;
-  }
-  if (budget <= 3) {
-    return text.slice(0, budget);
-  }
-  return `${text.slice(0, budget - 3).trimEnd()}...`;
 }
 
 class UnityMcpServer {
@@ -278,240 +246,13 @@ class UnityMcpServer {
   }
 
   async getToolDefinitions() {
-    const capabilitySnapshot = await this.getCapabilitySnapshot();
-    const visualActionHint = this.buildVisualActionHint(capabilitySnapshot);
-    const toolDefinitions = this.getCommandRegistry().getToolsListCache({
-      capabilitySnapshot,
-      visualActionHint,
-      toolsListSchemaMode: "compact",
-      includeCompactSchemaGuidance: true,
-    });
+    const toolDefinitions = this.getCommandRegistry().getToolsListCache({});
     if (!Array.isArray(toolDefinitions)) {
       return [];
     }
-    const visibleTools = toolDefinitions.filter((item) =>
+    return toolDefinitions.filter((item) =>
       this.isToolVisibleByPolicy(item && item.name)
     );
-    return this.applyToolDescriptionBudget(visibleTools, capabilitySnapshot);
-  }
-
-  async getCapabilitySnapshot() {
-    const nowMs = Date.now();
-    if (
-      this._capabilitySnapshotCache &&
-      Number.isFinite(Number(this._capabilitySnapshotCache.fetched_at_ms)) &&
-      nowMs - Number(this._capabilitySnapshotCache.fetched_at_ms) < 1500 &&
-      this._capabilitySnapshotCache.snapshot
-    ) {
-      return this._capabilitySnapshotCache.snapshot;
-    }
-
-    const fallback = {
-      unity_connection_state: "offline",
-      capability_version: "",
-      action_count: 0,
-      actions: [],
-      action_hints: [],
-      token_budget: {
-        tools_list_max_action_hints: MCP_DEFAULT_TOOLS_LIST_MAX_ACTION_HINTS,
-        tools_list_max_description_chars:
-          MCP_DEFAULT_TOOLS_LIST_MAX_DESCRIPTION_CHARS,
-        tools_list_truncated: false,
-      },
-    };
-    if (!this.sidecarBaseUrl || typeof this.httpRequest !== "function") {
-      this._capabilitySnapshotCache = {
-        fetched_at_ms: nowMs,
-        snapshot: fallback,
-      };
-      return fallback;
-    }
-
-    try {
-      const url = new URL(`${this.sidecarBaseUrl}/mcp/capabilities`);
-      const response = await this.httpRequest("GET", url);
-      const snapshot = this.normalizeCapabilitySnapshot(response);
-      this._capabilitySnapshotCache = {
-        fetched_at_ms: nowMs,
-        snapshot,
-      };
-      return snapshot;
-    } catch {
-      this._capabilitySnapshotCache = {
-        fetched_at_ms: nowMs,
-        snapshot: fallback,
-      };
-      return fallback;
-    }
-  }
-
-  normalizeCapabilitySnapshot(body) {
-    const source = body && typeof body === "object" ? body : {};
-    const state =
-      typeof source.unity_connection_state === "string" &&
-      source.unity_connection_state.trim()
-        ? source.unity_connection_state.trim()
-        : "offline";
-    const actions = Array.isArray(source.actions)
-      ? source.actions
-          .filter((item) => item && typeof item === "object")
-          .map((item) => ({
-            type: typeof item.type === "string" ? item.type.trim() : "",
-            description:
-              typeof item.description === "string" ? item.description.trim() : "",
-            anchor_policy:
-              typeof item.anchor_policy === "string"
-                ? item.anchor_policy.trim()
-                : "",
-          }))
-          .filter((item) => !!item.type)
-      : [];
-    const hintsRaw = Array.isArray(source.action_hints) ? source.action_hints : [];
-    const actionHints = hintsRaw
-      .filter((item) => item && typeof item === "object")
-      .map((item) => ({
-        type: typeof item.type === "string" ? item.type.trim() : "",
-        summary: typeof item.summary === "string" ? item.summary.trim() : "",
-        anchor_policy:
-          typeof item.anchor_policy === "string"
-            ? item.anchor_policy.trim()
-            : "",
-      }))
-      .filter((item) => !!item.type);
-    const tokenBudget =
-      source.token_budget && typeof source.token_budget === "object"
-        ? source.token_budget
-        : {};
-    return {
-      unity_connection_state: state,
-      capability_version:
-        typeof source.capability_version === "string"
-          ? source.capability_version.trim()
-          : "",
-      action_count: actions.length,
-      actions,
-      action_hints: actionHints,
-      token_budget: {
-        tools_list_max_action_hints:
-          Number.isFinite(Number(tokenBudget.tools_list_max_action_hints)) &&
-          Number(tokenBudget.tools_list_max_action_hints) > 0
-            ? Math.floor(Number(tokenBudget.tools_list_max_action_hints))
-            : MCP_DEFAULT_TOOLS_LIST_MAX_ACTION_HINTS,
-        tools_list_max_description_chars:
-          Number.isFinite(Number(tokenBudget.tools_list_max_description_chars)) &&
-          Number(tokenBudget.tools_list_max_description_chars) > 0
-            ? Math.floor(Number(tokenBudget.tools_list_max_description_chars))
-            : MCP_DEFAULT_TOOLS_LIST_MAX_DESCRIPTION_CHARS,
-        tools_list_truncated: tokenBudget.tools_list_truncated === true,
-      },
-    };
-  }
-
-  resolveToolsListDescriptionBudget(snapshot) {
-    const source = snapshot && typeof snapshot === "object" ? snapshot : {};
-    const tokenBudget =
-      source.token_budget && typeof source.token_budget === "object"
-        ? source.token_budget
-        : {};
-    const globalBudget =
-      Number.isFinite(Number(tokenBudget.tools_list_max_description_chars)) &&
-      Number(tokenBudget.tools_list_max_description_chars) > 0
-        ? Math.floor(Number(tokenBudget.tools_list_max_description_chars))
-        : MCP_DEFAULT_TOOLS_LIST_MAX_DESCRIPTION_CHARS;
-    return Math.max(
-      MCP_TOOLS_LIST_MIN_DESCRIPTION_PER_TOOL,
-      Math.min(globalBudget, MCP_TOOLS_LIST_MAX_DESCRIPTION_PER_TOOL)
-    );
-  }
-
-  applyToolDescriptionBudget(toolDefinitions, snapshot) {
-    if (!Array.isArray(toolDefinitions) || toolDefinitions.length === 0) {
-      return [];
-    }
-    const maxDescriptionChars = this.resolveToolsListDescriptionBudget(snapshot);
-    return toolDefinitions.map((item) => {
-      const source = item && typeof item === "object" ? item : {};
-      return {
-        ...source,
-        description: truncateText(source.description, maxDescriptionChars),
-      };
-    });
-  }
-
-  buildVisualActionHint(snapshot) {
-    const source = snapshot && typeof snapshot === "object" ? snapshot : {};
-    const state =
-      typeof source.unity_connection_state === "string"
-        ? source.unity_connection_state.trim()
-        : "offline";
-    const budget =
-      source.token_budget && typeof source.token_budget === "object"
-        ? source.token_budget
-        : {};
-    const maxActionHints =
-      Number.isFinite(Number(budget.tools_list_max_action_hints)) &&
-      Number(budget.tools_list_max_action_hints) > 0
-        ? Math.floor(Number(budget.tools_list_max_action_hints))
-        : MCP_DEFAULT_TOOLS_LIST_MAX_ACTION_HINTS;
-    const maxDescriptionChars =
-      Number.isFinite(Number(budget.tools_list_max_description_chars)) &&
-      Number(budget.tools_list_max_description_chars) > 0
-        ? Math.floor(Number(budget.tools_list_max_description_chars))
-        : MCP_DEFAULT_TOOLS_LIST_MAX_DESCRIPTION_CHARS;
-    const hintSource = this.normalizeHintSource(source);
-    const actionIndex = [];
-    let usedChars = 0;
-    let truncated = false;
-    for (const hint of hintSource) {
-      if (actionIndex.length >= maxActionHints) {
-        truncated = true;
-        break;
-      }
-      if (usedChars + hint.length > maxDescriptionChars) {
-        truncated = true;
-        break;
-      }
-      actionIndex.push(hint);
-      usedChars += hint.length;
-    }
-    if (!truncated && hintSource.length > actionIndex.length) {
-      truncated = true;
-    }
-    const actionsText =
-      actionIndex.length > 0
-        ? `Registered action types: ${actionIndex.join(", ")}${
-            truncated || budget.tools_list_truncated === true
-              ? " (truncated; use get_action_catalog/get_action_schema for full detail)"
-              : ""
-          }.`
-        : "Registered action types are not available yet. Use get_action_catalog/get_action_schema after Unity capability report arrives.";
-    if (state !== "ready") {
-      return `[Current state: Unity ${state}. Start or reconnect Unity Editor before running complex visual writes.] ${actionsText}`;
-    }
-    return actionsText;
-  }
-
-  normalizeHintSource(snapshot) {
-    const source = snapshot && typeof snapshot === "object" ? snapshot : {};
-    const hints = Array.isArray(source.action_hints) ? source.action_hints : [];
-    const fromHints = hints
-      .map((item) =>
-        item && typeof item === "object" && typeof item.type === "string"
-          ? item.type.trim()
-          : ""
-      )
-      .filter((item) => !!item);
-    if (fromHints.length > 0) {
-      return fromHints;
-    }
-    const actions = Array.isArray(source.actions) ? source.actions : [];
-    return actions
-      .map((item) =>
-        item && typeof item === "object" && typeof item.type === "string"
-          ? item.type.trim()
-          : ""
-      )
-      .filter((item) => !!item);
   }
 
   async callTool(params) {

@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityAI.Editor.Codex.Domain;
 using UnityAI.Editor.Codex.Infrastructure;
-using UnityAI.Editor.Codex.Infrastructure.Actions;
 using UnityAI.Editor.Codex.Infrastructure.Queries;
 using UnityAI.Editor.Codex.Ports;
 using UnityEditor;
@@ -39,7 +38,6 @@ namespace UnityAI.Editor.Codex.Application
         private readonly ISidecarProcessManager _processManager;
         private readonly ISelectionContextBuilder _contextBuilder;
         private readonly IConversationStateStore _stateStore;
-        private readonly IUnityVisualActionExecutor _visualActionExecutor;
         private readonly UnityRagReadService _ragReadService;
         private readonly UnityQueryRegistry _unityQueryRegistry;
         private readonly SynchronizationContext _unitySynchronizationContext;
@@ -59,7 +57,6 @@ namespace UnityAI.Editor.Codex.Application
         private bool _compileRefreshIssued;
         private double _lastCompileRefreshAt;
         private string _pendingCompileComponentAssemblyQualifiedName = string.Empty;
-        private UnityActionRequestEnvelope _pendingUnityActionRequest;
         private int _transportErrorStreak;
         private double _lastTransportErrorLogAt;
         private bool _selectionSnapshotInFlight;
@@ -80,14 +77,12 @@ namespace UnityAI.Editor.Codex.Application
             ISidecarGateway sidecarGateway,
             ISidecarProcessManager processManager,
             ISelectionContextBuilder contextBuilder,
-            IConversationStateStore stateStore,
-            IUnityVisualActionExecutor visualActionExecutor)
+            IConversationStateStore stateStore)
         {
             _sidecarGateway = sidecarGateway;
             _processManager = processManager;
             _contextBuilder = contextBuilder;
             _stateStore = stateStore;
-            _visualActionExecutor = visualActionExecutor;
             _ragReadService = new UnityRagReadService();
             _unityQueryRegistry = UnityQueryRegistryBootstrap.Registry;
             _unitySynchronizationContext = SynchronizationContext.Current;
@@ -156,17 +151,6 @@ namespace UnityAI.Editor.Codex.Application
                        HasCompileErrorsForCurrentGate();
             }
         }
-        public bool CanConfirmPendingAction
-        {
-            get
-            {
-                return IsBusy &&
-                       _runtimeState == TurnRuntimeState.ActionConfirmPending &&
-                       _pendingUnityActionRequest != null &&
-                       _pendingUnityActionRequest.payload != null &&
-                       _pendingUnityActionRequest.payload.action != null;
-            }
-        }
         public bool IsOnboardingScriptInFlight
         {
             get { return _onboardingScriptInFlight; }
@@ -207,11 +191,7 @@ namespace UnityAI.Editor.Codex.Application
             if (persisted.is_busy && !string.IsNullOrEmpty(persisted.active_request_id))
             {
                 IsBusy = true;
-                if (!string.IsNullOrEmpty(persisted.pending_action_request_id))
-                {
-                    _activeRequestId = persisted.pending_action_request_id;
-                }
-                else if (!string.IsNullOrEmpty(persisted.pending_compile_request_id))
+                if (!string.IsNullOrEmpty(persisted.pending_compile_request_id))
                 {
                     _activeRequestId = persisted.pending_compile_request_id;
                 }
@@ -536,16 +516,6 @@ namespace UnityAI.Editor.Codex.Application
 
         private void HandleCompileGateFromTurnSend(TurnStatusResponse status, double now)
         {
-            if (status != null &&
-                status.unity_action_request != null &&
-                status.unity_action_request.payload != null &&
-                status.unity_action_request.payload.action != null &&
-                !string.IsNullOrEmpty(status.unity_action_request.payload.action.component_assembly_qualified_name))
-            {
-                _pendingCompileComponentAssemblyQualifiedName =
-                    status.unity_action_request.payload.action.component_assembly_qualified_name;
-            }
-
             if (_compileGateOpenedAtUtcTicks <= 0L)
             {
                 _compileGateOpenedAtUtcTicks = DateTime.UtcNow.Ticks;
@@ -573,11 +543,6 @@ namespace UnityAI.Editor.Codex.Application
             if (_runtimeState == TurnRuntimeState.CompilePending)
             {
                 return "Compile Pending";
-            }
-
-            if (_runtimeState == TurnRuntimeState.ActionConfirmPending)
-            {
-                return "Action Confirmation";
             }
 
             if (_runtimeState == TurnRuntimeState.ActionExecuting)
@@ -793,47 +758,7 @@ namespace UnityAI.Editor.Codex.Application
                 lease_max_runtime_ms = report.lease_max_runtime_ms,
                 lease_orphaned = report.lease_orphaned,
                 pending_visual_action_count = report.pending_visual_action_count,
-                pending_visual_action = report.pending_visual_action,
-                unity_action_request = report.unity_action_request
-            };
-        }
-
-        private TurnStatusResponse ToTurnStatus(UnityActionReportResponse report)
-        {
-            if (report == null)
-            {
-                return null;
-            }
-
-            var normalizedState = NormalizeGatewayState(
-                report.state,
-                report.status,
-                report.error_code);
-            return new TurnStatusResponse
-            {
-                job_id = report.job_id,
-                request_id = report.request_id,
-                status = report.status,
-                state = normalizedState,
-                @event = report.@event,
-                message = FirstNonEmpty(report.message, report.progress_message, report.error_message),
-                progress_message = report.progress_message,
-                error_code = report.error_code,
-                error_message = report.error_message,
-                suggestion = report.suggestion,
-                recoverable = report.recoverable,
-                stage = report.stage,
-                phase = report.phase,
-                auto_cancel_reason = report.auto_cancel_reason,
-                lease_state = report.lease_state,
-                lease_owner_client_id = report.lease_owner_client_id,
-                lease_last_heartbeat_at = report.lease_last_heartbeat_at,
-                lease_heartbeat_timeout_ms = report.lease_heartbeat_timeout_ms,
-                lease_max_runtime_ms = report.lease_max_runtime_ms,
-                lease_orphaned = report.lease_orphaned,
-                pending_visual_action_count = report.pending_visual_action_count,
-                pending_visual_action = report.pending_visual_action,
-                unity_action_request = report.unity_action_request
+                pending_visual_action = report.pending_visual_action
             };
         }
 
@@ -871,8 +796,7 @@ namespace UnityAI.Editor.Codex.Application
                 lease_max_runtime_ms = response.lease_max_runtime_ms,
                 lease_orphaned = response.lease_orphaned,
                 pending_visual_action_count = response.pending_visual_action_count,
-                pending_visual_action = response.pending_visual_action,
-                unity_action_request = response.unity_action_request
+                pending_visual_action = response.pending_visual_action
             };
         }
 
