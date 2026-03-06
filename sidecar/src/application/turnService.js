@@ -384,12 +384,6 @@ class TurnService {
     }
   }
 
-  getUnityTaskStatusForMcp(jobId) {
-    return this.dispatchSsotToolForMcp("get_unity_task_status", {
-      job_id: jobId,
-    });
-  }
-
   getActionCatalogForMcp(body) {
     return getActionCatalogView(body);
   }
@@ -404,26 +398,6 @@ class TurnService {
 
   getWriteContractBundleForMcp(body) {
     return getWriteContractBundleView(body);
-  }
-
-  async submitUnityTaskForMcp(body) {
-    return this.dispatchSsotToolForMcp("submit_unity_task", body);
-  }
-
-  async cancelUnityTaskForMcp(body) {
-    return this.dispatchSsotToolForMcp("cancel_unity_task", body);
-  }
-
-  async applyScriptActionsForMcp(body) {
-    return this.dispatchSsotToolForMcp("apply_script_actions", body);
-  }
-
-  async applyVisualActionsForMcp(body) {
-    return this.dispatchSsotToolForMcp("apply_visual_actions", body);
-  }
-
-  async setUiPropertiesForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_ui_properties", body);
   }
 
   async dispatchSsotToolForMcp(toolName, body) {
@@ -545,146 +519,6 @@ class TurnService {
         },
       };
     }
-  }
-
-  async modifyUiLayoutForMcp(body) {
-    return this.dispatchSsotToolForMcp("modify_ui_layout", body);
-  }
-
-  async setComponentPropertiesForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_component_properties", body);
-  }
-
-  async addComponentForMcp(body) {
-    return this.dispatchSsotToolForMcp("add_component", body);
-  }
-
-  async removeComponentForMcp(body) {
-    return this.dispatchSsotToolForMcp("remove_component", body);
-  }
-
-  async replaceComponentForMcp(body) {
-    return this.dispatchSsotToolForMcp("replace_component", body);
-  }
-
-  async createObjectForMcp(body) {
-    return this.dispatchSsotToolForMcp("create_object", body);
-  }
-
-  async duplicateObjectForMcp(body) {
-    return this.dispatchSsotToolForMcp("duplicate_object", body);
-  }
-
-  async deleteObjectForMcp(body) {
-    return this.dispatchSsotToolForMcp("delete_object", body);
-  }
-
-  async renameObjectForMcp(body) {
-    return this.dispatchSsotToolForMcp("rename_object", body);
-  }
-
-  async setActiveForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_active", body);
-  }
-
-  async setParentForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_parent", body);
-  }
-
-  async setSiblingIndexForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_sibling_index", body);
-  }
-
-  async setLocalPositionForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_local_position", body);
-  }
-
-  async setLocalRotationForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_local_rotation", body);
-  }
-
-  async setLocalScaleForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_local_scale", body);
-  }
-
-  async setWorldPositionForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_world_position", body);
-  }
-
-  async setWorldRotationForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_world_rotation", body);
-  }
-
-  async resetTransformForMcp(body) {
-    return this.dispatchSsotToolForMcp("reset_transform", body);
-  }
-
-  async setRectAnchoredPositionForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_rect_anchored_position", body);
-  }
-
-  async setRectSizeDeltaForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_rect_size_delta", body);
-  }
-
-  async setRectPivotForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_rect_pivot", body);
-  }
-
-  async setRectAnchorsForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_rect_anchors", body);
-  }
-
-  async setCanvasGroupAlphaForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_canvas_group_alpha", body);
-  }
-
-  async setLayoutElementForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_layout_element", body);
-  }
-
-  async setUiImageColorForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_ui_image_color", body);
-  }
-
-  async setUiImageRaycastTargetForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_ui_image_raycast_target", body);
-  }
-
-  async setUiTextContentForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_ui_text_content", body);
-  }
-
-  async setUiTextColorForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_ui_text_color", body);
-  }
-
-  async setUiTextFontSizeForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_ui_text_font_size", body);
-  }
-
-  async executeUnityTransactionForMcp(body) {
-    return this.dispatchSsotToolForMcp("execute_unity_transaction", body);
-  }
-
-  async setSerializedPropertyForMcp(body) {
-    return this.dispatchSsotToolForMcp("set_serialized_property", body);
-  }
-
-  async getSceneSnapshotForWriteForMcp(body) {
-    return this.dispatchSsotToolForMcp("get_scene_snapshot_for_write", body);
-  }
-
-  async getCurrentSelectionSsotForMcp(body) {
-    return this.dispatchSsotToolForMcp("get_current_selection", body);
-  }
-
-  async getGameObjectComponentsSsotForMcp(body) {
-    return this.dispatchSsotToolForMcp("get_gameobject_components", body);
-  }
-
-  async getHierarchySubtreeSsotForMcp(body) {
-    return this.dispatchSsotToolForMcp("get_hierarchy_subtree", body);
   }
 
   preflightValidateWritePayloadForMcp(body) {
@@ -854,50 +688,6 @@ class TurnService {
       revisionState: this.ssotRevisionState,
       token: tokenValue,
     });
-  }
-
-  async listAssetsInFolderForMcp(body) {
-    return this.dispatchSsotToolForMcp("list_assets_in_folder", body);
-  }
-
-  async getSceneRootsForMcp(body) {
-    return this.dispatchSsotToolForMcp("get_scene_roots", body);
-  }
-
-  async findObjectsByComponentForMcp(body) {
-    return this.dispatchSsotToolForMcp("find_objects_by_component", body);
-  }
-
-  async queryPrefabInfoForMcp(body) {
-    return this.dispatchSsotToolForMcp("query_prefab_info", body);
-  }
-
-  async getUiTreeForMcp(body) {
-    return this.dispatchSsotToolForMcp("get_ui_tree", body);
-  }
-
-  async getUiOverlayReportForMcp(body) {
-    return this.dispatchSsotToolForMcp("get_ui_overlay_report", body);
-  }
-
-  async hitTestUiAtViewportPointForMcp(body) {
-    return this.dispatchSsotToolForMcp("hit_test_ui_at_viewport_point", body);
-  }
-
-  async hitTestUiAtScreenPointForMcp(body) {
-    return this.dispatchSsotToolForMcp("hit_test_ui_at_screen_point", body);
-  }
-
-  async validateUiLayoutForMcp(body) {
-    return this.dispatchSsotToolForMcp("validate_ui_layout", body);
-  }
-
-  async getSerializedPropertyTreeForMcp(body) {
-    return this.dispatchSsotToolForMcp("get_serialized_property_tree", body);
-  }
-
-  async captureSceneScreenshotForMcp(body) {
-    return this.dispatchSsotToolForMcp("capture_scene_screenshot", body);
   }
 
   getCapabilitiesForMcp() {

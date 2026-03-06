@@ -8,6 +8,7 @@ const path = require("node:path");
 const { TurnStore } = require("../../src/domain/turnStore");
 const { TurnService } = require("../../src/application/turnService");
 const { getMcpCommandRegistry } = require("../../src/mcp/commandRegistry");
+const { MCP_COMMAND_DEFINITIONS } = require("../../src/mcp/commands");
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -32,6 +33,26 @@ function loadArtifactsByName() {
       continue;
     }
     byName.set(toolName, tool);
+  }
+  return byName;
+}
+
+function loadSidecarManifestByName() {
+  const workspaceRoot = path.resolve(__dirname, "../../..");
+  const manifestPath = path.resolve(
+    workspaceRoot,
+    "ssot/artifacts/l2/sidecar-command-manifest.generated.json"
+  );
+  const parsed = readJsonAbsolute(manifestPath);
+  const commands = Array.isArray(parsed && parsed.commands) ? parsed.commands : [];
+  const byName = new Map();
+  for (const command of commands) {
+    const commandName =
+      command && typeof command.name === "string" ? command.name.trim() : "";
+    if (!commandName) {
+      continue;
+    }
+    byName.set(commandName, command);
   }
   return byName;
 }
@@ -456,15 +477,7 @@ test("L2 closure: ssot.request status/error envelope and observability fields st
         if (!command || !command.mcp || command.mcp.expose !== true) {
           return false;
         }
-        const methodName =
-          typeof command.turnServiceMethod === "string"
-            ? command.turnServiceMethod.trim()
-            : "";
-        const handler = methodName ? TurnService.prototype[methodName] : null;
-        return (
-          typeof handler === "function" &&
-          String(handler).includes("dispatchSsotToolForMcp(")
-        );
+        return String(command.dispatch_mode || "").toLowerCase() === "ssot_query";
       });
     assert.ok(requestCommands.length > 0);
 
@@ -528,3 +541,54 @@ test("L2 closure: ssot.request status/error envelope and observability fields st
   }
 });
 
+test("L2 closure: command definitions stay artifact-driven with zero per-tool ssot_query glue", () => {
+  const manifestByName = loadSidecarManifestByName();
+  const definitionByName = new Map(
+    (Array.isArray(MCP_COMMAND_DEFINITIONS) ? MCP_COMMAND_DEFINITIONS : []).map((item) => [
+      String(item && item.name || "").trim(),
+      item,
+    ])
+  );
+  assert.ok(definitionByName.size > 0, "runtime command definitions should not be empty");
+
+  const removedToolNames = new Set(["instantiate_prefab"]);
+  for (const [toolName, command] of manifestByName.entries()) {
+    if (removedToolNames.has(toolName)) {
+      assert.equal(
+        definitionByName.has(toolName),
+        false,
+        `removed tool should not be materialized: ${toolName}`
+      );
+      continue;
+    }
+
+    assert.equal(
+      definitionByName.has(toolName),
+      true,
+      `manifest tool missing runtime definition: ${toolName}`
+    );
+    const runtimeDefinition = definitionByName.get(toolName);
+    assert.equal(
+      String(runtimeDefinition.dispatch_mode || ""),
+      String(command && command.dispatch_mode || ""),
+      `dispatch_mode drift for ${toolName}`
+    );
+
+    if (String(runtimeDefinition.dispatch_mode || "") === "ssot_query") {
+      assert.equal(
+        Object.prototype.hasOwnProperty.call(runtimeDefinition, "turnServiceMethod"),
+        false,
+        `ssot_query tool should not require per-tool turnService method: ${toolName}`
+      );
+    } else if (String(runtimeDefinition.dispatch_mode || "") === "local_static") {
+      assert.equal(
+        typeof runtimeDefinition.turnServiceMethod === "string" &&
+          runtimeDefinition.turnServiceMethod.trim().length > 0,
+        true,
+        `local_static tool must keep explicit turnServiceMethod: ${toolName}`
+      );
+    } else {
+      assert.fail(`unsupported dispatch_mode in runtime definitions: ${toolName}`);
+    }
+  }
+});

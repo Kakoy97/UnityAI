@@ -105,6 +105,9 @@ test("legacy mcp/job/dispatcher module paths are absent from runtime source", ()
     "unity_action_request",
     "unity_query_components_request",
     "unity_query_components_result",
+    "MCP_SECURITY_ALLOWLIST_TOOL_NAME_SET",
+    "security_allowlist:",
+    "allowlist_source:",
   ];
   const hits = findTokenHits(srcRoot, allowExts, forbiddenTokens);
   assert.deepEqual(
@@ -113,6 +116,32 @@ test("legacy mcp/job/dispatcher module paths are absent from runtime source", ()
     `legacy runtime token hits:\n${hits
       .map((hit) => `${hit.filePath} :: ${hit.token}`)
       .join("\n")}`
+  );
+});
+
+test("legacy command template directories are physically removed", () => {
+  const legacyDefinitionsDir = path.resolve(
+    __dirname,
+    "../../src/mcp/commands/definitions"
+  );
+  assert.equal(
+    fs.existsSync(legacyDefinitionsDir),
+    false,
+    "legacy command definitions directory should be deleted"
+  );
+});
+
+test("legacy per-tool validator templates are physically removed", () => {
+  const commandsRoot = path.resolve(__dirname, "../../src/mcp/commands");
+  const validatorFiles = [];
+  walkFiles(commandsRoot, new Set([".js"]), validatorFiles);
+  const hits = validatorFiles.filter((filePath) =>
+    filePath.replace(/\\/g, "/").endsWith("/validator.js")
+  );
+  assert.deepEqual(
+    hits,
+    [],
+    `legacy validator template files should be deleted:\n${hits.join("\n")}`
   );
 });
 
@@ -186,4 +215,3 @@ test("router hard-rejects removed legacy routes with 410", async () => {
     turnStore.stopMaintenance();
   }
 });
-

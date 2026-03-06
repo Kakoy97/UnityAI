@@ -7,18 +7,14 @@ const {
   validateUnityCapabilitiesReport,
   validateMcpApplyScriptActions,
 } = require("../../src/domain/validators");
-const {
-  validateGetActionSchema,
-} = require("../../src/mcp/commands/get_action_schema/validator");
-const {
-  validateGetActionCatalog,
-} = require("../../src/mcp/commands/get_action_catalog/validator");
-const {
-  validateGetToolSchema,
-} = require("../../src/mcp/commands/get_tool_schema/validator");
-const {
-  validateGetWriteContractBundle,
-} = require("../../src/mcp/commands/get_write_contract_bundle/validator");
+const { getCommandValidator } = require("../adapters/commandValidator");
+
+const validateGetActionSchema = getCommandValidator("get_action_schema");
+const validateGetActionCatalog = getCommandValidator("get_action_catalog");
+const validateGetToolSchema = getCommandValidator("get_tool_schema");
+const validateGetWriteContractBundle = getCommandValidator(
+  "get_write_contract_bundle"
+);
 
 function buildCapabilitiesReport(extraPayload) {
   return {
@@ -69,8 +65,8 @@ test("validateMcpGetActionSchema validates required action_type", () => {
 
   const bad = validateGetActionSchema({});
   assert.equal(bad.ok, false);
-  assert.equal(bad.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(bad.message, "action_type is required");
+  assert.equal(bad.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(bad.message || ""), /action_type/i);
 });
 
 test("validateMcpGetActionCatalog validates optional paging/filter fields", () => {
@@ -89,8 +85,8 @@ test("validateMcpGetActionCatalog validates optional paging/filter fields", () =
     cursor: -1,
   });
   assert.equal(bad.ok, false);
-  assert.equal(bad.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(bad.message, "cursor must be an integer >= 0 when provided");
+  assert.equal(bad.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(bad.message || ""), /cursor/i);
 });
 
 test("validateMcpGetToolSchema validates required tool_name", () => {
@@ -101,8 +97,8 @@ test("validateMcpGetToolSchema validates required tool_name", () => {
 
   const bad = validateGetToolSchema({});
   assert.equal(bad.ok, false);
-  assert.equal(bad.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(bad.message, "tool_name is required");
+  assert.equal(bad.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(bad.message || ""), /tool_name/i);
 });
 
 test("validateGetWriteContractBundle validates optional fields and rejects invalid payload", () => {
@@ -120,11 +116,8 @@ test("validateGetWriteContractBundle validates optional fields and rejects inval
     budget_chars: 0,
   });
   assert.equal(bad.ok, false);
-  assert.equal(bad.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(
-    bad.message,
-    "budget_chars must be an integer >= 1 when provided"
-  );
+  assert.equal(bad.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(bad.message || ""), /budget_chars/i);
 });
 
 test("apply_script_actions rejects legacy component_name precondition alias", () => {
@@ -152,11 +145,11 @@ test("apply_script_actions rejects legacy component_name precondition alias", ()
     ],
   });
   assert.equal(result.ok, false);
-  assert.equal(result.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(result.message, "preconditions[0] has unexpected field: component_name");
+  assert.equal(result.errorCode, "E_GONE");
+  assert.match(String(result.message || ""), /removed/i);
 });
 
-test("apply_script_actions accepts standardized component precondition field", () => {
+test("apply_script_actions is blocked by legacy detox even with standardized component field", () => {
   const result = validateMcpApplyScriptActions({
     based_on_read_token: "tok_capability_test_123456789012345678",
     write_anchor: {
@@ -180,5 +173,6 @@ test("apply_script_actions accepts standardized component precondition field", (
       },
     ],
   });
-  assert.equal(result.ok, true);
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCode, "E_GONE");
 });

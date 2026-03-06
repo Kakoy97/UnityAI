@@ -4,6 +4,49 @@
  * Port contracts placeholder for MVP layering.
  * Runtime code is duck-typed; this file documents dependency shapes.
  */
+const {
+  loadVisibilityPolicyArtifact,
+} = require("../application/ssotRuntime/startupArtifactsGuard");
+
+function normalizeToolName(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function toFrozenStringArray(value) {
+  const source = Array.isArray(value) ? value : [];
+  const output = [];
+  const seen = new Set();
+  for (const item of source) {
+    const normalized = normalizeToolName(item);
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    output.push(normalized);
+  }
+  return Object.freeze(output);
+}
+
+const {
+  visibilityPolicyPath: MCP_VISIBILITY_POLICY_PATH,
+  visibilityPolicy: MCP_VISIBILITY_POLICY,
+} = loadVisibilityPolicyArtifact();
+
+const MCP_ACTIVE_TOOL_NAMES = toFrozenStringArray(
+  MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.active_tool_names
+);
+const MCP_DEPRECATED_TOOL_NAMES = toFrozenStringArray(
+  MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.deprecated_tool_names
+);
+const MCP_REMOVED_TOOL_NAMES = toFrozenStringArray(
+  MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.removed_tool_names
+);
+const MCP_EXPOSED_TOOL_NAMES = toFrozenStringArray(
+  MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.exposed_tool_names
+);
+const MCP_LOCAL_STATIC_TOOL_NAMES = toFrozenStringArray(
+  MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.local_static_tool_names
+);
 
 const OCC_WRITE_GUARD_CONTRACT = Object.freeze({
   based_on_read_token_required: true,
@@ -110,84 +153,28 @@ const ROUTER_PROTOCOL_FREEZE_CONTRACT = Object.freeze({
     "/unity/compile/result",
     "/unity/action/result",
   ]),
-  mcp_tool_names: Object.freeze([
-    "submit_unity_task",
-    "get_unity_task_status",
-    "cancel_unity_task",
-    "get_scene_snapshot_for_write",
-    "get_current_selection",
-    "get_gameobject_components",
-    "get_hierarchy_subtree",
-    "apply_script_actions",
-    "apply_visual_actions",
-    "set_ui_properties",
-    "modify_ui_layout",
-    "set_component_properties",
-    "add_component",
-    "remove_component",
-    "replace_component",
-    "create_object",
-    "duplicate_object",
-    "delete_object",
-    "rename_object",
-    "set_active",
-    "set_parent",
-    "set_sibling_index",
-    "set_local_position",
-    "set_local_rotation",
-    "set_local_scale",
-    "set_world_position",
-    "set_world_rotation",
-    "reset_transform",
-    "set_rect_anchored_position",
-    "set_rect_size_delta",
-    "set_rect_pivot",
-    "set_rect_anchors",
-    "set_canvas_group_alpha",
-    "set_layout_element",
-    "set_ui_image_color",
-    "set_ui_image_raycast_target",
-    "set_ui_text_content",
-    "set_ui_text_color",
-    "set_ui_text_font_size",
-    "execute_unity_transaction",
-    "set_serialized_property",
-    "list_assets_in_folder",
-    "get_scene_roots",
-    "find_objects_by_component",
-    "query_prefab_info",
-    "get_action_catalog",
-    "get_action_schema",
-    "get_tool_schema",
-    "get_write_contract_bundle",
-    "preflight_validate_write_payload",
-    "setup_cursor_mcp",
-    "verify_mcp_setup",
-    "capture_scene_screenshot",
-    "get_ui_overlay_report",
-    "get_ui_tree",
-    "get_serialized_property_tree",
-    "hit_test_ui_at_viewport_point",
-    "validate_ui_layout",
-    "hit_test_ui_at_screen_point",
-  ]),
-  deprecated_mcp_tool_names: Object.freeze([
-    "get_prefab_info",
-    "get_compile_state",
-    "get_console_errors",
-    "instantiate_prefab",
-  ]),
+  mcp_tool_names: MCP_ACTIVE_TOOL_NAMES,
+  deprecated_mcp_tool_names: MCP_DEPRECATED_TOOL_NAMES,
+  removed_mcp_tool_names: MCP_REMOVED_TOOL_NAMES,
 });
 
 const MCP_TOOL_VISIBILITY_FREEZE_CONTRACT = Object.freeze({
-  visibility_formula: "visible = exposed & allowlist - disabled",
+  visibility_formula: "visible = exposed & active - disabled",
   registry_snapshot_source: "McpCommandRegistry.listMcpToolNames()",
-  security_allowlist: Object.freeze([
-    ...(ROUTER_PROTOCOL_FREEZE_CONTRACT.mcp_tool_names || []),
-  ]),
-  allowlist_source: "MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.security_allowlist",
+  active_tool_names: MCP_ACTIVE_TOOL_NAMES,
+  exposed_tool_names: MCP_EXPOSED_TOOL_NAMES,
+  deprecated_tool_names: MCP_DEPRECATED_TOOL_NAMES,
+  removed_tool_names: MCP_REMOVED_TOOL_NAMES,
+  local_static_tool_names: MCP_LOCAL_STATIC_TOOL_NAMES,
+  active_source: "visibility-policy.generated.json.active_tool_names",
   deprecated_blocklist_source:
-    "ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names",
+    "visibility-policy.generated.json.deprecated_tool_names",
+  removed_blocklist_source: "visibility-policy.generated.json.removed_tool_names",
+  visibility_policy_path: MCP_VISIBILITY_POLICY_PATH,
+  visibility_policy_version:
+    Number.isFinite(Number(MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.version))
+      ? Number(MCP_VISIBILITY_POLICY.version)
+      : 0,
   disabled_tools: Object.freeze([]),
   disabled_tool_notes: Object.freeze({}),
   capture_mode_notes: Object.freeze({

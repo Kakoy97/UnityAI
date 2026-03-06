@@ -4,21 +4,15 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { getMcpCommandRegistry } = require("../../src/mcp/commandRegistry");
-const {
-  validateGetUiOverlayReport,
-} = require("../../src/mcp/commands/get_ui_overlay_report/validator");
-const {
-  validateGetUiTree,
-} = require("../../src/mcp/commands/get_ui_tree/validator");
-const {
-  validateHitTestUiAtViewportPoint,
-} = require("../../src/mcp/commands/hit_test_ui_at_viewport_point/validator");
-const {
-  validateUiLayout,
-} = require("../../src/mcp/commands/validate_ui_layout/validator");
-const {
-  validateSetUiProperties,
-} = require("../../src/mcp/commands/set_ui_properties/validator");
+const { getCommandValidator } = require("../adapters/commandValidator");
+
+const validateGetUiOverlayReport = getCommandValidator("get_ui_overlay_report");
+const validateGetUiTree = getCommandValidator("get_ui_tree");
+const validateHitTestUiAtViewportPoint = getCommandValidator(
+  "hit_test_ui_at_viewport_point"
+);
+const validateUiLayout = getCommandValidator("validate_ui_layout");
+const validateSetUiProperties = getCommandValidator("set_ui_properties");
 
 const VALID_TOKEN = "tok_ui_v1_parity_12345678901234567890";
 

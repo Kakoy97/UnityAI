@@ -3,12 +3,10 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const {
-  validateSetupCursorMcp,
-} = require("../../src/mcp/commands/setup_cursor_mcp/validator");
-const {
-  validateVerifyMcpSetup,
-} = require("../../src/mcp/commands/verify_mcp_setup/validator");
+const { getCommandValidator } = require("../adapters/commandValidator");
+
+const validateSetupCursorMcp = getCommandValidator("setup_cursor_mcp");
+const validateVerifyMcpSetup = getCommandValidator("verify_mcp_setup");
 
 test("setup_cursor_mcp validator accepts valid payload", () => {
   const result = validateSetupCursorMcp({
@@ -24,19 +22,19 @@ test("setup_cursor_mcp validator rejects invalid payload", () => {
     mode: "auto",
   });
   assert.equal(badMode.ok, false);
-  assert.equal(badMode.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(badMode.errorCode, "E_SSOT_SCHEMA_INVALID");
 
   const badUrl = validateSetupCursorMcp({
     sidecar_base_url: "ftp://127.0.0.1:46321",
   });
   assert.equal(badUrl.ok, false);
-  assert.equal(badUrl.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(badUrl.errorCode, "E_SSOT_SCHEMA_INVALID");
 
   const badField = validateSetupCursorMcp({
     unknown_key: true,
   });
   assert.equal(badField.ok, false);
-  assert.equal(badField.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(badField.errorCode, "E_SSOT_SCHEMA_INVALID");
 });
 
 test("verify_mcp_setup validator accepts valid payload", () => {
@@ -51,12 +49,12 @@ test("verify_mcp_setup validator rejects invalid payload", () => {
     mode: "invalid",
   });
   assert.equal(badMode.ok, false);
-  assert.equal(badMode.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(badMode.errorCode, "E_SSOT_SCHEMA_INVALID");
 
   const badField = validateVerifyMcpSetup({
     mode: "auto",
     extra: "x",
   });
   assert.equal(badField.ok, false);
-  assert.equal(badField.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(badField.errorCode, "E_SSOT_SCHEMA_INVALID");
 });

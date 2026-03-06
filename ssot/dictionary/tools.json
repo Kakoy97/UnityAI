@@ -1,6 +1,9 @@
 {
   "version": 1,
   "_definitions": {
+    "removed_tool_names": [
+      "instantiate_prefab"
+    ],
     "mixins": {
       "write_envelope": {
         "input": {
@@ -2346,6 +2349,90 @@
             "y": 360,
             "reference_width": 1280,
             "reference_height": 720
+          }
+        }
+      ]
+    },
+    {
+      "name": "save_scene",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Save the current active Unity scene. If the scene has not been saved before, it will prompt for a save path. Use this tool to persist scene changes to disk.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scene_path": {
+            "type": "string",
+            "description": "Optional scene path. If provided and the scene is not saved, will save to this path. If omitted, uses current scene path or prompts."
+          },
+          "save_as_new": {
+            "type": "boolean",
+            "description": "If true, always save as a new scene file even if the scene already has a path."
+          }
+        }
+      },
+      "examples": [
+        {
+          "name": "save_current_scene",
+          "request_business_only": {}
+        },
+        {
+          "name": "save_scene_to_path",
+          "request_business_only": {
+            "scene_path": "Assets/Scenes/MyScene.unity"
+          }
+        }
+      ]
+    },
+    {
+      "name": "save_prefab",
+      "kind": "write",
+      "mixins": ["write_envelope"],
+      "lifecycle": "stable",
+      "description": "Save a GameObject as a prefab asset or save changes to an existing prefab instance. Requires target_object_id and target_path to identify the GameObject to save.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prefab_path": {
+            "type": "string",
+            "description": "Optional prefab asset path. If provided and the GameObject is not a prefab instance, will create a new prefab at this path. If omitted, uses existing prefab path or prompts."
+          },
+          "save_as_new": {
+            "type": "boolean",
+            "description": "If true, always save as a new prefab even if the GameObject is already a prefab instance."
+          }
+        }
+      },
+      "examples": [
+        {
+          "name": "save_prefab_instance_changes",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button"
+          }
+        },
+        {
+          "name": "create_new_prefab",
+          "request_business_only": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "prefab_path": "Assets/Prefabs/MyButton.prefab",
+            "save_as_new": true
           }
         }
       ]

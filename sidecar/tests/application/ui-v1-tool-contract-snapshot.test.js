@@ -4,8 +4,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { getMcpCommandRegistry } = require("../../src/mcp/commandRegistry");
+const { UnityMcpServer } = require("../../src/mcp/mcpServer");
 const {
-  ROUTER_PROTOCOL_FREEZE_CONTRACT,
   MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
 } = require("../../src/ports/contracts");
 
@@ -17,14 +17,16 @@ const V1_UI_TOOLS = Object.freeze([
   "set_ui_properties",
 ]);
 
-test("UI-V1 tools are present in command registry and tools/list visibility formula", () => {
+test("UI-V1 tools are present in command registry and tools/list visibility formula", async () => {
   const registry = getMcpCommandRegistry();
-  const tools = registry.getToolsListCache({});
+  const server = Object.create(UnityMcpServer.prototype);
+  server.commandRegistry = registry;
+  const tools = await server.getToolDefinitions();
   const names = tools.map((item) => item.name);
 
-  const allowlist = new Set(
-    Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.security_allowlist)
-      ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.security_allowlist
+  const active = new Set(
+    Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.active_tool_names)
+      ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.active_tool_names
       : []
   );
   const disabled = new Set(
@@ -33,8 +35,13 @@ test("UI-V1 tools are present in command registry and tools/list visibility form
       : []
   );
   const deprecated = new Set(
-    Array.isArray(ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names)
-      ? ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names
+    Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.deprecated_tool_names)
+      ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.deprecated_tool_names
+      : []
+  );
+  const removed = new Set(
+    Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.removed_tool_names)
+      ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.removed_tool_names
       : []
   );
 
@@ -44,9 +51,10 @@ test("UI-V1 tools are present in command registry and tools/list visibility form
     assert.equal(command.mcp && command.mcp.expose, true);
 
     const expectedVisible =
-      (allowlist.size === 0 || allowlist.has(toolName)) &&
+      active.has(toolName) &&
       !disabled.has(toolName) &&
-      !deprecated.has(toolName);
+      !deprecated.has(toolName) &&
+      !removed.has(toolName);
     assert.equal(
       names.includes(toolName),
       expectedVisible,

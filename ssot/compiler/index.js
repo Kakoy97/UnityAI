@@ -11,8 +11,17 @@ const { normalizeEnums } = require("./parser/normalizeEnums");
 const { expandBusinessOnlyExamples } = require("./examples/expandBusinessOnlyExamples");
 const { emitMcpToolsJson } = require("./emitters/l2/emitMcpToolsJson");
 const { emitAjvSchemas } = require("./emitters/l2/emitAjvSchemas");
+const {
+  emitSidecarCommandManifest,
+} = require("./emitters/l2/emitSidecarCommandManifest");
+const {
+  emitVisibilityPolicyManifest,
+} = require("./emitters/l2/emitVisibilityPolicyManifest");
 const { emitDtosCs } = require("./emitters/l3/emitDtosCs");
 const { emitBindingsCs } = require("./emitters/l3/emitBindingsCs");
+const {
+  emitDispatcherBindingsCs,
+} = require("./emitters/l3/emitDispatcherBindingsCs");
 const { writeArtifacts } = require("./io/writeArtifacts");
 
 function parseArgs(argv) {
@@ -41,11 +50,21 @@ function parseArgs(argv) {
 }
 
 function buildArtifacts(ssot) {
+  const sidecarCommandManifest = emitSidecarCommandManifest(ssot);
+  const visibilityPolicyManifest = emitVisibilityPolicyManifest(
+    ssot,
+    sidecarCommandManifest
+  );
   return {
     "l2/mcp-tools.generated.json": JSON.stringify(emitMcpToolsJson(ssot), null, 2) + "\n",
     "l2/ajv-schemas.generated.json": JSON.stringify(emitAjvSchemas(ssot), null, 2) + "\n",
+    "l2/sidecar-command-manifest.generated.json":
+      JSON.stringify(sidecarCommandManifest, null, 2) + "\n",
+    "l2/visibility-policy.generated.json":
+      JSON.stringify(visibilityPolicyManifest, null, 2) + "\n",
     "l3/SsotDtos.generated.cs": emitDtosCs(ssot),
     "l3/SsotBindings.generated.cs": emitBindingsCs(ssot),
+    "l3/SsotDispatchBindings.generated.cs": emitDispatcherBindingsCs(ssot),
   };
 }
 

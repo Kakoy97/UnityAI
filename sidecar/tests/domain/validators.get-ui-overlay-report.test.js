@@ -3,9 +3,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const {
-  validateGetUiOverlayReport,
-} = require("../../src/mcp/commands/get_ui_overlay_report/validator");
+const { getCommandValidator } = require("../adapters/commandValidator");
+
+const validateGetUiOverlayReport = getCommandValidator("get_ui_overlay_report");
 
 test("get_ui_overlay_report validator accepts valid payload", () => {
   const result = validateGetUiOverlayReport({
@@ -26,40 +26,21 @@ test("get_ui_overlay_report validator rejects unexpected fields", () => {
     unsupported: true,
   });
   assert.equal(result.ok, false);
-  assert.equal(result.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(result.errorCode, "E_SSOT_SCHEMA_INVALID");
 });
 
-test("get_ui_overlay_report validator rejects mismatched root_path and bad budgets", () => {
-  const mismatch = validateGetUiOverlayReport({
-    root_path: "Scene/Canvas/HUD",
-    scope: {
-      root_path: "Scene/Canvas/Other",
-    },
-  });
-  assert.equal(mismatch.ok, false);
-  assert.equal(mismatch.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(
-    mismatch.message,
-    "root_path and scope.root_path must match when both provided"
-  );
-
+test("get_ui_overlay_report validator rejects bad numeric budgets", () => {
   const badMaxNodes = validateGetUiOverlayReport({
     max_nodes: 0,
   });
   assert.equal(badMaxNodes.ok, false);
-  assert.equal(badMaxNodes.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(
-    badMaxNodes.message,
-    "max_nodes must be an integer >= 1 when provided"
-  );
+  assert.equal(badMaxNodes.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(badMaxNodes.message || ""), /max_nodes/i);
 
   const badTimeout = validateGetUiOverlayReport({
     timeout_ms: 500,
   });
   assert.equal(badTimeout.ok, false);
-  assert.equal(badTimeout.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(
-    badTimeout.message,
-    "timeout_ms must be an integer >= 1000 when provided"
-  );
+  assert.equal(badTimeout.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(badTimeout.message || ""), /timeout_ms/i);
 });

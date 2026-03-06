@@ -1001,4 +1001,38 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
         public int max_results;
         public int timeout_ms;
     }
+
+    [Serializable]
+    public sealed class SaveSceneRequestDto
+    {
+        public const string ToolName = "save_scene";
+        public static readonly string[] RequiredFields = new[] { "execution_mode", "idempotency_key", "based_on_read_token", "write_anchor_object_id", "write_anchor_path" };
+
+        public string execution_mode;
+        public string thread_id;
+        public string idempotency_key;
+        public string based_on_read_token;
+        public string write_anchor_object_id;
+        public string write_anchor_path;
+        public string scene_path;
+        public bool save_as_new;
+    }
+
+    [Serializable]
+    public sealed class SavePrefabRequestDto
+    {
+        public const string ToolName = "save_prefab";
+        public static readonly string[] RequiredFields = new[] { "execution_mode", "idempotency_key", "based_on_read_token", "write_anchor_object_id", "write_anchor_path", "target_object_id", "target_path" };
+
+        public string execution_mode;
+        public string thread_id;
+        public string idempotency_key;
+        public string based_on_read_token;
+        public string write_anchor_object_id;
+        public string write_anchor_path;
+        public string target_object_id;
+        public string target_path;
+        public string prefab_path;
+        public bool save_as_new;
+    }
 }

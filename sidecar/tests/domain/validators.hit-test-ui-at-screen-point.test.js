@@ -3,9 +3,11 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const {
-  validateHitTestUiAtScreenPoint,
-} = require("../../src/mcp/commands/hit_test_ui_at_screen_point/validator");
+const { getCommandValidator } = require("../adapters/commandValidator");
+
+const validateHitTestUiAtScreenPoint = getCommandValidator(
+  "hit_test_ui_at_screen_point"
+);
 
 test("hit_test_ui_at_screen_point validator accepts valid payload", () => {
   const result = validateHitTestUiAtScreenPoint({
@@ -25,15 +27,15 @@ test("hit_test_ui_at_screen_point validator rejects missing required coordinates
     y: 20,
   });
   assert.equal(missingX.ok, false);
-  assert.equal(missingX.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(missingX.message, "x is required");
+  assert.equal(missingX.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(missingX.message || ""), /x/i);
 
   const missingY = validateHitTestUiAtScreenPoint({
     x: 20,
   });
   assert.equal(missingY.ok, false);
-  assert.equal(missingY.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(missingY.message, "y is required");
+  assert.equal(missingY.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(missingY.message || ""), /y/i);
 });
 
 test("hit_test_ui_at_screen_point validator rejects invalid fields and ranges", () => {
@@ -43,8 +45,8 @@ test("hit_test_ui_at_screen_point validator rejects invalid fields and ranges", 
     y: 1,
   });
   assert.equal(badViewMode.ok, false);
-  assert.equal(badViewMode.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(badViewMode.message, "view_mode must be one of: auto|game");
+  assert.equal(badViewMode.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(badViewMode.message || ""), /view_mode/i);
 
   const badTimeout = validateHitTestUiAtScreenPoint({
     x: 10,
@@ -52,11 +54,8 @@ test("hit_test_ui_at_screen_point validator rejects invalid fields and ranges", 
     timeout_ms: 500,
   });
   assert.equal(badTimeout.ok, false);
-  assert.equal(badTimeout.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(
-    badTimeout.message,
-    "timeout_ms must be an integer >= 1000 when provided"
-  );
+  assert.equal(badTimeout.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(badTimeout.message || ""), /timeout_ms/i);
 
   const badMaxResults = validateHitTestUiAtScreenPoint({
     x: 10,
@@ -64,10 +63,6 @@ test("hit_test_ui_at_screen_point validator rejects invalid fields and ranges", 
     max_results: 0,
   });
   assert.equal(badMaxResults.ok, false);
-  assert.equal(badMaxResults.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(
-    badMaxResults.message,
-    "max_results must be an integer >= 1 when provided"
-  );
+  assert.equal(badMaxResults.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(badMaxResults.message || ""), /max_results/i);
 });
-

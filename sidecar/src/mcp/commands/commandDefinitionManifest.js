@@ -4,202 +4,79 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const {
-  validateGetActionCatalog,
-} = require("./get_action_catalog/validator");
-const { validateGetActionSchema } = require("./get_action_schema/validator");
-const { validateGetToolSchema } = require("./get_tool_schema/validator");
-const {
-  validateGetWriteContractBundle,
-} = require("./get_write_contract_bundle/validator");
-const {
-  validatePreflightValidateWritePayload,
-} = require("./preflight_validate_write_payload/validator");
-const {
-  validateSetupCursorMcp,
-} = require("./setup_cursor_mcp/validator");
-const {
-  validateVerifyMcpSetup,
-} = require("./verify_mcp_setup/validator");
-const {
-  validateListAssetsInFolder,
-} = require("./list_assets_in_folder/validator");
-const {
-  validateModifyUiLayout,
-} = require("./modify_ui_layout/validator");
-const {
-  validateSetComponentProperties,
-} = require("./set_component_properties/validator");
-const {
-  validateGetCurrentSelection,
-} = require("./get_current_selection/validator");
-const {
-  validateGetGameobjectComponents,
-} = require("./get_gameobject_components/validator");
-const {
-  validateGetHierarchySubtree,
-} = require("./get_hierarchy_subtree/validator");
-const {
-  validateGetSceneSnapshotForWrite,
-} = require("./get_scene_snapshot_for_write/validator");
-const { validateGetSceneRoots } = require("./get_scene_roots/validator");
-const {
-  validateFindObjectsByComponent,
-} = require("./find_objects_by_component/validator");
-const { validateQueryPrefabInfo } = require("./query_prefab_info/validator");
-const {
-  validateCaptureSceneScreenshot,
-} = require("./capture_scene_screenshot/validator");
-const {
-  validateGetUiOverlayReport,
-} = require("./get_ui_overlay_report/validator");
-const { validateGetUiTree } = require("./get_ui_tree/validator");
-const {
-  validateGetSerializedPropertyTree,
-} = require("./get_serialized_property_tree/validator");
-const {
-  validateHitTestUiAtViewportPoint,
-} = require("./hit_test_ui_at_viewport_point/validator");
-const { validateUiLayout } = require("./validate_ui_layout/validator");
-const {
-  validateApplyVisualActions,
-} = require("./apply_visual_actions/validator");
-const {
-  validateSetUiProperties,
-} = require("./set_ui_properties/validator");
-const {
-  validateAddComponent,
-} = require("./add_component/validator");
-const {
-  validateRemoveComponent,
-} = require("./remove_component/validator");
-const {
-  validateDuplicateObject,
-} = require("./duplicate_object/validator");
-const {
-  validateReplaceComponent,
-} = require("./replace_component/validator");
-const {
-  validateSetLocalPosition,
-} = require("./set_local_position/validator");
-const {
-  validateSetLocalRotation,
-} = require("./set_local_rotation/validator");
-const {
-  validateSetLocalScale,
-} = require("./set_local_scale/validator");
-const {
-  validateSetWorldPosition,
-} = require("./set_world_position/validator");
-const {
-  validateSetWorldRotation,
-} = require("./set_world_rotation/validator");
-const {
-  validateResetTransform,
-} = require("./reset_transform/validator");
-const {
-  validateSetRectAnchoredPosition,
-} = require("./set_rect_anchored_position/validator");
-const {
-  validateSetRectSizeDelta,
-} = require("./set_rect_size_delta/validator");
-const {
-  validateSetRectPivot,
-} = require("./set_rect_pivot/validator");
-const {
-  validateSetRectAnchors,
-} = require("./set_rect_anchors/validator");
-const {
-  validateSetCanvasGroupAlpha,
-} = require("./set_canvas_group_alpha/validator");
-const {
-  validateSetLayoutElement,
-} = require("./set_layout_element/validator");
-const {
-  validateSetUiImageColor,
-} = require("./set_ui_image_color/validator");
-const {
-  validateSetUiImageRaycastTarget,
-} = require("./set_ui_image_raycast_target/validator");
-const {
-  validateSetUiTextContent,
-} = require("./set_ui_text_content/validator");
-const {
-  validateSetUiTextColor,
-} = require("./set_ui_text_color/validator");
-const {
-  validateSetUiTextFontSize,
-} = require("./set_ui_text_font_size/validator");
-const {
-  validateExecuteUnityTransaction,
-} = require("./execute_unity_transaction/validator");
-const {
-  validateCreateObject,
-} = require("./create_object/validator");
-const {
-  validateDeleteObject,
-} = require("./delete_object/validator");
-const {
-  validateRenameObject,
-} = require("./rename_object/validator");
-const {
-  validateSetActive,
-} = require("./set_active/validator");
-const {
-  validateSetParent,
-} = require("./set_parent/validator");
-const {
-  validateSetSiblingIndex,
-} = require("./set_sibling_index/validator");
-const {
-  validateSetSerializedProperty,
-} = require("./set_serialized_property/validator");
-const {
-  validateHitTestUiAtScreenPoint,
-} = require("./hit_test_ui_at_screen_point/validator");
-const {
-  validateGetUnityTaskStatus,
-} = require("./get_unity_task_status/validator");
-const {
-  validateCancelUnityTask,
-} = require("./cancel_unity_task/validator");
-const {
-  validateSubmitUnityTask,
-} = require("./submit_unity_task/validator");
-const {
-  validateApplyScriptActions,
-} = require("./apply_script_actions/validator");
+  getValidatorRegistrySingleton,
+} = require("../../application/ssotRuntime/validatorRegistry");
+
+const SSOT_TOOL_CATALOG_ARTIFACT_PATH = path.resolve(
+  __dirname,
+  "../../../../ssot/artifacts/l2/mcp-tools.generated.json"
+);
+const SIDECAR_COMMAND_MANIFEST_ARTIFACT_PATH = path.resolve(
+  __dirname,
+  "../../../../ssot/artifacts/l2/sidecar-command-manifest.generated.json"
+);
+
+const REMOVED_TOOL_NAMES = new Set(["instantiate_prefab"]);
+const DISPATCH_MODES = new Set(["ssot_query", "local_static"]);
+const LOCAL_STATIC_TOOL_METHODS = Object.freeze({
+  get_action_catalog: "getActionCatalogForMcp",
+  get_action_schema: "getActionSchemaForMcp",
+  get_tool_schema: "getToolSchemaForMcp",
+  get_write_contract_bundle: "getWriteContractBundleForMcp",
+  preflight_validate_write_payload: "preflightValidateWritePayloadForMcp",
+  setup_cursor_mcp: "setupCursorMcpForMcp",
+  verify_mcp_setup: "verifyMcpSetupForMcp",
+});
+
+let ssotToolCatalogCache = null;
+let sidecarCommandManifestCache = null;
+let validatorRegistryCache = null;
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-let ssotToolCatalogCache = null;
+function normalizeString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeHttpMethod(value) {
+  return normalizeString(value).toUpperCase();
+}
+
+function summarizeValidationErrors(errors) {
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return "Request schema invalid.";
+  }
+  const first = errors[0] && typeof errors[0] === "object" ? errors[0] : {};
+  const instancePath =
+    typeof first.instancePath === "string" && first.instancePath.trim()
+      ? first.instancePath.trim()
+      : "/";
+  const message =
+    typeof first.message === "string" && first.message.trim()
+      ? first.message.trim()
+      : "invalid value";
+  return `Request schema invalid at ${instancePath}: ${message}`;
+}
 
 function loadSsotToolCatalog() {
   if (ssotToolCatalogCache) {
     return ssotToolCatalogCache;
   }
 
-  const artifactPath = path.resolve(
-    __dirname,
-    "../../../../ssot/artifacts/l2/mcp-tools.generated.json",
-  );
-  const raw = fs.readFileSync(artifactPath, "utf8");
+  const raw = fs.readFileSync(SSOT_TOOL_CATALOG_ARTIFACT_PATH, "utf8");
   const parsed = JSON.parse(raw);
-
   const tools = Array.isArray(parsed && parsed.tools) ? parsed.tools : [];
   if (tools.length === 0) {
     throw new Error(
-      `SSOT tool catalog is empty or invalid at ${artifactPath}; refusing legacy fallback`
+      `SSOT tool catalog is empty or invalid at ${SSOT_TOOL_CATALOG_ARTIFACT_PATH}`
     );
   }
+
   const byName = new Map();
   for (const item of tools) {
-    if (!item || typeof item !== "object") {
-      continue;
-    }
-    const toolName =
-      typeof item.name === "string" && item.name.trim() ? item.name.trim() : "";
+    const toolName = normalizeString(item && item.name);
     if (!toolName) {
       continue;
     }
@@ -210,146 +87,179 @@ function loadSsotToolCatalog() {
   return ssotToolCatalogCache;
 }
 
-function getSsotInputSchemaForTool(toolName) {
-  const normalizedToolName =
-    typeof toolName === "string" ? toolName.trim() : "";
-  if (!normalizedToolName) {
-    throw new Error("SSOT tool name is required to resolve input schema");
+function loadSidecarCommandManifest() {
+  if (sidecarCommandManifestCache) {
+    return sidecarCommandManifestCache;
   }
 
-  const catalog = loadSsotToolCatalog();
-  const match = catalog.byName.get(normalizedToolName);
-  if (!match || !match.inputSchema || typeof match.inputSchema !== "object") {
+  const raw = fs.readFileSync(SIDECAR_COMMAND_MANIFEST_ARTIFACT_PATH, "utf8");
+  const parsed = JSON.parse(raw);
+  const commands = Array.isArray(parsed && parsed.commands)
+    ? parsed.commands
+    : [];
+  if (commands.length === 0) {
     throw new Error(
-      `Missing SSOT input schema for tool '${normalizedToolName}' in compiled catalog`
+      `SSOT sidecar command manifest is empty or invalid at ${SIDECAR_COMMAND_MANIFEST_ARTIFACT_PATH}`
     );
   }
 
-  return cloneJson(match.inputSchema);
+  sidecarCommandManifestCache = {
+    version: parsed && parsed.version,
+    commands,
+  };
+  return sidecarCommandManifestCache;
 }
 
-function getSsotToolDescriptionForTool(toolName, fallbackDescription) {
-  const normalizedToolName =
-    typeof toolName === "string" ? toolName.trim() : "";
-  if (!normalizedToolName) {
-    throw new Error("SSOT tool name is required to resolve description");
+function getValidatorRegistry() {
+  if (!validatorRegistryCache) {
+    validatorRegistryCache = getValidatorRegistrySingleton();
   }
-
-  const catalog = loadSsotToolCatalog();
-  const match = catalog.byName.get(normalizedToolName);
-  if (
-    !match ||
-    typeof match.description !== "string" ||
-    !match.description.trim()
-  ) {
-    throw new Error(
-      `Missing SSOT description for tool '${normalizedToolName}' in compiled catalog`
-    );
-  }
-
-  return match.description.trim();
+  return validatorRegistryCache;
 }
 
-function getSsotToolLifecycleForTool(toolName, fallbackLifecycle) {
-  const normalizedToolName =
-    typeof toolName === "string" ? toolName.trim() : "";
-  if (!normalizedToolName) {
-    throw new Error("SSOT tool name is required to resolve lifecycle");
-  }
+function createToolValidator(toolName) {
+  const normalizedToolName = normalizeString(toolName);
+  return function validateToolPayload(body) {
+    const payload =
+      body && typeof body === "object" && !Array.isArray(body) ? body : {};
 
-  const catalog = loadSsotToolCatalog();
-  const match = catalog.byName.get(normalizedToolName);
-  if (!match || typeof match.lifecycle !== "string" || !match.lifecycle.trim()) {
-    if (typeof fallbackLifecycle === "string" && fallbackLifecycle.trim()) {
-      return fallbackLifecycle.trim().toLowerCase();
+    let registry = null;
+    try {
+      registry = getValidatorRegistry();
+    } catch (error) {
+      return {
+        ok: false,
+        errorCode: "E_SSOT_SCHEMA_UNAVAILABLE",
+        message:
+          error && typeof error.message === "string" && error.message.trim()
+            ? error.message.trim()
+            : "SSOT compiled schema registry is unavailable.",
+        statusCode: 500,
+      };
     }
-    throw new Error(
-      `Missing SSOT lifecycle for tool '${normalizedToolName}' in compiled catalog`
-    );
-  }
 
-  return match.lifecycle.trim().toLowerCase();
+    const validation = registry.validateToolInput(normalizedToolName, payload);
+    if (validation && validation.ok === true) {
+      return {
+        ok: true,
+        value:
+          validation.value && typeof validation.value === "object"
+            ? validation.value
+            : payload,
+      };
+    }
+
+    return {
+      ok: false,
+      errorCode: "E_SSOT_SCHEMA_INVALID",
+      message: summarizeValidationErrors(validation && validation.errors),
+      statusCode: 400,
+      details:
+        validation && Array.isArray(validation.errors) ? validation.errors : [],
+    };
+  };
 }
 
-const definitionBuilders = require("./definitions");
+function buildCommandDefinition(commandRecord, toolCatalog) {
+  const source = commandRecord && typeof commandRecord === "object" ? commandRecord : {};
+  const toolName = normalizeString(source.name);
+  if (!toolName || REMOVED_TOOL_NAMES.has(toolName)) {
+    return null;
+  }
 
-const COMMAND_DEFINITION_DEPS = Object.freeze({
-  validateGetActionCatalog,
-  validateGetActionSchema,
-  validateGetToolSchema,
-  validateGetWriteContractBundle,
-  validatePreflightValidateWritePayload,
-  validateSetupCursorMcp,
-  validateVerifyMcpSetup,
-  validateListAssetsInFolder,
-  validateModifyUiLayout,
-  validateSetComponentProperties,
-  validateGetSceneSnapshotForWrite,
-  validateGetSceneRoots,
-  validateFindObjectsByComponent,
-  validateQueryPrefabInfo,
-  validateCaptureSceneScreenshot,
-  validateGetUiOverlayReport,
-  validateGetUiTree,
-  validateGetSerializedPropertyTree,
-  validateHitTestUiAtViewportPoint,
-  validateUiLayout,
-  validateApplyVisualActions,
-  validateSetUiProperties,
-  validateAddComponent,
-  validateRemoveComponent,
-  validateDuplicateObject,
-  validateReplaceComponent,
-  validateSetLocalPosition,
-  validateSetLocalRotation,
-  validateSetLocalScale,
-  validateSetWorldPosition,
-  validateSetWorldRotation,
-  validateResetTransform,
-  validateSetRectAnchoredPosition,
-  validateSetRectSizeDelta,
-  validateSetRectPivot,
-  validateSetRectAnchors,
-  validateSetCanvasGroupAlpha,
-  validateSetLayoutElement,
-  validateSetUiImageColor,
-  validateSetUiImageRaycastTarget,
-  validateSetUiTextContent,
-  validateSetUiTextColor,
-  validateSetUiTextFontSize,
-  validateExecuteUnityTransaction,
-  validateCreateObject,
-  validateDeleteObject,
-  validateRenameObject,
-  validateSetActive,
-  validateSetParent,
-  validateSetSiblingIndex,
-  validateGetCurrentSelection,
-  validateGetGameobjectComponents,
-  validateGetHierarchySubtree,
-  validateCancelUnityTask,
-  validateSubmitUnityTask,
-  validateApplyScriptActions,
-  validateSetSerializedProperty,
-  validateHitTestUiAtScreenPoint,
-  validateGetUnityTaskStatus,
-  getSsotInputSchemaForTool,
-  getSsotToolDescriptionForTool,
-  getSsotToolLifecycleForTool,
-});
+  const catalogRecord =
+    toolCatalog && toolCatalog.byName instanceof Map
+      ? toolCatalog.byName.get(toolName)
+      : null;
+  if (!catalogRecord) {
+    throw new Error(`Missing SSOT tool catalog record for '${toolName}'`);
+  }
 
-const MCP_COMMAND_DEFINITIONS = Object.freeze(
-  definitionBuilders.map((buildDefinition) => {
-    const definition = buildDefinition(COMMAND_DEFINITION_DEPS);
-    return Object.freeze({
-      ...definition,
-      lifecycle: getSsotToolLifecycleForTool(
-        definition && definition.name,
-        definition && definition.lifecycle
-      ),
-    });
-  })
-);
+  const dispatchMode = normalizeString(source.dispatch_mode).toLowerCase() || "ssot_query";
+  if (!DISPATCH_MODES.has(dispatchMode)) {
+    throw new Error(`Unsupported dispatch_mode '${dispatchMode}' for tool '${toolName}'`);
+  }
+
+  const httpSource = source.http && typeof source.http === "object" ? source.http : {};
+  const httpMethod = normalizeHttpMethod(httpSource.method) || "POST";
+  const httpPath = normalizeString(httpSource.path) || `/mcp/${toolName}`;
+  const inputSchema =
+    catalogRecord &&
+    catalogRecord.inputSchema &&
+    typeof catalogRecord.inputSchema === "object"
+      ? cloneJson(catalogRecord.inputSchema)
+      : {
+          type: "object",
+          additionalProperties: false,
+          properties: {},
+        };
+
+  const http = {
+    method: httpMethod,
+    path: httpPath,
+    source: normalizeString(httpSource.source) || "body",
+  };
+  if (http.source === "query") {
+    const queryKey = normalizeString(httpSource.queryKey);
+    if (!queryKey) {
+      throw new Error(`Query source command '${toolName}' requires http.queryKey`);
+    }
+    http.queryKey = queryKey;
+  }
+
+  const definition = {
+    name: toolName,
+    kind:
+      normalizeString(source.kind) ||
+      normalizeString(catalogRecord.kind) ||
+      "write",
+    lifecycle:
+      normalizeString(source.lifecycle) ||
+      normalizeString(catalogRecord.lifecycle) ||
+      "stable",
+    dispatch_mode: dispatchMode,
+    http,
+    validate: createToolValidator(toolName),
+    mcp: {
+      expose: true,
+      description: normalizeString(catalogRecord.description),
+      inputSchema,
+    },
+  };
+
+  if (dispatchMode === "local_static") {
+    const methodName = LOCAL_STATIC_TOOL_METHODS[toolName] || "";
+    if (!methodName) {
+      throw new Error(`local_static tool '${toolName}' is missing turnService method mapping`);
+    }
+    definition.turnServiceMethod = methodName;
+  }
+
+  return Object.freeze(definition);
+}
+
+function buildCommandDefinitions() {
+  const sidecarManifest = loadSidecarCommandManifest();
+  const toolCatalog = loadSsotToolCatalog();
+  const commands = Array.isArray(sidecarManifest.commands)
+    ? sidecarManifest.commands
+    : [];
+
+  const definitions = [];
+  for (const commandRecord of commands) {
+    const definition = buildCommandDefinition(commandRecord, toolCatalog);
+    if (definition) {
+      definitions.push(definition);
+    }
+  }
+
+  if (definitions.length === 0) {
+    throw new Error("No command definitions were materialized from SSOT artifacts");
+  }
+  return Object.freeze(definitions);
+}
+
+const MCP_COMMAND_DEFINITIONS = buildCommandDefinitions();
 
 module.exports = {
   MCP_COMMAND_DEFINITIONS,

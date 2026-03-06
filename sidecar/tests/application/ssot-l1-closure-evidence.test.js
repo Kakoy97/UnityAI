@@ -18,6 +18,10 @@ function readJsonAbsolute(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
+function readTextAbsolute(filePath) {
+  return fs.readFileSync(filePath, "utf8");
+}
+
 function loadL1Sources() {
   const workspaceRoot = path.resolve(__dirname, "../../..");
   const dictionaryPath = path.resolve(workspaceRoot, "ssot/dictionary/tools.json");
@@ -25,18 +29,44 @@ function loadL1Sources() {
     workspaceRoot,
     "ssot/artifacts/l2/mcp-tools.generated.json"
   );
+  const sidecarManifestPath = path.resolve(
+    workspaceRoot,
+    "ssot/artifacts/l2/sidecar-command-manifest.generated.json"
+  );
+  const visibilityPolicyPath = path.resolve(
+    workspaceRoot,
+    "ssot/artifacts/l2/visibility-policy.generated.json"
+  );
+  const l3RouterBindingsPath = path.resolve(
+    workspaceRoot,
+    "ssot/artifacts/l3/SsotBindings.generated.cs"
+  );
+  const l3DispatchBindingsPath = path.resolve(
+    workspaceRoot,
+    "ssot/artifacts/l3/SsotDispatchBindings.generated.cs"
+  );
   const dictionary = readJsonAbsolute(dictionaryPath);
   const artifacts = readJsonAbsolute(artifactsPath);
+  const sidecarManifest = readJsonAbsolute(sidecarManifestPath);
+  const visibilityPolicy = readJsonAbsolute(visibilityPolicyPath);
+  const l3RouterBindings = readTextAbsolute(l3RouterBindingsPath);
+  const l3DispatchBindings = readTextAbsolute(l3DispatchBindingsPath);
   return {
     dictionary,
     artifacts,
+    sidecarManifest,
+    visibilityPolicy,
+    l3RouterBindings,
+    l3DispatchBindings,
   };
 }
 
-test("L1 closure: active tool names are consistent across dictionary/artifacts/tools-list", () => {
+test("L1 closure: active tool names are consistent across dictionary/artifacts/tools-list", async () => {
   const { dictionary, artifacts } = loadL1Sources();
   const registry = getMcpCommandRegistry();
-  const toolsList = registry.getToolsListCache({});
+  const server = Object.create(UnityMcpServer.prototype);
+  server.commandRegistry = registry;
+  const toolsList = await server.getToolDefinitions();
   const toolsListByName = new Map(
     toolsList.map((item) => [String(item && item.name || ""), item])
   );
@@ -88,8 +118,11 @@ test("L1 closure: active tool names are consistent across dictionary/artifacts/t
 test("L1 closure: deprecated tool status is externally trackable and blocked", async () => {
   const { dictionary, artifacts } = loadL1Sources();
   const registry = getMcpCommandRegistry();
+  const server = Object.create(UnityMcpServer.prototype);
+  server.commandRegistry = registry;
+  const visibleToolsList = await server.getToolDefinitions();
   const toolsListNames = new Set(
-    registry.getToolsListCache({}).map((item) => String(item && item.name || "").trim())
+    visibleToolsList.map((item) => String(item && item.name || "").trim())
   );
   const deprecatedToolNames = Array.isArray(
     ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names
@@ -147,11 +180,11 @@ test("L1 closure: deprecated tool status is externally trackable and blocked", a
     "deprecated"
   );
 
-  const server = Object.create(UnityMcpServer.prototype);
-  server.commandRegistry = registry;
+  const mcpServer = Object.create(UnityMcpServer.prototype);
+  mcpServer.commandRegistry = registry;
   await assert.rejects(
     async () =>
-      server.callTool({
+      mcpServer.callTool({
         name: "instantiate_prefab",
         arguments: {},
       }),
@@ -187,9 +220,11 @@ test("L1 closure: active tools have reusable examples in SSOT artifacts", () => 
   }
 });
 
-test("L1 closure: tools/list full schema payload stays within token budget guard", () => {
+test("L1 closure: tools/list full schema payload stays within token budget guard", async () => {
   const registry = getMcpCommandRegistry();
-  const tools = registry.getToolsListCache({});
+  const server = Object.create(UnityMcpServer.prototype);
+  server.commandRegistry = registry;
+  const tools = await server.getToolDefinitions();
   const payloadText = JSON.stringify({ tools });
   const bytes = Buffer.byteLength(payloadText, "utf8");
 
@@ -211,3 +246,172 @@ test("L1 closure: tools/list full schema payload stays within token budget guard
   }
 });
 
+test("L1 closure: sidecar command manifest keeps transport + dispatch contracts", () => {
+  const { dictionary, sidecarManifest } = loadL1Sources();
+  const dictionaryNames = new Set(
+    (Array.isArray(dictionary.tools) ? dictionary.tools : []).map((item) =>
+      String(item && item.name || "").trim()
+    )
+  );
+  const commands = Array.isArray(sidecarManifest && sidecarManifest.commands)
+    ? sidecarManifest.commands
+    : [];
+  assert.ok(commands.length > 0, "sidecar command manifest should not be empty");
+
+  const byName = new Map();
+  for (const command of commands) {
+    const name = String(command && command.name || "").trim();
+    if (!name) {
+      continue;
+    }
+    byName.set(name, command);
+    assert.equal(dictionaryNames.has(name), true, `manifest command missing in dictionary: ${name}`);
+    assert.equal(
+      ["ssot_query", "local_static"].includes(String(command.dispatch_mode || "")),
+      true,
+      `invalid dispatch_mode for ${name}`
+    );
+    assert.equal(
+      String(command.http && command.http.path || ""),
+      `/mcp/${name}`,
+      `http.path drift for ${name}`
+    );
+
+    if (name === "get_unity_task_status") {
+      assert.equal(String(command.http && command.http.method || ""), "GET");
+      assert.equal(String(command.http && command.http.source || ""), "query");
+      assert.equal(String(command.http && command.http.queryKey || ""), "job_id");
+    } else {
+      assert.equal(String(command.http && command.http.method || ""), "POST");
+      assert.equal(String(command.http && command.http.source || ""), "body");
+      assert.equal(
+        Object.prototype.hasOwnProperty.call(command.http || {}, "queryKey"),
+        false,
+        `${name} should not define queryKey`
+      );
+    }
+  }
+
+  for (const toolName of dictionaryNames) {
+    assert.equal(byName.has(toolName), true, `dictionary tool missing in sidecar manifest: ${toolName}`);
+  }
+
+  const localStaticNames = new Set([
+    "get_action_catalog",
+    "get_action_schema",
+    "get_tool_schema",
+    "get_write_contract_bundle",
+    "preflight_validate_write_payload",
+    "setup_cursor_mcp",
+    "verify_mcp_setup",
+  ]);
+  for (const [name, command] of byName.entries()) {
+    const expectedMode = localStaticNames.has(name) ? "local_static" : "ssot_query";
+    assert.equal(
+      String(command.dispatch_mode || ""),
+      expectedMode,
+      `dispatch_mode drift for ${name}`
+    );
+  }
+});
+
+test("L1 closure: visibility policy artifact stays consistent with dictionary + sidecar manifest", () => {
+  const { dictionary, sidecarManifest, visibilityPolicy } = loadL1Sources();
+  const toolList = Array.isArray(dictionary && dictionary.tools)
+    ? dictionary.tools
+    : [];
+  const manifestCommands = Array.isArray(sidecarManifest && sidecarManifest.commands)
+    ? sidecarManifest.commands
+    : [];
+
+  const dictionaryDeprecatedNames = toolList
+    .filter((tool) => {
+      const lifecycle = String(tool && tool.lifecycle || "").toLowerCase();
+      return lifecycle === "deprecated" || lifecycle === "retired";
+    })
+    .map((tool) => String(tool && tool.name || "").trim())
+    .filter((name) => !!name);
+  const dictionaryRemovedNames = Array.isArray(
+    dictionary && dictionary._definitions && dictionary._definitions.removed_tool_names
+  )
+    ? dictionary._definitions.removed_tool_names
+        .map((item) => String(item || "").trim())
+        .filter((name) => !!name)
+    : [];
+  const manifestExposedNames = manifestCommands
+    .map((command) => String(command && command.name || "").trim())
+    .filter((name) => !!name);
+  const manifestLocalStaticNames = manifestCommands
+    .filter(
+      (command) => String(command && command.dispatch_mode || "").toLowerCase() === "local_static"
+    )
+    .map((command) => String(command && command.name || "").trim())
+    .filter((name) => !!name);
+
+  assert.equal(Array.isArray(visibilityPolicy.active_tool_names), true);
+  assert.equal(Array.isArray(visibilityPolicy.deprecated_tool_names), true);
+  assert.equal(Array.isArray(visibilityPolicy.removed_tool_names), true);
+  assert.equal(Array.isArray(visibilityPolicy.exposed_tool_names), true);
+  assert.equal(Array.isArray(visibilityPolicy.local_static_tool_names), true);
+
+  const uniqueSorted = (items) => Array.from(new Set(items)).sort();
+  assert.deepEqual(
+    uniqueSorted(visibilityPolicy.exposed_tool_names),
+    uniqueSorted(manifestExposedNames),
+    "visibility exposed_tool_names drifted from sidecar command manifest"
+  );
+  assert.deepEqual(
+    uniqueSorted(visibilityPolicy.local_static_tool_names),
+    uniqueSorted(manifestLocalStaticNames),
+    "visibility local_static_tool_names drifted from sidecar command manifest"
+  );
+  assert.deepEqual(
+    uniqueSorted(visibilityPolicy.deprecated_tool_names),
+    uniqueSorted(dictionaryDeprecatedNames),
+    "visibility deprecated_tool_names drifted from dictionary lifecycle"
+  );
+  assert.deepEqual(
+    uniqueSorted(visibilityPolicy.removed_tool_names),
+    uniqueSorted(dictionaryRemovedNames),
+    "visibility removed_tool_names drifted from dictionary _definitions.removed_tool_names"
+  );
+
+  const expectedActiveNames = uniqueSorted(
+    manifestExposedNames.filter(
+      (name) =>
+        !dictionaryDeprecatedNames.includes(name) &&
+        !dictionaryRemovedNames.includes(name)
+    )
+  );
+  assert.deepEqual(
+    uniqueSorted(visibilityPolicy.active_tool_names),
+    expectedActiveNames,
+    "visibility active_tool_names formula drift: exposed - deprecated - removed"
+  );
+});
+
+test("L1 closure: L3 dispatch bindings artifact stays in full sync with router tool coverage", () => {
+  const { l3RouterBindings, l3DispatchBindings } = loadL1Sources();
+  const routerToolClasses = Array.from(
+    l3RouterBindings.matchAll(/case\s+([A-Za-z0-9_]+)\.ToolName:/g),
+    (match) => match[1]
+  );
+  const dispatchToolClasses = Array.from(
+    l3DispatchBindings.matchAll(/bindings\[([A-Za-z0-9_]+)\.ToolName\]/g),
+    (match) => match[1]
+  );
+
+  assert.ok(routerToolClasses.length > 0, "router bindings should contain tool coverage");
+  assert.ok(
+    dispatchToolClasses.length > 0,
+    "dispatch bindings should contain tool coverage"
+  );
+
+  const routerUnique = Array.from(new Set(routerToolClasses)).sort();
+  const dispatchUnique = Array.from(new Set(dispatchToolClasses)).sort();
+  assert.deepEqual(
+    dispatchUnique,
+    routerUnique,
+    "L3 dispatch binding tool coverage drifted from router deserialization coverage"
+  );
+});

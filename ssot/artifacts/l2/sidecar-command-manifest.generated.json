@@ -1,0 +1,688 @@
+{
+  "version": 1,
+  "commands": [
+    {
+      "name": "modify_ui_layout",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/modify_ui_layout",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_component_properties",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_component_properties",
+        "source": "body"
+      }
+    },
+    {
+      "name": "add_component",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/add_component",
+        "source": "body"
+      }
+    },
+    {
+      "name": "remove_component",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/remove_component",
+        "source": "body"
+      }
+    },
+    {
+      "name": "replace_component",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/replace_component",
+        "source": "body"
+      }
+    },
+    {
+      "name": "create_object",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/create_object",
+        "source": "body"
+      }
+    },
+    {
+      "name": "instantiate_prefab",
+      "kind": "write",
+      "lifecycle": "deprecated",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/instantiate_prefab",
+        "source": "body"
+      }
+    },
+    {
+      "name": "delete_object",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/delete_object",
+        "source": "body"
+      }
+    },
+    {
+      "name": "rename_object",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/rename_object",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_active",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_active",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_parent",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_parent",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_sibling_index",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_sibling_index",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_local_position",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_local_position",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_local_rotation",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_local_rotation",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_local_scale",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_local_scale",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_world_position",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_world_position",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_world_rotation",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_world_rotation",
+        "source": "body"
+      }
+    },
+    {
+      "name": "reset_transform",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/reset_transform",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_rect_anchored_position",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_rect_anchored_position",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_rect_size_delta",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_rect_size_delta",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_rect_pivot",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_rect_pivot",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_rect_anchors",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_rect_anchors",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_canvas_group_alpha",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_canvas_group_alpha",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_layout_element",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_layout_element",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_ui_image_color",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_ui_image_color",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_ui_image_raycast_target",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_ui_image_raycast_target",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_ui_text_content",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_ui_text_content",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_ui_text_color",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_ui_text_color",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_ui_text_font_size",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_ui_text_font_size",
+        "source": "body"
+      }
+    },
+    {
+      "name": "execute_unity_transaction",
+      "kind": "write",
+      "lifecycle": "experimental",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/execute_unity_transaction",
+        "source": "body"
+      }
+    },
+    {
+      "name": "duplicate_object",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/duplicate_object",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_scene_snapshot_for_write",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_scene_snapshot_for_write",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_current_selection",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_current_selection",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_gameobject_components",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_gameobject_components",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_hierarchy_subtree",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_hierarchy_subtree",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_scene_roots",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_scene_roots",
+        "source": "body"
+      }
+    },
+    {
+      "name": "list_assets_in_folder",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/list_assets_in_folder",
+        "source": "body"
+      }
+    },
+    {
+      "name": "find_objects_by_component",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/find_objects_by_component",
+        "source": "body"
+      }
+    },
+    {
+      "name": "query_prefab_info",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/query_prefab_info",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_ui_tree",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_ui_tree",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_ui_overlay_report",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_ui_overlay_report",
+        "source": "body"
+      }
+    },
+    {
+      "name": "hit_test_ui_at_viewport_point",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/hit_test_ui_at_viewport_point",
+        "source": "body"
+      }
+    },
+    {
+      "name": "validate_ui_layout",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/validate_ui_layout",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_serialized_property_tree",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_serialized_property_tree",
+        "source": "body"
+      }
+    },
+    {
+      "name": "capture_scene_screenshot",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/capture_scene_screenshot",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_action_catalog",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "local_static",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_action_catalog",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_action_schema",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "local_static",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_action_schema",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_tool_schema",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "local_static",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_tool_schema",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_write_contract_bundle",
+      "kind": "read",
+      "lifecycle": "experimental",
+      "dispatch_mode": "local_static",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/get_write_contract_bundle",
+        "source": "body"
+      }
+    },
+    {
+      "name": "preflight_validate_write_payload",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "local_static",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/preflight_validate_write_payload",
+        "source": "body"
+      }
+    },
+    {
+      "name": "setup_cursor_mcp",
+      "kind": "read",
+      "lifecycle": "experimental",
+      "dispatch_mode": "local_static",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/setup_cursor_mcp",
+        "source": "body"
+      }
+    },
+    {
+      "name": "verify_mcp_setup",
+      "kind": "read",
+      "lifecycle": "experimental",
+      "dispatch_mode": "local_static",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/verify_mcp_setup",
+        "source": "body"
+      }
+    },
+    {
+      "name": "get_unity_task_status",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "GET",
+        "path": "/mcp/get_unity_task_status",
+        "source": "query",
+        "queryKey": "job_id"
+      }
+    },
+    {
+      "name": "cancel_unity_task",
+      "kind": "read",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/cancel_unity_task",
+        "source": "body"
+      }
+    },
+    {
+      "name": "submit_unity_task",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/submit_unity_task",
+        "source": "body"
+      }
+    },
+    {
+      "name": "apply_script_actions",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/apply_script_actions",
+        "source": "body"
+      }
+    },
+    {
+      "name": "apply_visual_actions",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/apply_visual_actions",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_ui_properties",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_ui_properties",
+        "source": "body"
+      }
+    },
+    {
+      "name": "set_serialized_property",
+      "kind": "write",
+      "lifecycle": "experimental",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/set_serialized_property",
+        "source": "body"
+      }
+    },
+    {
+      "name": "hit_test_ui_at_screen_point",
+      "kind": "read",
+      "lifecycle": "deprecated",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/hit_test_ui_at_screen_point",
+        "source": "body"
+      }
+    },
+    {
+      "name": "save_scene",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/save_scene",
+        "source": "body"
+      }
+    },
+    {
+      "name": "save_prefab",
+      "kind": "write",
+      "lifecycle": "stable",
+      "dispatch_mode": "ssot_query",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/save_prefab",
+        "source": "body"
+      }
+    }
+  ]
+}

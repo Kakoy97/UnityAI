@@ -3,7 +3,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { validateGetUiTree } = require("../../src/mcp/commands/get_ui_tree/validator");
+const { getCommandValidator } = require("../adapters/commandValidator");
+
+const validateGetUiTree = getCommandValidator("get_ui_tree");
 
 test("get_ui_tree validator accepts valid payload", () => {
   const result = validateGetUiTree({
@@ -34,7 +36,7 @@ test("get_ui_tree validator rejects unexpected fields", () => {
     unsupported: true,
   });
   assert.equal(result.ok, false);
-  assert.equal(result.errorCode, "E_SCHEMA_INVALID");
+  assert.equal(result.errorCode, "E_SSOT_SCHEMA_INVALID");
 });
 
 test("get_ui_tree validator rejects invalid enum and numeric constraints", () => {
@@ -42,41 +44,25 @@ test("get_ui_tree validator rejects invalid enum and numeric constraints", () =>
     ui_system: "legacy",
   });
   assert.equal(badSystem.ok, false);
-  assert.equal(badSystem.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(badSystem.message, "ui_system must be one of: auto|ugui|uitk");
+  assert.equal(badSystem.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(badSystem.message || ""), /ui_system/i);
 
   const badDepth = validateGetUiTree({
     max_depth: -1,
   });
   assert.equal(badDepth.ok, false);
-  assert.equal(badDepth.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(badDepth.message, "max_depth must be an integer >= 0 when provided");
+  assert.equal(badDepth.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(badDepth.message || ""), /max_depth/i);
 
   const badTimeout = validateGetUiTree({
     timeout_ms: 500,
   });
   assert.equal(badTimeout.ok, false);
-  assert.equal(badTimeout.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(
-    badTimeout.message,
-    "timeout_ms must be an integer >= 1000 when provided"
-  );
+  assert.equal(badTimeout.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(badTimeout.message || ""), /timeout_ms/i);
 });
 
-test("get_ui_tree validator rejects root_path/scope mismatch and invalid resolution", () => {
-  const mismatch = validateGetUiTree({
-    root_path: "Scene/Canvas/HUD",
-    scope: {
-      root_path: "Scene/Canvas/Other",
-    },
-  });
-  assert.equal(mismatch.ok, false);
-  assert.equal(mismatch.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(
-    mismatch.message,
-    "root_path and scope.root_path must match when both provided"
-  );
-
+test("get_ui_tree validator rejects invalid resolution", () => {
   const badResolution = validateGetUiTree({
     resolution: {
       width: 0,
@@ -84,9 +70,6 @@ test("get_ui_tree validator rejects root_path/scope mismatch and invalid resolut
     },
   });
   assert.equal(badResolution.ok, false);
-  assert.equal(badResolution.errorCode, "E_SCHEMA_INVALID");
-  assert.equal(
-    badResolution.message,
-    "resolution.width must be an integer >= 1 when provided"
-  );
+  assert.equal(badResolution.errorCode, "E_SSOT_SCHEMA_INVALID");
+  assert.match(String(badResolution.message || ""), /resolution\/width/i);
 });

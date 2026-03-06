@@ -13,7 +13,7 @@ function createService() {
     maintenanceIntervalMs: 60000,
   });
   turnStore.stopMaintenance();
-  return new TurnService({
+  const service = new TurnService({
     turnStore,
     nowIso,
     enableMcpAdapter: true,
@@ -27,6 +27,52 @@ function createService() {
       },
     },
   });
+  service.enqueueAndWaitForUnityQuery = async (options) => {
+    const source = options && typeof options === "object" ? options : {};
+    const payload =
+      source.payload && typeof source.payload === "object" ? source.payload : {};
+    const toolName =
+      typeof payload.tool_name === "string" ? payload.tool_name.trim() : "";
+    const payloadJson =
+      typeof payload.payload_json === "string" ? payload.payload_json : "{}";
+    const requestPayload = JSON.parse(payloadJson);
+
+    if (toolName !== "apply_visual_actions") {
+      return {
+        ok: false,
+        error_code: "E_SSOT_TOOL_UNSUPPORTED",
+        error_message: `Unsupported tool in visual anchor regression stub: ${toolName}`,
+      };
+    }
+
+    const actions = Array.isArray(requestPayload.actions)
+      ? requestPayload.actions
+      : [];
+    const hasCreateWithTargetAnchor = actions.some(
+      (item) =>
+        item &&
+        typeof item === "object" &&
+        item.type === "create_gameobject" &&
+        item.target_anchor &&
+        typeof item.target_anchor === "object"
+    );
+    if (hasCreateWithTargetAnchor) {
+      return {
+        ok: false,
+        error_code: "E_ACTION_SCHEMA_INVALID",
+        error_message:
+          "create_gameobject requires parent_anchor and must not provide target_anchor",
+      };
+    }
+
+    return {
+      ok: true,
+      data: {
+        scene_revision: "rev_anchor_test_1",
+      },
+    };
+  };
+  return service;
 }
 
 function seedSnapshot(service) {
@@ -77,13 +123,30 @@ function issueReadToken(service) {
   if (!snapshot || !snapshot.selection) {
     throw new Error("failed to get latest selection snapshot for read token");
   }
-  const issued = service.unitySnapshotService.issueReadTokenForSelection(snapshot, {
-    target_object_id: snapshot.selection.object_id || "",
-    target_object_path: snapshot.selection.target_object_path || "",
+  const revisionUpdate = service.ssotRevisionState.updateLatestKnownSceneRevision(
+    snapshot.scene_revision || "",
+    {
+      source_tool_name: "mcp-visual-anchor-regression",
+      source_query_type: "ssot.request",
+    }
+  );
+  if (!revisionUpdate || revisionUpdate.ok !== true) {
+    throw new Error("failed to prime ssot revision state for read token");
+  }
+
+  const issued = service.ssotTokenRegistry.issueToken({
+    scene_revision: snapshot.scene_revision || "",
+    scope_kind: "scene",
+    object_id: snapshot.selection.object_id || "",
+    path: snapshot.selection.target_object_path || "",
+    source_tool_name: "mcp-visual-anchor-regression",
   });
-  const token = issued && typeof issued.token === "string" ? issued.token : "";
+  const token =
+    issued && issued.ok === true && typeof issued.token === "string"
+      ? issued.token
+      : "";
   if (!token) {
-    throw new Error("issueReadTokenForSelection did not return token");
+    throw new Error("ssot token registry did not return token");
   }
   return token;
 }
@@ -94,8 +157,8 @@ function assertCase(name, condition, detail) {
   }
 }
 
-function runCaseObjectIdOnly(service, token) {
-  const outcome = service.applyVisualActionsForMcp({
+async function runCaseObjectIdOnly(service, token) {
+  const outcome = await service.dispatchSsotToolForMcp("apply_visual_actions", {
     based_on_read_token: token,
     write_anchor: {
       object_id: "go_root",
@@ -121,8 +184,8 @@ function runCaseObjectIdOnly(service, token) {
   );
 }
 
-function runCaseUnionMismatch(service, token) {
-  const outcome = service.applyVisualActionsForMcp({
+async function runCaseUnionMismatch(service, token) {
+  const outcome = await service.dispatchSsotToolForMcp("apply_visual_actions", {
     based_on_read_token: token,
     write_anchor: {
       object_id: "go_root",
@@ -151,13 +214,13 @@ function runCaseUnionMismatch(service, token) {
       : "";
   assertCase(
     "anchor_union_mismatch",
-    statusCode === 400 && errorCode === "E_ACTION_SCHEMA_INVALID",
-    `expected 400/E_ACTION_SCHEMA_INVALID, got ${statusCode}/${errorCode}`
+    statusCode === 409 && errorCode === "E_ACTION_SCHEMA_INVALID",
+    `expected 409/E_ACTION_SCHEMA_INVALID, got ${statusCode}/${errorCode}`
   );
 }
 
-function runCaseCreateByParentObjectId(service, token) {
-  const outcome = service.applyVisualActionsForMcp({
+async function runCaseCreateByParentObjectId(service, token) {
+  const outcome = await service.dispatchSsotToolForMcp("apply_visual_actions", {
     based_on_read_token: token,
     write_anchor: {
       object_id: "go_root",
@@ -183,18 +246,23 @@ function runCaseCreateByParentObjectId(service, token) {
   );
 }
 
-function main() {
+async function main() {
   const service = createService();
   seedSnapshot(service);
   const token = issueReadToken(service);
-  runCaseObjectIdOnly(service, token);
-  runCaseUnionMismatch(service, token);
-  runCaseCreateByParentObjectId(service, token);
+  await runCaseObjectIdOnly(service, token);
+  await runCaseUnionMismatch(service, token);
+  await runCaseCreateByParentObjectId(service, token);
   console.log("[mcp-visual-anchor] total=3 pass=3 fail=0");
 }
 
 try {
-  main();
+  Promise.resolve(main()).catch((err) => {
+    const message =
+      err && typeof err.message === "string" ? err.message : String(err);
+    console.error(`[mcp-visual-anchor] fail: ${message}`);
+    process.exitCode = 1;
+  });
 } catch (err) {
   const message =
     err && typeof err.message === "string" ? err.message : String(err);

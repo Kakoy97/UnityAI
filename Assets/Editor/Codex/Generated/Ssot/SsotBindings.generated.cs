@@ -170,6 +170,10 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
                     return TryDeserialize<SetSerializedPropertyRequestDto>(payloadJson, out requestDto, out errorMessage);
                 case HitTestUiAtScreenPointRequestDto.ToolName:
                     return TryDeserialize<HitTestUiAtScreenPointRequestDto>(payloadJson, out requestDto, out errorMessage);
+                case SaveSceneRequestDto.ToolName:
+                    return TryDeserialize<SaveSceneRequestDto>(payloadJson, out requestDto, out errorMessage);
+                case SavePrefabRequestDto.ToolName:
+                    return TryDeserialize<SavePrefabRequestDto>(payloadJson, out requestDto, out errorMessage);
                 default:
                     errorMessage = "Unsupported SSOT tool: " + toolName;
                     return false;
@@ -953,6 +957,32 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
             }
 
             requestDto = (HitTestUiAtScreenPointRequestDto)boxedRequest;
+            return true;
+        }
+
+        public static bool TryDeserializeSaveScene(string payloadJson, out SaveSceneRequestDto requestDto, out string errorMessage)
+        {
+            requestDto = null;
+            errorMessage = null;
+            if (!TryDeserialize<SaveSceneRequestDto>(payloadJson, out var boxedRequest, out errorMessage))
+            {
+                return false;
+            }
+
+            requestDto = (SaveSceneRequestDto)boxedRequest;
+            return true;
+        }
+
+        public static bool TryDeserializeSavePrefab(string payloadJson, out SavePrefabRequestDto requestDto, out string errorMessage)
+        {
+            requestDto = null;
+            errorMessage = null;
+            if (!TryDeserialize<SavePrefabRequestDto>(payloadJson, out var boxedRequest, out errorMessage))
+            {
+                return false;
+            }
+
+            requestDto = (SavePrefabRequestDto)boxedRequest;
             return true;
         }
 

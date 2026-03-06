@@ -18,7 +18,6 @@ const { URL } = require("url");
 const readline = require("readline");
 const { getMcpCommandRegistry } = require("./commandRegistry");
 const {
-  ROUTER_PROTOCOL_FREEZE_CONTRACT,
   MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
 } = require("../ports/contracts");
 
@@ -26,26 +25,33 @@ function normalizeToolName(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+const MCP_ACTIVE_TOOL_NAMES = Object.freeze(
+  MCP_TOOL_VISIBILITY_FREEZE_CONTRACT &&
+    Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.active_tool_names)
+    ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.active_tool_names
+        .map((item) => normalizeToolName(item))
+        .filter((item) => !!item)
+    : []
+);
+const MCP_ACTIVE_TOOL_NAME_SET = new Set(MCP_ACTIVE_TOOL_NAMES);
 const MCP_DEPRECATED_TOOL_NAMES = Object.freeze(
-  ROUTER_PROTOCOL_FREEZE_CONTRACT &&
-    Array.isArray(ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names)
-    ? ROUTER_PROTOCOL_FREEZE_CONTRACT.deprecated_mcp_tool_names
+  MCP_TOOL_VISIBILITY_FREEZE_CONTRACT &&
+    Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.deprecated_tool_names)
+    ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.deprecated_tool_names
         .map((item) => normalizeToolName(item))
         .filter((item) => !!item)
     : []
 );
 const MCP_DEPRECATED_TOOL_NAME_SET = new Set(MCP_DEPRECATED_TOOL_NAMES);
-const MCP_SECURITY_ALLOWLIST_TOOL_NAMES = Object.freeze(
+const MCP_REMOVED_TOOL_NAMES = Object.freeze(
   MCP_TOOL_VISIBILITY_FREEZE_CONTRACT &&
-    Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.security_allowlist)
-    ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.security_allowlist
+    Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.removed_tool_names)
+    ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.removed_tool_names
         .map((item) => normalizeToolName(item))
         .filter((item) => !!item)
     : []
 );
-const MCP_SECURITY_ALLOWLIST_TOOL_NAME_SET = new Set(
-  MCP_SECURITY_ALLOWLIST_TOOL_NAMES
-);
+const MCP_REMOVED_TOOL_NAME_SET = new Set(MCP_REMOVED_TOOL_NAMES);
 const MCP_DISABLED_TOOL_NAMES = Object.freeze(
   MCP_TOOL_VISIBILITY_FREEZE_CONTRACT &&
     Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.disabled_tools)
@@ -56,21 +62,32 @@ const MCP_DISABLED_TOOL_NAMES = Object.freeze(
 );
 const MCP_DISABLED_TOOL_NAME_SET = new Set(MCP_DISABLED_TOOL_NAMES);
 
+function isToolLifecycleBlocked(name) {
+  const normalized = normalizeToolName(name);
+  if (!normalized) {
+    return false;
+  }
+  return (
+    MCP_DEPRECATED_TOOL_NAME_SET.has(normalized) ||
+    MCP_REMOVED_TOOL_NAME_SET.has(normalized)
+  );
+}
+
 function isToolAllowedByVisibilityContract(name) {
   const normalized = normalizeToolName(name);
   if (!normalized) {
     return false;
   }
-  if (MCP_DEPRECATED_TOOL_NAME_SET.has(normalized)) {
+  if (isToolLifecycleBlocked(normalized)) {
     return false;
   }
-  if (
-    MCP_SECURITY_ALLOWLIST_TOOL_NAME_SET.size > 0 &&
-    !MCP_SECURITY_ALLOWLIST_TOOL_NAME_SET.has(normalized)
-  ) {
+  if (MCP_DISABLED_TOOL_NAME_SET.has(normalized)) {
     return false;
   }
-  return !MCP_DISABLED_TOOL_NAME_SET.has(normalized);
+  if (MCP_ACTIVE_TOOL_NAME_SET.size <= 0) {
+    return false;
+  }
+  return MCP_ACTIVE_TOOL_NAME_SET.has(normalized);
 }
 
 class UnityMcpServer {
@@ -258,7 +275,7 @@ class UnityMcpServer {
   async callTool(params) {
     const { name, arguments: args } = params || {};
     const normalizedName = normalizeToolName(name);
-    if (MCP_DEPRECATED_TOOL_NAME_SET.has(normalizedName)) {
+    if (isToolLifecycleBlocked(normalizedName)) {
       throw new Error(`Tool removed in phase6: ${normalizedName}`);
     }
     if (!this.isToolVisibleByPolicy(normalizedName)) {

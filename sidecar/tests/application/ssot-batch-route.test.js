@@ -11,18 +11,83 @@ const {
   getWriteContractBundleView,
 } = require("../../src/application/ssotRuntime/staticContractViews");
 
+function normalizeToolKey(value) {
+  return String(value || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+}
+
+function deriveToolKeyFromMethod(methodName) {
+  let base = String(methodName || "").trim();
+  if (!base.endsWith("ForMcp")) {
+    return "";
+  }
+  base = base.slice(0, -"ForMcp".length);
+  if (base.endsWith("Ssot")) {
+    base = base.slice(0, -"Ssot".length);
+  }
+  return normalizeToolKey(base);
+}
+
+function ensureTurnServiceHasSsotDispatcher(turnService) {
+  const source = turnService && typeof turnService === "object" ? turnService : {};
+  if (typeof source.dispatchSsotToolForMcp === "function") {
+    return source;
+  }
+
+  const methodByToolKey = new Map();
+  for (const key of Object.keys(source)) {
+    if (typeof source[key] !== "function") {
+      continue;
+    }
+    const toolKey = deriveToolKeyFromMethod(key);
+    if (!toolKey) {
+      continue;
+    }
+    methodByToolKey.set(toolKey, key);
+  }
+
+  return {
+    ...source,
+    async dispatchSsotToolForMcp(toolName, payload) {
+      const methodName = methodByToolKey.get(normalizeToolKey(toolName));
+      const handler =
+        methodName && typeof source[methodName] === "function"
+          ? source[methodName]
+          : null;
+      if (!handler) {
+        return {
+          statusCode: 500,
+          body: {
+            error_code: "E_INTERNAL",
+            message: `turnService handler not found for command: ${toolName}`,
+          },
+        };
+      }
+
+      const body =
+        payload && typeof payload === "object" && !Array.isArray(payload)
+          ? payload
+          : {};
+      const args =
+        methodName === "getUnityTaskStatusForMcp" ? body.job_id : body;
+      return Promise.resolve(handler.call(source, args));
+    },
+  };
+}
+
 async function dispatchBodyCommand(registry, path, body, turnService) {
+  const adaptedTurnService = ensureTurnServiceHasSsotDispatcher(turnService);
   return registry.dispatchHttpCommand({
     method: "POST",
     path,
     url: new URL(`http://127.0.0.1:46321${path}`),
     req: {},
     readJsonBody: async () => body,
-    turnService,
+    turnService: adaptedTurnService,
   });
 }
 
 async function dispatchQueryCommand(registry, path, query, turnService) {
+  const adaptedTurnService = ensureTurnServiceHasSsotDispatcher(turnService);
   const url = new URL(`http://127.0.0.1:46321${path}`);
   const source = query && typeof query === "object" ? query : {};
   for (const [key, value] of Object.entries(source)) {
@@ -37,7 +102,7 @@ async function dispatchQueryCommand(registry, path, query, turnService) {
     url,
     req: {},
     readJsonBody: async () => ({}),
-    turnService,
+    turnService: adaptedTurnService,
   });
 }
 

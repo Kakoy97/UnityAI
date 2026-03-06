@@ -57,13 +57,21 @@ function validateCommandDefinitionContract(command) {
     throw new Error("Invalid MCP command definition: definition must be an object");
   }
   const name = normalizeName(command.name) || "<unknown>";
-  const turnServiceMethod =
-    typeof command.turnServiceMethod === "string"
-      ? command.turnServiceMethod.trim()
-      : "";
-  if (!turnServiceMethod) {
+  const dispatchMode = normalizeName(command.dispatch_mode).toLowerCase();
+  if (dispatchMode !== "ssot_query" && dispatchMode !== "local_static") {
     throw new Error(
-      `Invalid MCP command definition '${name}': turnServiceMethod is required`
+      `Invalid MCP command definition '${name}': dispatch_mode must be ssot_query/local_static`
+    );
+  }
+  const turnServiceMethod = normalizeName(command.turnServiceMethod);
+  if (dispatchMode === "local_static" && !turnServiceMethod) {
+    throw new Error(
+      `Invalid MCP command definition '${name}': local_static command requires turnServiceMethod`
+    );
+  }
+  if (dispatchMode === "ssot_query" && turnServiceMethod) {
+    throw new Error(
+      `Invalid MCP command definition '${name}': ssot_query command must not declare turnServiceMethod`
     );
   }
   if (typeof command.validate !== "function") {
@@ -325,31 +333,58 @@ class McpCommandRegistry {
       }
     }
 
-    const args = source === "query"
-      ? payload[
-          typeof httpConfig.queryKey === "string"
-            ? httpConfig.queryKey.trim()
-            : ""
-        ]
-      : payload;
-    const methodName =
-      typeof command.turnServiceMethod === "string"
-        ? command.turnServiceMethod.trim()
-        : "";
-    const serviceHandler =
-      methodName && typeof turnService[methodName] === "function"
-        ? turnService[methodName].bind(turnService)
-        : null;
-    if (!serviceHandler) {
+    const dispatchMode = normalizeName(command.dispatch_mode).toLowerCase();
+    let outcome = null;
+    if (dispatchMode === "ssot_query") {
+      const ssotDispatcher =
+        typeof turnService.dispatchSsotToolForMcp === "function"
+          ? turnService.dispatchSsotToolForMcp.bind(turnService)
+          : null;
+      if (!ssotDispatcher) {
+        return {
+          statusCode: 500,
+          body: {
+            error_code: "E_INTERNAL",
+            message: `turnService SSOT dispatcher not found for command: ${command.name}`,
+          },
+        };
+      }
+      outcome = await Promise.resolve(ssotDispatcher(command.name, payload));
+    } else if (dispatchMode === "local_static") {
+      const args = source === "query"
+        ? payload[
+            typeof httpConfig.queryKey === "string"
+              ? httpConfig.queryKey.trim()
+              : ""
+          ]
+        : payload;
+      const methodName =
+        typeof command.turnServiceMethod === "string"
+          ? command.turnServiceMethod.trim()
+          : "";
+      const serviceHandler =
+        methodName && typeof turnService[methodName] === "function"
+          ? turnService[methodName].bind(turnService)
+          : null;
+      if (!serviceHandler) {
+        return {
+          statusCode: 500,
+          body: {
+            error_code: "E_INTERNAL",
+            message: `turnService handler not found for command: ${command.name}`,
+          },
+        };
+      }
+      outcome = await Promise.resolve(serviceHandler(args));
+    } else {
       return {
         statusCode: 500,
         body: {
           error_code: "E_INTERNAL",
-          message: `turnService handler not found for command: ${command.name}`,
+          message: `Unsupported dispatch_mode for command: ${command.name}`,
         },
       };
     }
-    const outcome = await Promise.resolve(serviceHandler(args));
     if (
       outcome &&
       typeof outcome === "object" &&

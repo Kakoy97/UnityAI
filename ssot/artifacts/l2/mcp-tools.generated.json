@@ -4437,6 +4437,171 @@
           }
         }
       ]
+    },
+    {
+      "name": "save_scene",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Save the current active Unity scene. If the scene has not been saved before, it will prompt for a save path. Use this tool to persist scene changes to disk.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_path": {
+            "type": "string",
+            "description": "Optional scene path. If provided and the scene is not saved, will save to this path. If omitted, uses current scene path or prompts."
+          },
+          "save_as_new": {
+            "type": "boolean",
+            "description": "If true, always save as a new scene file even if the scene already has a path."
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene"
+          }
+        },
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "scene_path": "Assets/Scenes/MyScene.unity"
+          }
+        }
+      ]
+    },
+    {
+      "name": "save_prefab",
+      "lifecycle": "stable",
+      "kind": "write",
+      "description": "Save a GameObject as a prefab asset or save changes to an existing prefab instance. Requires target_object_id and target_path to identify the GameObject to save.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prefab_path": {
+            "type": "string",
+            "description": "Optional prefab asset path. If provided and the GameObject is not a prefab instance, will create a new prefab at this path. If omitted, uses existing prefab path or prompts."
+          },
+          "save_as_new": {
+            "type": "boolean",
+            "description": "If true, always save as a new prefab even if the GameObject is already a prefab instance."
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button"
+          }
+        },
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "prefab_path": "Assets/Prefabs/MyButton.prefab",
+            "save_as_new": true
+          }
+        }
+      ]
     }
   ]
 }

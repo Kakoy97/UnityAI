@@ -21,7 +21,8 @@ test("ssot modify_ui_layout route dispatches to turnService", async () => {
   const registry = getMcpCommandRegistry();
   const calls = [];
   const turnService = {
-    async modifyUiLayoutForMcp(payload) {
+    async dispatchSsotToolForMcp(toolName, payload) {
+      assert.equal(toolName, "modify_ui_layout");
       calls.push(payload);
       return {
         statusCode: 200,
@@ -64,7 +65,7 @@ test("ssot modify_ui_layout route fails fast on schema invalid payload", async (
   const registry = getMcpCommandRegistry();
   let called = false;
   const turnService = {
-    async modifyUiLayoutForMcp() {
+    async dispatchSsotToolForMcp() {
       called = true;
       throw new Error("should_not_be_called");
     },

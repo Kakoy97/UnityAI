@@ -3432,6 +3432,118 @@
           "y"
         ]
       }
+    },
+    {
+      "tool_name": "save_scene",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_path": {
+            "type": "string",
+            "description": "Optional scene path. If provided and the scene is not saved, will save to this path. If omitted, uses current scene path or prompts."
+          },
+          "save_as_new": {
+            "type": "boolean",
+            "description": "If true, always save as a new scene file even if the scene already has a path."
+          }
+        }
+      }
+    },
+    {
+      "tool_name": "save_prefab",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "execution_mode",
+          "idempotency_key",
+          "based_on_read_token",
+          "write_anchor_object_id",
+          "write_anchor_path",
+          "target_object_id",
+          "target_path"
+        ],
+        "properties": {
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "validate",
+              "execute"
+            ],
+            "case_insensitive": true
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "write_anchor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prefab_path": {
+            "type": "string",
+            "description": "Optional prefab asset path. If provided and the GameObject is not a prefab instance, will create a new prefab at this path. If omitted, uses existing prefab path or prompts."
+          },
+          "save_as_new": {
+            "type": "boolean",
+            "description": "If true, always save as a new prefab even if the GameObject is already a prefab instance."
+          }
+        }
+      }
     }
   ]
 }
