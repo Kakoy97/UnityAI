@@ -472,6 +472,14 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot
                     out requestDto,
                     out deserializeError))
             {
+                if (IsUnsupportedToolError(deserializeError, normalizedToolName))
+                {
+                    return Failure(
+                        "E_SSOT_TOOL_UNSUPPORTED",
+                        "Unsupported SSOT tool: " + normalizedToolName,
+                        normalizedToolName);
+                }
+
                 return Failure(
                     "E_SSOT_DESERIALIZE_FAILED",
                     string.IsNullOrEmpty(deserializeError)
@@ -1210,6 +1218,13 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot
         private static string Normalize(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        }
+
+        private static bool IsUnsupportedToolError(string errorMessage, string normalizedToolName)
+        {
+            var normalizedError = Normalize(errorMessage);
+            var expected = "Unsupported SSOT tool: " + Normalize(normalizedToolName);
+            return string.Equals(normalizedError, expected, StringComparison.Ordinal);
         }
 
         private static string NormalizeErrorCode(string value)
