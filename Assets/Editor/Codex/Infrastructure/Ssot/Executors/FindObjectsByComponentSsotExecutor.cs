@@ -54,7 +54,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     include_inactive = includeInactive,
                     total_count = matches.Length,
                     found_objects = matches,
-                    read_token_candidate = SsotExecutorCommon.BuildReadTokenCandidate()
                 });
         }
 

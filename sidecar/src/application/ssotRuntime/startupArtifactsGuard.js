@@ -22,6 +22,10 @@ const DEFAULT_VISIBILITY_POLICY_PATH = path.resolve(
   __dirname,
   "../../../../ssot/artifacts/l2/visibility-policy.generated.json"
 );
+const {
+  DEFAULT_TOKEN_POLICY_PATH,
+  loadTokenPolicyManifest,
+} = require("./tokenPolicyRuntime");
 
 function readJsonFileStrict(filePath, label) {
   let rawText = "";
@@ -292,12 +296,17 @@ function assertSsotArtifactsAvailable(options = {}) {
     loadSidecarCommandManifestArtifact({
       sidecarCommandManifestPath: opts.sidecarCommandManifestPath,
     });
+  const { artifactPath: tokenPolicyPath, manifest: tokenPolicyManifest } =
+    loadTokenPolicyManifest({
+      artifactPath: opts.tokenPolicyPath,
+    });
 
   return {
     toolCatalogPath,
     ajvSchemasPath,
     visibilityPolicyPath,
     sidecarCommandManifestPath,
+    tokenPolicyPath,
     toolCount: tools.length,
     schemaCount: schemas.length,
     visibilityPolicyActiveToolCount: visibilityPolicy.active_tool_names.length,
@@ -305,6 +314,9 @@ function assertSsotArtifactsAvailable(options = {}) {
       visibilityPolicy.deprecated_tool_names.length,
     visibilityPolicyRemovedToolCount: visibilityPolicy.removed_tool_names.length,
     sidecarCommandCount: sidecarCommandManifest.commands.length,
+    tokenPolicyToolCount: Array.isArray(tokenPolicyManifest.tools)
+      ? tokenPolicyManifest.tools.length
+      : 0,
   };
 }
 
@@ -313,6 +325,7 @@ module.exports = {
   DEFAULT_SSOT_AJV_SCHEMAS_PATH,
   DEFAULT_SIDECAR_COMMAND_MANIFEST_PATH,
   DEFAULT_VISIBILITY_POLICY_PATH,
+  DEFAULT_TOKEN_POLICY_PATH,
   loadVisibilityPolicyArtifact,
   loadSidecarCommandManifestArtifact,
   assertSsotArtifactsAvailable,

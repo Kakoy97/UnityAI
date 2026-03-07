@@ -1,0 +1,21 @@
+﻿{
+  "schema_version": "g2_token_auto_retry_performance_samples.v1",
+  "generated_at": "2026-03-08T16:20:00.000Z",
+  "baseline": {
+    "request_p95_ms": 1000,
+    "request_avg_ms": 620,
+    "throughput_rps": 100
+  },
+  "candidate": {
+    "request_p95_ms": 1080,
+    "request_avg_ms": 670,
+    "throughput_rps": 96
+  },
+  "recovery": {
+    "attempt_total": 30,
+    "duration_ms": {
+      "p50": 520,
+      "p95": 1280
+    }
+  }
+}

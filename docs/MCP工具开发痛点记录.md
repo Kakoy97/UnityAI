@@ -2,7 +2,7 @@
 
 日期：2026-03-06  
 状态：待解决
-最后更新：2026-03-07
+最后更新：2026-03-08
 
 ---
 
@@ -1129,3 +1129,630 @@
    - L2：新增 `contractBundleCache` 单职责缓存层（key=`tool+budget+flags+context+catalog_version`），将 `get_write_contract_bundle` 的重复组包从“重复构建”收敛为“命中返回”。
    - L2：`contractAdvisor` 接入缓存策略中枢，返回 `metadata.cache_hit` 以支持可观测性审计，且不改变既有合约字段语义。
    - 门禁：新增 `ssot-contract-bundle-cache.test.js`（命中、key隔离、LRU驱逐）并通过；`npm --prefix sidecar run test:r20:qa` 全绿（144/144）。
+
+---
+
+## 第二组开发方案（落地版）：Token 自动化闭环（V2）
+
+> 设计原则：拒绝补丁式/最小改动式修复。  
+> 执行策略：以“Token 生命周期中枢”重构读写链路，清理重复治理模块，形成 L1->L2->L3 单一职责闭环。
+
+### 1. 修复目标与边界
+
+1. 目标一：将“手动刷新 token”收敛为“平台自动续签 + 受控一次重试”。
+2. 目标二：将 token 规则从分散实现收敛为单一策略中枢（可审计、可测试、可扩展）。
+3. 目标三：将 `E_SCENE_REVISION_DRIFT` 从“建议性提示”升级为“可执行恢复流程（可开关）”。
+4. 非目标：不在第二组引入跨请求多步自动事务编排，不改 L3 业务执行语义。
+
+### 2. 分层职责（L1 / L2 / L3）
+
+#### 2.1 L1（SSOT 字典与编译产物）
+职责：定义 token 自动化契约，不承载运行时状态机。
+
+1. 在 `ssot/dictionary/tools.json` 的 `_definitions` 新增 `token_automation_contract`：
+   - `issuance_authority`: 固定 `l2_sidecar`。
+   - `success_continuation`: `read|write` 成功时可续签。
+   - `drift_recovery`: `enabled`、`max_retry=1`、`requires_idempotency=true`。
+   - `redaction_policy`: 屏蔽 L3 透传 token 字段，统一由 L2 输出。
+2. 为工具增加 `token_family` 元数据（数据驱动，不靠硬编码）：
+   - `read_issues_token`
+   - `write_requires_token`
+   - `local_static_no_token`
+3. 编译器新增 token 契约门禁：
+   - `write_requires_token` 工具必须声明 `based_on_read_token`。
+   - `read_issues_token/write_requires_token` 工具响应必须可携带 `scene_revision`。
+4. 产物新增 `token-policy.generated.json`（L2 运行时只读消费）。
+
+涉及文件（L1）：
+1. `ssot/dictionary/tools.json`
+2. `ssot/compiler/parser/validateDictionaryShape.js`
+3. `ssot/compiler/emitters/l2/emitMcpToolsJson.js`
+4. `ssot/compiler/emitters/l2/emitTokenPolicyManifest.js`（新增）
+5. `ssot/compiler/tests/validateDictionaryShape.test.js`
+6. `ssot/compiler/tests/emitMcpToolsJson.test.js`
+7. `ssot/compiler/tests/emitTokenPolicyManifest.test.js`（新增）
+8. `ssot/artifacts/l2/token-policy.generated.json`（编译产物）
+
+#### 2.2 L2（Sidecar 运行时）
+职责：唯一 token 生命周期治理层，负责验证、续签、自动恢复、输出协议。
+
+1. 新增 `tokenLifecycleOrchestrator.js`（新增，单一入口）：
+   - 前置：写请求 token 校验。
+   - 后置：成功续签、失败清洗、响应标准化。
+2. 新增 `tokenDriftRecoveryCoordinator.js`（新增，单一职责）：
+   - 仅处理 `E_SCENE_REVISION_DRIFT` 的一次自动恢复。
+   - 流程：刷新快照拿新 token -> 原请求重放一次 -> 输出恢复结果。
+3. 新增 `tokenPolicyRuntime.js`（新增）：
+   - 加载 `token-policy.generated.json`。
+   - 提供工具级 token 行为判定 API。
+4. 重构 `dispatchSsotRequest.js`：
+   - 移除分散续签/清洗逻辑，统一委派给 `tokenLifecycleOrchestrator`。
+5. 重构 `turnService.js`：
+   - 删除重复 token 分支判断，仅保留编排入口与依赖注入。
+6. 输出协议统一新增 `token_automation` 区段：
+   - `auto_refreshed`
+   - `auto_retry_attempted`
+   - `auto_retry_succeeded`
+   - `recovery_source`
+
+涉及文件（L2）：
+1. `sidecar/src/application/ssotRuntime/dispatchSsotRequest.js`
+2. `sidecar/src/application/turnService.js`
+3. `sidecar/src/application/ssotRuntime/tokenIssuancePolicy.js`（保留为纯策略或并入 orchestrator）
+4. `sidecar/src/application/ssotRuntime/tokenLifecycleOrchestrator.js`（新增）
+5. `sidecar/src/application/ssotRuntime/tokenDriftRecoveryCoordinator.js`（新增）
+6. `sidecar/src/application/ssotRuntime/tokenPolicyRuntime.js`（新增）
+7. `sidecar/src/application/errorFeedback/mcpErrorFeedback.js`（补齐自动恢复结果透传）
+
+#### 2.3 L3（Unity 执行层）
+职责：提供事实字段，不做 token 签发与恢复策略决策。
+
+1. 统一成功响应 `scene_revision` 兜底（read/write 工具）。
+2. 失败上下文补齐修订事实：
+   - `scene_revision_at_failure`
+   - `requires_context_refresh`
+   - 可选 `old_revision/new_revision`
+3. 清理 L3 旧 token 口径残余：
+   - 删除 executor 中无意义的 `read_token_candidate` 构造/赋值路径。
+   - 保留字段兼容但不再产生行为依赖。
+
+涉及文件（L3）：
+1. `Assets/Editor/Codex/Infrastructure/Ssot/SsotRequestDispatcher.cs`
+2. `Assets/Editor/Codex/Infrastructure/Ssot/Executors/SsotExecutorCommon.cs`
+3. `Assets/Editor/Codex/Infrastructure/Ssot/Executors/*SsotExecutor.cs`（批量替换旧 token 赋值）
+4. `Assets/Editor/Codex/Infrastructure/Ssot/Errors/ExecutionFailureContextBuilder.cs`
+
+### 3. 实施步骤（第二组）
+
+#### Step G2-0：基线冻结（Token 维度）【已完成，2026-03-08】
+1. 采集改造前基线：
+   - `E_SCENE_REVISION_DRIFT` 发生率
+   - 手动 `get_scene_snapshot_for_write` 次数
+   - 写链路平均调用数
+2. 冻结输入样本与统计脚本（入库）。
+3. 本轮落地产物（已入库）：
+   - `sidecar/scripts/generate-g2-token-baseline-report.js`
+   - `sidecar/tests/application/g2-token-baseline-report-script.test.js`
+   - `sidecar/scripts/g2-token-baseline-samples.example.json`
+   - `sidecar/scripts/g2-token-baseline-samples.json`
+   - `sidecar/.state/g2-token-baseline-report.json`
+4. 执行命令与结果：
+   - 命令：`npm run metrics:g2:baseline`
+   - 输入：`sidecar/scripts/g2-token-baseline-samples.json`
+   - 样本量：`140`
+   - `drift_incidence_rate_per_write_call=0.046154`
+   - `manual_refresh_after_drift_ratio=0.583333`
+   - `write_chain_avg_call_count=3.521429`
+   - 代表性检查：`all_passed=true`
+
+#### Step G2-1：L1 契约建模【已完成，2026-03-08】
+1. 增加 `token_automation_contract` 与 `token_family`。
+2. 编译门禁升级并产出 `token-policy.generated.json`。
+3. 本轮落地改动（L1）：
+   - `ssot/dictionary/tools.json`：新增 `_definitions.token_automation_contract`；全量工具补齐 `token_family + scene_revision_capable`。
+   - `ssot/compiler/parser/validateDictionaryShape.js`：新增 token 契约门禁与工具级约束校验（`write_requires_token` 必须声明 `based_on_read_token`，token family 与 kind/scene_revision 能力一致性校验）。
+   - `ssot/compiler/emitters/l2/emitTokenPolicyManifest.js`（新增）：产出 `token-policy.generated.json`。
+   - `ssot/compiler/emitters/l2/emitMcpToolsJson.js`：输出 `token_automation_contract` 和工具级 token 元数据。
+   - `ssot/compiler/index.js`：编译产物新增 `l2/token-policy.generated.json`。
+   - `ssot/compiler/tests/emitTokenPolicyManifest.test.js`（新增）及现有测试补强。
+4. 编译产物结果：
+   - `ssot/artifacts/l2/token-policy.generated.json` 已生成。
+   - `family_counts`：`write_requires_token=38`、`read_issues_token=17`、`local_static_no_token=8`。
+   - `write_requires_token_missing_based_on_read_token=0`、`scene_revision_ineligible_tools=0`。
+5. 本轮验证：
+   - `node --test "ssot/compiler/tests/*.test.js"`：`45/45` 通过。
+   - `npm run test:r20:qa`：`148/148` 通过。
+   - `npm run ssot:build`：编译成功（产物文件数 `8`）。
+
+#### Step G2-2：L2 生命周期中枢落地【已完成，2026-03-08】
+1. 引入 `tokenLifecycleOrchestrator`，接管校验/续签/清洗。
+2. `dispatchSsotRequest` 与 `turnService` 迁移到中枢调用。
+3. 本轮落地改动（L2）：
+   - 新增：`sidecar/src/application/ssotRuntime/tokenPolicyRuntime.js`
+   - 新增：`sidecar/src/application/ssotRuntime/tokenLifecycleOrchestrator.js`
+   - 重构：`sidecar/src/application/ssotRuntime/dispatchSsotRequest.js`（写前校验与写后续签统一经 orchestrator）
+   - 重构：`sidecar/src/application/turnService.js`（删除旧写前 token 兼容分支，改为单中枢调用）
+   - 重构：`sidecar/src/application/ssotRuntime/startupArtifactsGuard.js`（纳入 `token-policy.generated.json` 启动门禁）
+4. 门禁与回归（已通过）：
+   - `npm run test:r20:qa`：`154/154` 通过
+   - 新增测试：
+     - `sidecar/tests/application/ssot-token-policy-runtime.test.js`
+     - `sidecar/tests/application/ssot-token-lifecycle-orchestrator.test.js`
+
+#### Step G2-2.5：自动续签验证与观测（新增）【已完成，2026-03-08】
+1. 验证续签只发生在 `read_issues_token/write_requires_token` 工具族。
+2. 验证失败响应、`scene_revision` 缺失响应不会发放 token。
+3. 输出续签命中率、剥离命中率、异常路径样本日志。
+4. 本轮落地改动（L2）：
+   - 新增：`sidecar/src/application/ssotRuntime/tokenLifecycleMetricsCollector.js`（单职责：续签/剥离/异常计数与快照输出）。
+   - 重构：`sidecar/src/application/ssotRuntime/tokenLifecycleOrchestrator.js`（统一采集 finalize 观测事件并上报 metrics collector）。
+   - 导出：`sidecar/src/application/ssotRuntime/index.js` 增加 metrics collector 导出，供运行时/测试复用。
+   - 新增：`sidecar/scripts/generate-g2-token-auto-issue-observability-report.js`（样本驱动观测报告）。
+   - 新增：`sidecar/scripts/g2-token-auto-issue-samples.json` 与 `*.example.json`（固定样本源）。
+5. 门禁与报告（已通过）：
+   - `node --test sidecar/tests/application/ssot-token-lifecycle-metrics.test.js` 通过。
+   - `npm --prefix sidecar run test:g2:qa` 通过（6/6）。
+   - `npm --prefix sidecar run metrics:g2:auto-issue:observability:ci` 通过。
+   - 产物：`sidecar/.state/g2-token-auto-issue-observability-report.json`
+     - `continuation_issueable_hit_rate=1`
+     - `redaction_hit_rate=1`
+     - `anomaly_total=0`
+     - `all_passed=true`
+
+#### Step G2-2.6：续签性能影响评估（新增）【已完成，2026-03-08】
+1. 评估自动续签对主请求响应时间影响（与 G2-0 基线对比）。
+2. 评估自动续签资源开销（CPU/内存/事件循环阻塞）。
+3. 未达门槛前不得进入自动恢复灰度阶段。
+4. 本轮落地改动（L2）：
+   - 新增：`sidecar/scripts/evaluate-g2-token-auto-issue-performance.js`（基准评估与 CI 门禁脚本）。
+   - 脚本口径修正：
+     - 延迟回归采用 `min_latency_baseline_ms` 下限，避免微秒级基线导致假阳性。
+     - 堆内存门禁采用“比率 + 绝对阈值（`heap_abs_threshold_bytes`）”双条件，避免 GC 符号抖动误判。
+     - CPU 门禁采用“比率 + 绝对增量（`cpu_delta_threshold_ms`）”双条件，避免低基线放大误报。
+   - 新增测试：`sidecar/tests/application/g2-token-auto-issue-performance-script.test.js`。
+5. 门禁与报告（已通过）：
+   - `npm --prefix sidecar run metrics:g2:auto-issue:perf:ci` 通过。
+   - 产物：`sidecar/.state/g2-token-auto-issue-performance-report.json`
+     - `latency_regression_ratio=0.06208`
+     - `cpu_regression_ratio=0`
+     - `heap_regression_ratio=0.07118`
+     - `event_loop_p95_ms=0.000511`
+     - `all_passed=true`
+
+#### Step G2-3：影子模式（自动恢复仅决策不执行）【已完成，2026-03-08】
+1. 引入 `tokenDriftRecoveryCoordinator`，先只产出“是否可恢复”的决策与阻断原因。
+2. 不执行真实重放，仅记录：触发率、可恢复率、阻断原因分布。
+3. 影子模式观察通过后才进入灰度执行。
+4. 本轮落地改动（L2）：
+   - 新增：`sidecar/src/application/ssotRuntime/tokenDriftRecoveryCoordinator.js`（单职责：drift 影子决策与分布统计）。
+   - 重构：`sidecar/src/application/ssotRuntime/dispatchSsotRequest.js`
+     - 写前 token 校验失败时触发影子决策记录（`before_write_validation`）。
+     - Unity 返回失败时触发影子决策记录（`during_dispatch`）。
+     - 明确“只记录不重放”，不改写现有错误返回主链路。
+   - 重构：`sidecar/src/application/turnService.js`
+     - 注入 `ssotTokenDriftRecoveryCoordinator` 单例并传入 `dispatchSsotRequest`。
+     - `getStateSnapshotPayload` 新增 `mcp_runtime.token_drift_recovery_shadow` 快照输出，支持观测。
+   - 新增开关：`TOKEN_AUTO_RETRY_SHADOW_ENABLED`（默认 true）。
+5. 影子决策口径（已固化）：
+   - 可恢复条件：`error_code=E_SCENE_REVISION_DRIFT` 且工具族在 `auto_retry_safe_family` 且 `idempotency_key` 存在。
+   - 阻断原因：`shadow_mode_disabled` / `drift_recovery_disabled` / `error_code_not_drift` / `tool_policy_missing` / `tool_family_not_safe` / `idempotency_key_missing`。
+6. 门禁与回归（已通过）：
+   - 新增测试：
+     - `sidecar/tests/application/ssot-token-drift-recovery-coordinator.test.js`
+     - `sidecar/tests/application/ssot-dispatch-token-drift-shadow.test.js`
+   - `npm --prefix sidecar run test:r20:qa`：`160/160` 通过。
+   - `npm --prefix sidecar run test:g2:qa`：`6/6` 通过。
+
+#### Step G2-3.5：影子数据分析与策略收敛（新增）【已完成，2026-03-08】
+1. 固化高风险工具清单与阻断原因 TopN。
+2. 收敛 `auto_retry_safe_family`，禁止未达幂等门槛工具进入灰度。
+3. 固化恢复超时预算与并发上限配置。
+4. 本轮落地改动（L2）：
+   - 新增：`sidecar/scripts/generate-g2-token-shadow-analysis-report.js`（影子数据分析与策略收敛报告）。
+   - 新增：`sidecar/scripts/g2-token-shadow-samples.json` 与 `*.example.json`（固定输入样本）。
+   - `package.json` 新增命令：
+     - `metrics:g2:shadow:analysis`
+     - `metrics:g2:shadow:analysis:ci`
+5. 产物与策略收敛结果：
+   - 产物：`sidecar/.state/g2-token-shadow-analysis-report.json`
+   - 阻断原因 Top5：`idempotency_key_missing / tool_family_not_safe / global_limit / queue_limit / recovery_timeout`
+   - 高风险工具 Top3：`get_scene_roots`、`get_tool_schema`、`execute_unity_transaction`
+   - 家族收敛建议：
+     - `proposed_auto_retry_safe_family_keep=["write_requires_token"]`
+     - `proposed_auto_retry_safe_family_drop=["local_static_no_token","read_issues_token"]`
+   - 恢复预算与并发上限已固化：
+     - `snapshot_refresh_timeout_ms=2000`
+     - `retry_dispatch_timeout_ms=5000`
+     - `total_recovery_timeout_ms=8000`
+     - `max_global_recovery_tasks=10`
+     - `max_session_recovery_tasks=1`
+     - `max_tool_recovery_tasks=1`
+     - `max_recovery_queue_size=10`
+6. 门禁结果：
+   - `npm --prefix sidecar run metrics:g2:shadow:analysis:ci` 通过（`all_passed=true`）。
+
+#### Step G2-3.6：自动恢复测试矩阵（新增）【已完成，2026-03-08】
+1. 完成端到端场景：成功恢复、恢复失败、超时、并发阻断、幂等冲突。
+2. 完成压力场景：高并发触发恢复、队列饱和、限流阻断。
+3. 完成边界场景：恢复期间再次 revision 漂移、恢复中断后的降级返回。
+4. 本轮落地改动（L2 测试）：
+   - 新增：`sidecar/tests/application/ssot-token-drift-shadow-matrix.test.js`
+   - 覆盖矩阵：
+     - 端到端决策：可恢复 / 缺失幂等键 / 非 drift 错误 / 不安全工具族
+     - 并发阻断：`global_limit`、`session_busy`、`tool_busy`、`queue_limit`
+     - 超时阻断：`recovery_timeout`
+     - 幂等冲突：`idempotency_conflict`
+     - 优先级校验：`global > session > tool > queue`
+     - 压力场景：600 次混合事件下计数与比率一致性
+     - 边界场景：同请求指纹稳定性（deterministic fingerprint）
+5. 同步补强：
+   - `tokenDriftRecoveryCoordinator` 新增并发/超时/冲突阻断口径与 `policy_limits` 输出。
+   - `dispatchSsotRequest` 保持“影子记录不执行重放”语义。
+6. 门禁结果：
+   - `npm --prefix sidecar run test:r20:qa`：`164/164` 通过。
+   - `npm --prefix sidecar run test:g2:qa`：`8/8` 通过。
+
+#### Step G2-4：自动恢复灰度执行【已完成，2026-03-08】
+1. 已落地“一次恢复”执行链路：仅对 `E_SCENE_REVISION_DRIFT` + `auto_retry_safe_family` 触发 `refresh -> replay` 一次重放。
+2. 已落地“禁止循环重试”：重放后再次命中 drift 直接失败返回，不进入第二轮恢复。
+3. 已落地“双错误上下文”：自动恢复失败返回 `initial_error_* + retry_error_* + auto_retry_failure_reason`。
+4. 已落地事务边界：`execute_unity_transaction` 若在 L3 执行中返回 `E_TRANSACTION_STEP_FAILED + nested drift`，返回 `auto_recovery_blocked_reason=inflight_transaction_failure`，不自动重放。
+5. 主要实现文件：
+   - `sidecar/src/application/ssotRuntime/dispatchSsotRequest.js`
+   - `sidecar/src/application/ssotRuntime/tokenDriftRecoveryCoordinator.js`
+   - `sidecar/src/application/turnService.js`
+   - `sidecar/src/index.js`
+6. 门禁测试：
+   - 新增：`sidecar/tests/application/ssot-dispatch-token-drift-auto-retry.test.js`
+   - 回归：`npm --prefix sidecar run test:r20:qa`（169/169）
+   - 第二组：`npm --prefix sidecar run test:g2:qa`（8/8）
+
+#### Step G2-4.5：监控与告警门禁（新增）【已完成，2026-03-08】
+1. 落地自动恢复执行态观测门禁脚本（L2）：
+   - 新增：`sidecar/scripts/generate-g2-token-auto-retry-observability-report.js`
+   - 新增输入样本：`sidecar/scripts/g2-token-auto-retry-observability-samples.json`
+   - 新增示例样本：`sidecar/scripts/g2-token-auto-retry-observability-samples.example.json`
+   - 新增测试：`sidecar/tests/application/g2-token-auto-retry-observability-report-script.test.js`
+2. 门禁口径（固定）：
+   - 成功率下限：`min_success_rate=0.85`
+   - 失败率上限：`max_fail_rate=0.20`
+   - 阻断率上限：`max_blocked_rate=0.35`
+   - 恢复耗时上限：`max_duration_p95_ms=3000`
+   - 误触发上限：`max_misfire_total=0`
+   - 同指纹重复重放上限：`max_duplicate_replay_total=0`
+3. 回退语义（统一）：
+   - 任一门禁失败输出 `fallback_recommendation`，要求切回 `guidance_only`。
+   - 固化一键关闭建议：`TOKEN_AUTO_RETRY_ENABLED=false`。
+4. 执行结果：
+   - `npm --prefix sidecar run metrics:g2:auto-retry:observability:ci` 通过。
+   - 产物：`sidecar/.state/g2-token-auto-retry-observability-report.json`
+     - `success_rate=0.9`
+     - `blocked_rate=0.117647`
+     - `duration_p95_ms=1280`
+     - `all_passed=true`
+
+#### Step G2-4.6：自动恢复性能闸门（新增）【已完成，2026-03-08】
+1. 落地自动恢复性能闸门脚本（L2）：
+   - 新增：`sidecar/scripts/evaluate-g2-token-auto-retry-performance.js`
+   - 新增输入样本：`sidecar/scripts/g2-token-auto-retry-performance-samples.json`
+   - 新增示例样本：`sidecar/scripts/g2-token-auto-retry-performance-samples.example.json`
+   - 新增测试：`sidecar/tests/application/g2-token-auto-retry-performance-script.test.js`
+2. 熔断口径（固定）：
+   - 主链路延迟劣化上限：`max_latency_degradation_ratio=0.10`
+   - 吞吐下降上限：`max_throughput_drop_ratio=0.05`
+   - 恢复耗时 P95 上限：`max_recovery_duration_p95_ms=3000`
+3. 熔断语义（统一）：
+   - 任一性能门禁失败输出 `fuse_recommendation.fuse_required=true`。
+   - 熔断后模式固定为 `guidance_only`，并输出关闭建议 `TOKEN_AUTO_RETRY_ENABLED=false`。
+4. 执行结果：
+   - `npm --prefix sidecar run test:g2:qa` 通过（14/14）。
+   - `npm --prefix sidecar run metrics:g2:auto-retry:perf:ci` 通过。
+   - 产物：`sidecar/.state/g2-token-auto-retry-performance-report.json`
+     - `latency_degradation_ratio=0.08`
+     - `throughput_drop_ratio=0.04`
+     - `recovery_duration_p95_ms=1280`
+     - `all_passed=true`
+
+#### Step G2-5：L3 事实字段收口【已完成，2026-03-08】
+1. L3 成功响应 `scene_revision` 兜底保持单口径：
+   - `SsotRequestDispatcher.Success(...)` 在缺失时统一补齐 `scene_revision`。
+2. L3 失败上下文事实字段已收口：
+   - `scene_revision_at_failure`
+   - `error_context_issued_at`
+   - `error_context_version`
+   - `requires_context_refresh`
+3. 清理 L3 旧 token 赋值残余（物理删除）：
+   - 批量移除所有 executor 中 `read_token_candidate = ...` 的旧赋值路径。
+   - 删除 `SsotExecutorCommon.BuildReadTokenCandidate()`（旧能力入口下线）。
+4. 本轮落地文件（L3）：
+   - `Assets/Editor/Codex/Infrastructure/Ssot/Executors/SsotExecutorCommon.cs`
+   - `Assets/Editor/Codex/Infrastructure/Ssot/Executors/*.cs`（移除 `read_token_candidate` 赋值残留）
+
+#### Step G2-5.5：协议与可观测性【已完成，2026-03-08】
+1. 协议收口（L2）：
+   - `dispatchSsotToolForMcp` 成功/失败响应统一包含 `token_automation` 区段。
+   - `data.token_automation` 同步镜像，避免调用侧在 `body/data` 双路径分裂解析。
+2. 指标收口（L2）：
+   - 在 `getStateSnapshotPayload().mcp_runtime.token_automation_metrics` 固化输出：
+     - `token_auto_refresh_total`
+     - `token_auto_retry_success_total`
+     - `token_auto_retry_fail_total`
+   - 同时输出补充指标：
+     - `token_auto_retry_attempt_total`
+     - `token_auto_retry_blocked_total`
+     - `token_auto_retry_duration_p95_ms`
+3. 本轮落地文件（L2）：
+   - `sidecar/src/application/turnService.js`
+   - `sidecar/tests/application/ssot-write-token-auto-refresh.test.js`
+4. 本轮门禁结果：
+   - `npm --prefix sidecar run test:r20:qa`：`170/170` 通过。
+   - `npm --prefix sidecar run test:g2:qa`：`14/14` 通过。
+
+#### Step G2-6：测试与门禁【已完成，2026-03-08】
+1. L1 编译门禁测试（契约缺失即失败）。
+   - `npm --prefix sidecar run ssot:build`：通过（产物 `files=8`）。
+   - `node --test "ssot/compiler/tests/emitMcpToolsJson.test.js" "ssot/compiler/tests/emitTokenPolicyManifest.test.js" "ssot/compiler/tests/validateDictionaryShape.test.js"`：`26/26` 通过。
+2. L2 自动恢复链路测试（成功/失败/禁止循环）。
+   - `npm --prefix sidecar run test:g2:qa`：`14/14` 通过。
+   - `npm --prefix sidecar run test:r20:qa`：`170/170` 通过（含 `dispatch auto-retries drift once and succeeds`、`dispatch auto-retry never loops`、`dispatch blocks in-flight transaction nested drift`）。
+3. L3 事实字段快照测试（`scene_revision`、failure context）。
+   - MCP 实跑：`POST /mcp/run_unity_tests`（`scope=editmode`, `test_filter=UnityAI.Editor.Codex.Tests.EditMode`）：
+   - `status=succeeded`，`total=82`，`passed=82`，`failed=0`（`run_id=utr_editor_1772908359693_51bfe5c5`）。
+4. 回归测试：第一组与事务链路不回退。
+   - 指标闸门（CI）全部通过：
+   - `npm --prefix sidecar run metrics:g2:auto-issue:observability:ci`
+   - `npm --prefix sidecar run metrics:g2:auto-issue:perf:ci`
+   - `npm --prefix sidecar run metrics:g2:shadow:analysis:ci`
+   - `npm --prefix sidecar run metrics:g2:auto-retry:observability:ci`
+   - `npm --prefix sidecar run metrics:g2:auto-retry:perf:ci`
+   - 关键结果：`success_rate=0.9`、`duration_p95_ms=1280`、`latency_degradation_ratio=0.08`、`throughput_drop_ratio=0.04`，满足第二组放量门禁。
+
+### 4. 废弃/替代清理清单（第二组必须执行）
+
+1. 清理重复 token 决策入口：
+   - `turnService` 内散落 token 校验/续签分支迁移后删除。
+2. 清理旧 token 输出口径：
+   - 删除 L3 executor 侧 `read_token_candidate` 无效赋值代码。
+3. 清理重复治理模块：
+   - 若 `tokenIssuancePolicy` 与 orchestrator 职责重叠，收敛为单入口并删除冗余导出。
+4. 清理测试冗余：
+   - 合并旧“按模块拆散”的 token 测试为“策略中枢 + 恢复链路 + 协议快照”三类门禁。
+
+### 5. 第二组验收标准（量化）
+
+1. `E_SCENE_REVISION_DRIFT` 后人工刷新步骤占比下降 `>=70%`。
+2. 写链路平均调用次数下降 `>=25%`（与 G2-0 基线对比）。
+3. 自动恢复成功率 `>=85%`（限定一次重放）。
+4. 自动恢复不产生循环重试（`max_retry=1` 违反率 `=0`）。
+5. 第一组既有回归测试保持全绿，不引入协议破坏。
+
+### 6. 执行纪律（第二组）
+
+1. 不以单工具特判修复 token 行为，所有规则必须走 `token_family + token_automation_contract`。
+2. 不在 L3 引入策略分支，L3 只输出事实字段。
+3. 不保留双入口 token 决策代码，迁移后必须物理删除冗余实现。
+
+### 7. 第二组遗漏补强（吸取第一组 V1/V2 教训）
+
+> 目的：避免“先实现再补洞”。以下项纳入第二组主方案的强制门禁，不作为可选优化。
+
+#### 7.1 自动重试安全边界（必须先定义）
+1. 新增 `auto_retry_safe_family`（L1 字典）：
+   - 仅允许幂等且可回放的写工具自动重试。
+   - 非幂等工具（含不可逆副作用）即使 `E_SCENE_REVISION_DRIFT` 也只返回结构化指引，不自动重放。
+2. 新增 `auto_retry_policy`（L1 字典）：
+   - `max_retry=1` 固定。
+   - `requires_idempotency_key=true`。
+   - `on_retry_failure=return_both_errors`（必须同时返回首错与重试错）。
+3. L2 `tokenDriftRecoveryCoordinator` 必须按字典策略执行，不允许硬编码工具名白名单。
+
+#### 7.2 并发与竞态防护（必须先落地）
+1. Token 绑定上下文扩展：
+   - `thread_id/session_id`（若可得）纳入 token entry。
+   - 校验时必须匹配来源上下文，防止跨会话复用 token。
+2. 自动重放前增加请求指纹：
+   - `tool_name + normalized_payload + idempotency_key + scene_revision`。
+   - 同指纹在恢复窗口内只允许一次自动重放。
+3. 只允许“同请求链路”触发自动恢复：
+   - 必须校验 `request_id/correlation_id` 一致，禁止旧响应触发新 token 发放。
+
+#### 7.3 灰度与回滚（必须内建）
+1. 第二组拆为两阶段开关发布：
+   - `token_auto_issue_enabled`（先开）
+   - `token_auto_retry_enabled`（后开）
+2. 需要“影子模式”：
+   - 先只计算“本应自动重试”的决策与成功率，不真实重放，观察 1-2 天基线。
+3. 一键回退要求：
+   - 任一开关关闭后，系统立即退回“结构化指引 + 人工重试”模式，不影响主链路可用性。
+
+#### 7.4 失败语义与协议完整性（必须统一）
+1. 自动恢复失败时返回结构化双错误：
+   - `initial_error_code/message`
+   - `retry_error_code/message`
+   - `auto_retry_attempted=true`
+2. 自动恢复成功时返回恢复事实：
+   - `auto_retry_succeeded=true`
+   - `recovery_source=scene_snapshot_refresh`
+   - `refreshed_token_issued=true`
+3. 禁止只返回“最终状态”覆盖首错（避免丢失诊断链）。
+
+#### 7.5 观测指标与阻断阈值（必须）
+1. 最小指标集（L2）：
+   - `token_auto_retry_attempt_total`
+   - `token_auto_retry_success_total`
+   - `token_auto_retry_fail_total`
+   - `token_auto_retry_blocked_by_policy_total`
+   - `token_cross_context_reject_total`
+2. 阈值门禁（上线阻断）：
+   - 自动重试失败率 > 20%（P0 工具）阻断放量。
+   - 同指纹重复自动重放 > 0 阻断上线。
+
+#### 7.6 清理职责补充（防止“新旧并存”）
+1. 若 `tokenLifecycleOrchestrator` 上线，`turnService` 内旧 token 分支必须同 PR 删除，不允许保留“备用逻辑”。
+2. 若 `tokenPolicyRuntime` 上线，任何手工工具名判断必须删除或改为字典驱动。
+3. L3 executor 中 `read_token_candidate` 赋值路径必须批量删除，不允许逐文件遗留。
+
+#### 7.7 第二组实施顺序（修订）
+1. `G2-0` 基线冻结。
+2. `G2-1` L1 契约 + `auto_retry_safe_family` + 编译门禁。
+3. `G2-2` L2 生命周期中枢（仅自动续签，不自动重试）。
+4. `G2-3` 影子模式观测（自动重试决策只记录不执行）。
+5. `G2-4` 自动重试灰度开启（仅 `auto_retry_safe_family`）。
+6. `G2-5` L3 事实字段收口 + 旧字段清理。
+7. `G2-6` 全量回归 + 指标达标后放量。
+
+#### 7.8 第二组新增验收口径（补充）
+1. 自动重试仅发生在 `auto_retry_safe_family`，违规率 `=0`。
+2. 自动重试成功任务中“人工介入步骤”下降 `>=60%`。
+3. 自动重试失败返回双错误字段覆盖率 `=100%`。
+4. 关闭 `token_auto_retry_enabled` 后，系统行为可在一次发布内完整回退。
+
+#### 7.9 事务场景自动恢复策略（补充）
+1. `execute_unity_transaction` 的 token 自动恢复仅允许在“L2 预校验阶段”触发：
+   - 场景：写前校验命中 `E_SCENE_REVISION_DRIFT`，事务尚未下发到 L3。
+   - 行为：刷新快照并用同一请求重放整个事务一次。
+2. 若事务已进入 L3 执行并返回 `E_TRANSACTION_STEP_FAILED`：
+   - 不做 token 自动重放。
+   - 保持第一组恢复路径（结构化 `fix_steps`）处理，避免“部分执行状态”二次放大。
+3. 自动重放事务时必须保持：
+   - 同一 `transaction_id`
+   - 同一 `idempotency_key`
+   - 同一步骤序列（不做“从失败步骤继续执行”）。
+4. 二次评审判定（范围边界）：
+   - 不采纳“事务已进入 L3 执行后，按 `rollback_policy` 自动回滚并整事务重放”。
+   - 原因：该策略需要跨层回滚事务可观测一致性保证，风险与耦合度超出第二组目标。
+   - 现阶段处理：返回 `auto_recovery_blocked_reason=inflight_transaction_failure`，并强制输出手动恢复 `fix_steps`。
+
+#### 7.10 自动恢复上下文一致性检查（补充）
+1. 自动恢复前必须满足：
+   - 已拿到新 `read_token_candidate`。
+   - 新 token 对应 `scene_revision` 与旧 token 不同（确认为真实刷新）。
+2. 自动恢复执行过程中若再次命中 revision 漂移：
+   - 立即终止自动恢复（不再二次重试）。
+   - 返回 `auto_retry_attempted=true` + `auto_retry_succeeded=false` + 阻断原因。
+3. 不增加额外“锚点预检查读请求”：
+   - 避免恢复前再引入额外 RTT。
+   - 锚点失效由一次重放后的结构化错误承接（第一组能力复用）。
+4. 自动恢复失败后的用户指引（新增）：
+   - 必须返回：`auto_retry_attempted=true`、`auto_retry_succeeded=false`、`auto_retry_failure_reason`。
+   - 必须返回：`next_suggested_action` 与可执行 `fix_steps`（禁止仅返回文本解释）。
+   - 必须同时保留：`initial_error_code` 与 `retry_error_code`（双错误上下文）。
+
+#### 7.11 自动恢复超时与并发边界（补充）
+1. 恢复预算（可配置）：
+   - `snapshot_refresh_timeout_ms`（默认 2000）
+   - `retry_dispatch_timeout_ms`（默认 5000）
+   - `total_recovery_timeout_ms`（默认 8000）
+2. 超时处理：
+   - 超时即终止恢复，返回结构化失败与 `auto_retry_timeout=true`。
+   - 不进入第二轮恢复。
+3. 并发控制：
+   - 全局上限：`max_global_recovery_tasks`（默认 10）。
+   - 会话上限：同一会话同一时刻仅允许一个自动恢复任务。
+   - 工具上限：同一工具同一时刻仅允许一个自动恢复任务。
+   - 阻断优先级：`global_limit > session_busy > tool_busy > queue_limit`。
+   - 被阻断请求必须返回 `auto_recovery_blocked_reason` 与下一步建议，不阻塞主链路。
+
+#### 7.12 自动恢复可观测性（补充）
+1. 响应新增/补齐字段：
+   - `auto_recovery_triggered`
+   - `auto_recovery_reason`
+   - `auto_recovery_duration_ms`
+   - `auto_recovery_blocked_reason`
+2. 指标新增：
+   - `token_auto_retry_triggered_by_tool_total`
+   - `token_auto_retry_blocked_by_reason_total`
+   - `token_auto_retry_duration_p95_ms`
+3. 日志要求：
+   - 触发、成功、失败、阻断四类事件必须输出结构化日志并包含请求指纹。
+
+#### 7.13 细粒度配置（补充）
+1. 采纳：工具级 `auto_retry_enabled` 覆盖开关（默认继承全局）。
+2. 不采纳（第二组范围外）：用户级 `auto_retry_preference` 协议扩展。
+3. 不采纳（第二组范围外）：按业务场景动态切换恢复策略。
+
+#### 7.14 范围边界（补充）
+1. 第二组仅覆盖 `E_SCENE_REVISION_DRIFT` 自动恢复。
+2. `E_PROPERTY_NOT_FOUND` 等非 token 错误不纳入第二组自动恢复链路，继续走第一组结构化指引能力。
+
+#### 7.15 幂等与重放规则（补充）
+1. 自动恢复必须复用原 `idempotency_key`，否则拒绝自动重放。
+2. 不实现“事务部分成功后从中间步骤续跑”：
+   - 该模式会引入高耦合状态恢复复杂度。
+   - 第二组坚持“整请求一次重放”或“不重放”二选一。
+3. 若命中幂等冲突，返回结构化冲突信息并停止自动恢复。
+
+#### 7.16 实施顺序（最终版）
+1. `G2-0` 基线冻结。
+2. `G2-1` L1 契约 + 编译门禁。
+3. `G2-2` 生命周期中枢（只续签）。
+4. `G2-2.5` 续签验证与观测。
+5. `G2-2.6` 续签性能影响评估。
+6. `G2-3` 影子模式（只决策不执行）。
+7. `G2-3.5` 影子数据分析与策略收敛。
+8. `G2-3.6` 自动恢复测试矩阵。
+9. `G2-4` 自动恢复灰度执行。
+10. `G2-4.5` 监控与告警门禁。
+11. `G2-4.6` 自动恢复性能闸门。
+12. `G2-5` L3 事实字段收口 + 旧代码清理。
+13. `G2-5.5` 协议与可观测性收口。
+14. `G2-6` 全量回归与放量。
+
+#### 7.17 验收标准补充（量化）
+1. 自动恢复误触发率 `=0`（不该触发时绝不触发）。
+2. 自动恢复 P95 耗时 `<=3000ms`。
+3. 自动恢复引入的主请求响应时间劣化 `<=10%`（与 G2-0 基线对比）。
+4. 自动恢复触发/成功/失败/阻断四类事件日志覆盖率 `=100%`。
+5. 自动恢复失败后 `auto_retry_failure_reason + next_suggested_action + fix_steps` 返回覆盖率 `=100%`。
+6. 自动恢复并发阻断准确率 `=100%`（阻断原因与策略一致）。
+7. 自动恢复不引入崩溃、泄漏、跨请求污染（稳定性回归全绿）。
+
+#### 7.18 自动恢复降级策略（新增）
+1. 降级链路固定为三级：
+   - 第一级：自动恢复（一次）。
+   - 第二级：结构化指引 + 手动恢复（第一组能力）。
+   - 第三级：诊断详情（失败上下文 + 阻断原因 + 双错误码）。
+2. 触发条件：
+   - 自动恢复超时、阻断、执行失败任一命中即降级到第二级。
+   - 若二级仍失败，输出第三级诊断信息并停止自动重试。
+3. 降级语义必须稳定：
+   - 不覆盖首错。
+   - 不隐藏自动恢复发生事实。
+   - 不返回“下一步为空”的指引。
+
+#### 7.19 性能影响评估口径（新增）
+1. 必测指标：
+   - 主请求响应时间劣化比例。
+   - 系统吞吐变化。
+   - 自动恢复耗时分位（P50/P95）。
+2. 阻断阈值：
+   - 主请求响应时间劣化 `>10%` 触发告警与灰度收缩。
+   - 吞吐下降 `>5%` 触发熔断自动恢复。
+3. 资源边界：
+   - 自动恢复执行使用独立并发配额，不挤占主链路执行槽位。
+
+#### 7.20 自动恢复测试覆盖（新增）
+1. 端到端测试：
+   - 单工具恢复成功。
+   - 单工具恢复失败（锚点失效/上下文失效）。
+   - 事务预校验阶段恢复成功。
+   - 自动恢复超时与并发阻断。
+   - 幂等冲突检测与降级。
+2. 压测测试：
+   - 并发恢复洪峰。
+   - 队列饱和与阻断优先级。
+3. 边界测试：
+   - 恢复过程中 revision 再次变化。
+   - 自动恢复中断后的降级输出完整性。
+
+#### 7.21 错误码映射完整性（新增）
+1. 第二组自动恢复触发错误码仅限：
+   - `E_SCENE_REVISION_DRIFT`
+   - （如存在同义码）在 L2 先归一化到上述 canonical 码再处理。
+2. 明确不触发自动恢复的错误码族：
+   - `E_PROPERTY_NOT_FOUND`
+   - `E_TRANSACTION_REF_PATH_INVALID`
+   - `E_TARGET_ANCHOR_CONFLICT`
+   - 其他非 token 错误统一走第一组恢复链路。
+3. 映射门禁：
+   - 自动恢复触发/不触发矩阵测试必须覆盖并持续回归。

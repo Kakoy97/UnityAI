@@ -80,11 +80,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     truncated = responseData.truncated,
                     truncated_reason = SsotExecutorCommon.Normalize(responseData.truncated_reason),
                     root = ConvertNode(responseData.root),
-                    read_token_candidate =
-                        response.read_token != null &&
-                        !string.IsNullOrWhiteSpace(response.read_token.token)
-                            ? response.read_token.token
-                            : SsotExecutorCommon.BuildReadTokenCandidate()
                 });
         }
 

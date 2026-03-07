@@ -94,11 +94,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     runtime_resolution_height = runtimeResolution.height,
                     layout_issues = issues,
                     diagnosis = BuildDiagnosisSummary(responseData.specialist_summary, issueCount),
-                    read_token_candidate =
-                        response.read_token != null &&
-                        !string.IsNullOrWhiteSpace(response.read_token.token)
-                            ? response.read_token.token
-                            : SsotExecutorCommon.BuildReadTokenCandidate()
                 });
         }
 

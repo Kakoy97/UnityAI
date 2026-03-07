@@ -86,11 +86,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     image_base64 = SsotExecutorCommon.Normalize(responseData.image_base64),
                     fallback_reason = SsotExecutorCommon.Normalize(responseData.fallback_reason),
                     diagnosis_tags = NormalizeDiagnosisTags(responseData.diagnosis_tags),
-                    read_token_candidate =
-                        response.read_token != null &&
-                        !string.IsNullOrWhiteSpace(response.read_token.token)
-                            ? response.read_token.token
-                            : SsotExecutorCommon.BuildReadTokenCandidate()
                 });
         }
 

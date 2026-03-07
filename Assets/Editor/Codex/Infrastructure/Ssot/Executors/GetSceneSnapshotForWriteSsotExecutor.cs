@@ -27,7 +27,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                 {
                     scene_revision = SsotExecutorCommon.BuildSceneRevision(),
                     scope_path = normalizedScopePath,
-                    read_token_candidate = SsotExecutorCommon.BuildReadTokenCandidate(),
                     scene_roots = roots
                 });
         }

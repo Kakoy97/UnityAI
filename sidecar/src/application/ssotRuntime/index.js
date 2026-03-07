@@ -34,6 +34,29 @@ const {
   getSsotRevisionStateSingleton,
   resetSsotRevisionStateSingletonForTests,
 } = require("./ssotRevisionState");
+const {
+  DEFAULT_TOKEN_POLICY_PATH,
+  normalizeTokenPolicyManifest,
+  loadTokenPolicyManifest,
+  createTokenPolicyRuntime,
+  getTokenPolicyRuntimeSingleton,
+  resetTokenPolicyRuntimeSingletonForTests,
+} = require("./tokenPolicyRuntime");
+const {
+  createTokenLifecycleOrchestrator,
+  getTokenLifecycleOrchestratorSingleton,
+  resetTokenLifecycleOrchestratorSingletonForTests,
+} = require("./tokenLifecycleOrchestrator");
+const {
+  TokenLifecycleMetricsCollector,
+  getTokenLifecycleMetricsCollectorSingleton,
+  resetTokenLifecycleMetricsCollectorSingletonForTests,
+} = require("./tokenLifecycleMetricsCollector");
+const {
+  createTokenDriftRecoveryCoordinator,
+  getTokenDriftRecoveryCoordinatorSingleton,
+  resetTokenDriftRecoveryCoordinatorSingletonForTests,
+} = require("./tokenDriftRecoveryCoordinator");
 const { validateSsotWriteToken } = require("./ssotWriteTokenGuard");
 const { SSOT_QUERY_TYPES } = require("./queryTypes");
 const { buildSsotQueryPayload, dispatchSsotRequest } = require("./dispatchSsotRequest");
@@ -75,6 +98,21 @@ module.exports = {
   SsotRevisionState,
   getSsotRevisionStateSingleton,
   resetSsotRevisionStateSingletonForTests,
+  DEFAULT_TOKEN_POLICY_PATH,
+  normalizeTokenPolicyManifest,
+  loadTokenPolicyManifest,
+  createTokenPolicyRuntime,
+  getTokenPolicyRuntimeSingleton,
+  resetTokenPolicyRuntimeSingletonForTests,
+  createTokenLifecycleOrchestrator,
+  getTokenLifecycleOrchestratorSingleton,
+  resetTokenLifecycleOrchestratorSingletonForTests,
+  TokenLifecycleMetricsCollector,
+  getTokenLifecycleMetricsCollectorSingleton,
+  resetTokenLifecycleMetricsCollectorSingletonForTests,
+  createTokenDriftRecoveryCoordinator,
+  getTokenDriftRecoveryCoordinatorSingleton,
+  resetTokenDriftRecoveryCoordinatorSingletonForTests,
   validateSsotWriteToken,
   SSOT_QUERY_TYPES,
   buildSsotQueryPayload,

@@ -8,6 +8,9 @@ function buildTool(overrides = {}) {
   return {
     name: "create_object",
     kind: "write",
+    mixins: ["write_envelope"],
+    token_family: "write_requires_token",
+    scene_revision_capable: true,
     input: {
       type: "object",
       additionalProperties: false,
@@ -73,6 +76,25 @@ function buildContractMetadata(overrides = {}) {
 
 function buildDefinitions(overrides = {}) {
   return {
+    mixins: {
+      write_envelope: {
+        input: {
+          type: "object",
+          required: [
+            "execution_mode",
+            "idempotency_key",
+            "based_on_read_token",
+            "write_anchor_object_id",
+            "write_anchor_path",
+          ],
+          properties: {
+            based_on_read_token: {
+              type: "string",
+            },
+          },
+        },
+      },
+    },
     error_context_contract: {
       error_context_version: "2.0",
       transaction_failure: {
@@ -171,6 +193,35 @@ function buildDefinitions(overrides = {}) {
         },
       },
     },
+    token_automation_contract: {
+      issuance_authority: "l2_sidecar",
+      token_families: [
+        "read_issues_token",
+        "write_requires_token",
+        "local_static_no_token",
+      ],
+      success_continuation: ["read", "write"],
+      drift_recovery: {
+        enabled: true,
+        error_code: "E_SCENE_REVISION_DRIFT",
+        max_retry: 1,
+        requires_idempotency: true,
+        refresh_tool_name: "get_scene_snapshot_for_write",
+      },
+      redaction_policy: {
+        strip_fields: [
+          "read_token",
+          "read_token_candidate",
+          "read_token_candidate_legacy",
+        ],
+      },
+      auto_retry_policy: {
+        max_retry: 1,
+        requires_idempotency_key: true,
+        on_retry_failure: "return_both_errors",
+      },
+      auto_retry_safe_family: ["write_requires_token"],
+    },
     ...overrides,
   };
 }
@@ -254,6 +305,8 @@ test("validateDictionaryShape allows read tool without transaction metadata", ()
       {
         name: "get_scene_roots",
         kind: "read",
+        token_family: "read_issues_token",
+        scene_revision_capable: true,
         input: {
           type: "object",
           additionalProperties: false,
@@ -288,6 +341,8 @@ test("validateDictionaryShape accepts must_configure tool with contract metadata
       buildTool({
         name: "get_scene_snapshot_for_write",
         kind: "read",
+        token_family: "read_issues_token",
+        scene_revision_capable: true,
       }),
     ],
   };
@@ -434,6 +489,8 @@ test("validateDictionaryShape rejects common_error_fixes when fix_steps tool is 
       buildTool({
         name: "get_scene_snapshot_for_write",
         kind: "read",
+        token_family: "read_issues_token",
+        scene_revision_capable: true,
       }),
     ],
   };
@@ -473,6 +530,8 @@ test("validateDictionaryShape rejects common_error_fixes when auto_fixable=true 
       buildTool({
         name: "get_scene_snapshot_for_write",
         kind: "read",
+        token_family: "read_issues_token",
+        scene_revision_capable: true,
       }),
     ],
   };
@@ -529,10 +588,14 @@ test("validateDictionaryShape accepts nested_error_routes in common_error_fixes"
       buildTool({
         name: "get_scene_snapshot_for_write",
         kind: "read",
+        token_family: "read_issues_token",
+        scene_revision_capable: true,
       }),
       buildTool({
         name: "get_write_contract_bundle",
         kind: "read",
+        token_family: "read_issues_token",
+        scene_revision_capable: true,
       }),
     ],
   };
@@ -586,6 +649,8 @@ test("validateDictionaryShape rejects nested_error_routes when suggested_action 
       buildTool({
         name: "get_write_contract_bundle",
         kind: "read",
+        token_family: "read_issues_token",
+        scene_revision_capable: true,
       }),
     ],
   };
@@ -685,5 +750,67 @@ test("validateDictionaryShape rejects error_context_contract when anchor candida
   assert.throws(
     () => validateDictionaryShape(dictionary),
     /anchor_conflict\.required_fields must include 'resolved_candidates_count'/
+  );
+});
+
+test("validateDictionaryShape rejects tool when token_family is missing", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions(),
+    tools: [
+      {
+        ...buildTool(),
+        token_family: undefined,
+      },
+    ],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /token_family must be a non-empty string/
+  );
+});
+
+test("validateDictionaryShape rejects write_requires_token tool when based_on_read_token is not declared", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions({
+      mixins: {
+        write_envelope: {
+          input: {
+            type: "object",
+            required: [
+              "execution_mode",
+              "idempotency_key",
+              "write_anchor_object_id",
+              "write_anchor_path",
+            ],
+            properties: {
+              execution_mode: {
+                type: "string",
+              },
+            },
+          },
+        },
+      },
+    }),
+    tools: [
+      {
+        ...buildTool({
+          mixins: ["write_envelope"],
+          input: {
+            type: "object",
+            additionalProperties: false,
+            required: [],
+            properties: {},
+          },
+        }),
+      },
+    ],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /write_requires_token must declare based_on_read_token/
   );
 });

@@ -312,6 +312,178 @@ function validateErrorFeedbackContract(value, label) {
   }
 }
 
+function validateTokenAutomationContract(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+
+  assertEnum(
+    value.issuance_authority,
+    ["l2_sidecar"],
+    `${label}.issuance_authority`
+  );
+
+  assertStringArray(value.token_families, `${label}.token_families`);
+  const familySet = new Set(value.token_families.map((item) => String(item).trim()));
+  for (const requiredFamily of [
+    "read_issues_token",
+    "write_requires_token",
+    "local_static_no_token",
+  ]) {
+    if (!familySet.has(requiredFamily)) {
+      throw new Error(`${label}.token_families must include '${requiredFamily}'`);
+    }
+  }
+
+  assertStringArray(value.success_continuation, `${label}.success_continuation`);
+  const continuationSet = new Set(
+    value.success_continuation.map((item) => String(item).trim())
+  );
+  for (const continuationToken of continuationSet) {
+    if (continuationToken !== "read" && continuationToken !== "write") {
+      throw new Error(
+        `${label}.success_continuation entries must be read|write`
+      );
+    }
+  }
+  for (const requiredContinuation of ["read", "write"]) {
+    if (!continuationSet.has(requiredContinuation)) {
+      throw new Error(
+        `${label}.success_continuation must include '${requiredContinuation}'`
+      );
+    }
+  }
+
+  const driftRecovery = value.drift_recovery;
+  if (!isPlainObject(driftRecovery)) {
+    throw new Error(`${label}.drift_recovery must be an object`);
+  }
+  assertBoolean(driftRecovery.enabled, `${label}.drift_recovery.enabled`);
+  assertNonEmptyString(
+    driftRecovery.error_code,
+    `${label}.drift_recovery.error_code`
+  );
+  assertPositiveInteger(
+    driftRecovery.max_retry,
+    `${label}.drift_recovery.max_retry`
+  );
+  if (Math.floor(Number(driftRecovery.max_retry)) !== 1) {
+    throw new Error(`${label}.drift_recovery.max_retry must be 1`);
+  }
+  assertBoolean(
+    driftRecovery.requires_idempotency,
+    `${label}.drift_recovery.requires_idempotency`
+  );
+  if (driftRecovery.requires_idempotency !== true) {
+    throw new Error(
+      `${label}.drift_recovery.requires_idempotency must be true`
+    );
+  }
+  assertNonEmptyString(
+    driftRecovery.refresh_tool_name,
+    `${label}.drift_recovery.refresh_tool_name`
+  );
+
+  const redactionPolicy = value.redaction_policy;
+  if (!isPlainObject(redactionPolicy)) {
+    throw new Error(`${label}.redaction_policy must be an object`);
+  }
+  assertStringArray(redactionPolicy.strip_fields, `${label}.redaction_policy.strip_fields`);
+  const stripFieldSet = new Set(
+    redactionPolicy.strip_fields.map((item) => String(item).trim())
+  );
+  for (const requiredField of [
+    "read_token",
+    "read_token_candidate",
+    "read_token_candidate_legacy",
+  ]) {
+    if (!stripFieldSet.has(requiredField)) {
+      throw new Error(
+        `${label}.redaction_policy.strip_fields must include '${requiredField}'`
+      );
+    }
+  }
+
+  const autoRetryPolicy = value.auto_retry_policy;
+  if (!isPlainObject(autoRetryPolicy)) {
+    throw new Error(`${label}.auto_retry_policy must be an object`);
+  }
+  assertPositiveInteger(
+    autoRetryPolicy.max_retry,
+    `${label}.auto_retry_policy.max_retry`
+  );
+  if (Math.floor(Number(autoRetryPolicy.max_retry)) !== 1) {
+    throw new Error(`${label}.auto_retry_policy.max_retry must be 1`);
+  }
+  assertBoolean(
+    autoRetryPolicy.requires_idempotency_key,
+    `${label}.auto_retry_policy.requires_idempotency_key`
+  );
+  if (autoRetryPolicy.requires_idempotency_key !== true) {
+    throw new Error(
+      `${label}.auto_retry_policy.requires_idempotency_key must be true`
+    );
+  }
+  assertEnum(
+    autoRetryPolicy.on_retry_failure,
+    ["return_both_errors"],
+    `${label}.auto_retry_policy.on_retry_failure`
+  );
+
+  assertStringArray(
+    value.auto_retry_safe_family,
+    `${label}.auto_retry_safe_family`
+  );
+  for (const family of value.auto_retry_safe_family) {
+    if (!familySet.has(family)) {
+      throw new Error(
+        `${label}.auto_retry_safe_family contains unknown family '${family}'`
+      );
+    }
+    if (family === "local_static_no_token") {
+      throw new Error(
+        `${label}.auto_retry_safe_family cannot include 'local_static_no_token'`
+      );
+    }
+  }
+}
+
+function hasInputBasedOnReadTokenDeclaration(inputSchema) {
+  const input =
+    inputSchema &&
+    typeof inputSchema === "object" &&
+    !Array.isArray(inputSchema)
+      ? inputSchema
+      : {};
+  const required = Array.isArray(input.required) ? input.required : [];
+  const properties =
+    input.properties && typeof input.properties === "object" && !Array.isArray(input.properties)
+      ? input.properties
+      : {};
+  return (
+    required.includes("based_on_read_token") &&
+    Object.prototype.hasOwnProperty.call(properties, "based_on_read_token")
+  );
+}
+
+function toolDeclaresBasedOnReadToken(tool, definitions) {
+  if (hasInputBasedOnReadTokenDeclaration(tool && tool.input)) {
+    return true;
+  }
+  const mixins = Array.isArray(tool && tool.mixins) ? tool.mixins : [];
+  if (!mixins.includes("write_envelope")) {
+    return false;
+  }
+  const writeEnvelope =
+    definitions &&
+    definitions.mixins &&
+    definitions.mixins.write_envelope &&
+    typeof definitions.mixins.write_envelope === "object"
+      ? definitions.mixins.write_envelope
+      : null;
+  return hasInputBasedOnReadTokenDeclaration(writeEnvelope && writeEnvelope.input);
+}
+
 function validateGlobalDefinitions(definitions) {
   if (!isPlainObject(definitions)) {
     throw new Error("Dictionary missing required field: _definitions (object)");
@@ -344,6 +516,10 @@ function validateGlobalDefinitions(definitions) {
   validateErrorFeedbackContract(
     definitions.error_feedback_contract,
     "_definitions.error_feedback_contract"
+  );
+  validateTokenAutomationContract(
+    definitions.token_automation_contract,
+    "_definitions.token_automation_contract"
   );
 }
 
@@ -730,6 +906,9 @@ function validateDictionaryShape(dictionary) {
   );
   const relatedGraph = new Map();
   validateGlobalDefinitions(dictionary._definitions);
+  const definitions = dictionary._definitions;
+  const tokenAutomationContract = definitions.token_automation_contract;
+  const tokenFamilySet = new Set(tokenAutomationContract.token_families);
 
   for (const [index, tool] of dictionary.tools.entries()) {
     if (!tool || typeof tool !== "object" || Array.isArray(tool)) {
@@ -743,6 +922,24 @@ function validateDictionaryShape(dictionary) {
     }
 
     const kind = normalizeKind(tool.kind);
+    const tokenFamily =
+      typeof tool.token_family === "string" ? tool.token_family.trim() : "";
+    if (!tokenFamily) {
+      throw new Error(
+        `tools[${index}](${tool.name.trim()}).token_family must be a non-empty string`
+      );
+    }
+    if (!tokenFamilySet.has(tokenFamily)) {
+      throw new Error(
+        `tools[${index}](${tool.name.trim()}).token_family '${tokenFamily}' is not in _definitions.token_automation_contract.token_families`
+      );
+    }
+    if (typeof tool.scene_revision_capable !== "boolean") {
+      throw new Error(
+        `tools[${index}](${tool.name.trim()}).scene_revision_capable must be boolean`
+      );
+    }
+
     if (kind === "write") {
       const transaction =
         tool.transaction && typeof tool.transaction === "object" && !Array.isArray(tool.transaction)
@@ -761,6 +958,46 @@ function validateDictionaryShape(dictionary) {
       if (typeof transaction.undo_safe !== "boolean") {
         throw new Error(
           `tools[${index}](${tool.name.trim()}).transaction.undo_safe must be boolean`
+        );
+      }
+    }
+
+    if (tokenFamily === "write_requires_token") {
+      if (kind !== "write") {
+        throw new Error(
+          `tools[${index}](${tool.name.trim()}).token_family write_requires_token requires kind=write`
+        );
+      }
+      if (!toolDeclaresBasedOnReadToken(tool, definitions)) {
+        throw new Error(
+          `tools[${index}](${tool.name.trim()}) write_requires_token must declare based_on_read_token (input or write_envelope mixin)`
+        );
+      }
+      if (tool.scene_revision_capable !== true) {
+        throw new Error(
+          `tools[${index}](${tool.name.trim()}) write_requires_token requires scene_revision_capable=true`
+        );
+      }
+    } else if (tokenFamily === "read_issues_token") {
+      if (kind !== "read") {
+        throw new Error(
+          `tools[${index}](${tool.name.trim()}).token_family read_issues_token requires kind=read`
+        );
+      }
+      if (tool.scene_revision_capable !== true) {
+        throw new Error(
+          `tools[${index}](${tool.name.trim()}) read_issues_token requires scene_revision_capable=true`
+        );
+      }
+    } else if (tokenFamily === "local_static_no_token") {
+      if (kind !== "read") {
+        throw new Error(
+          `tools[${index}](${tool.name.trim()}).token_family local_static_no_token requires kind=read`
+        );
+      }
+      if (tool.scene_revision_capable !== false) {
+        throw new Error(
+          `tools[${index}](${tool.name.trim()}) local_static_no_token requires scene_revision_capable=false`
         );
       }
     }

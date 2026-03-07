@@ -331,6 +331,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -675,6 +709,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -996,6 +1064,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -1317,6 +1419,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -1643,6 +1779,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -1987,6 +2157,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -2314,6 +2518,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -2630,6 +2868,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -2951,6 +3223,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -3271,6 +3577,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -3597,6 +3937,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -3918,6 +4292,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -4246,6 +4654,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -4574,6 +5016,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -4902,6 +5378,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -5230,6 +5740,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -5558,6 +6102,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -5874,6 +6452,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -6198,6 +6810,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -6522,6 +7168,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -6850,6 +7530,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -7190,6 +7904,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -7512,6 +8260,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -7862,6 +8644,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -8202,6 +9018,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -8522,6 +9372,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -8842,6 +9726,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -9182,6 +10100,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -9503,6 +10455,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -9822,6 +10808,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -10142,6 +11162,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -10420,6 +11474,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -10695,6 +11783,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -10982,6 +12104,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -11284,6 +12440,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -11566,6 +12756,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -11859,6 +13083,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -12157,6 +13415,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -12461,6 +13753,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -12809,6 +14135,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -13119,6 +14479,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -13451,6 +14845,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -13786,6 +15214,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -14120,6 +15582,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -14454,6 +15950,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -14759,6 +16289,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -15049,6 +16613,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -15331,6 +16929,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -15666,6 +17298,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -15952,6 +17618,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -16243,6 +17943,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -16527,6 +18261,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -16828,6 +18596,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -17110,6 +18912,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -17392,6 +19228,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -17755,6 +19625,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -18085,6 +19989,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -18485,6 +20423,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -18893,6 +20865,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -19248,6 +21254,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -19558,6 +21598,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -19872,6 +21946,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }
@@ -20196,6 +22304,40 @@
             "p0_total": 5,
             "p1_total": 4,
             "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
           }
         }
       }

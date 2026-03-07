@@ -17,6 +17,9 @@ const {
 const {
   emitVisibilityPolicyManifest,
 } = require("./emitters/l2/emitVisibilityPolicyManifest");
+const {
+  emitTokenPolicyManifest,
+} = require("./emitters/l2/emitTokenPolicyManifest");
 const { emitDtosCs } = require("./emitters/l3/emitDtosCs");
 const { emitBindingsCs } = require("./emitters/l3/emitBindingsCs");
 const {
@@ -55,6 +58,7 @@ function buildArtifacts(ssot) {
     ssot,
     sidecarCommandManifest
   );
+  const tokenPolicyManifest = emitTokenPolicyManifest(ssot, sidecarCommandManifest);
   return {
     "l2/mcp-tools.generated.json": JSON.stringify(emitMcpToolsJson(ssot), null, 2) + "\n",
     "l2/ajv-schemas.generated.json": JSON.stringify(emitAjvSchemas(ssot), null, 2) + "\n",
@@ -62,6 +66,8 @@ function buildArtifacts(ssot) {
       JSON.stringify(sidecarCommandManifest, null, 2) + "\n",
     "l2/visibility-policy.generated.json":
       JSON.stringify(visibilityPolicyManifest, null, 2) + "\n",
+    "l2/token-policy.generated.json":
+      JSON.stringify(tokenPolicyManifest, null, 2) + "\n",
     "l3/SsotDtos.generated.cs": emitDtosCs(ssot),
     "l3/SsotBindings.generated.cs": emitBindingsCs(ssot),
     "l3/SsotDispatchBindings.generated.cs": emitDispatcherBindingsCs(ssot),

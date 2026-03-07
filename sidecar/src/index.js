@@ -54,6 +54,18 @@ function bootstrap(port, options) {
     "READ_TOKEN_HARD_MAX_AGE_MS",
     3 * 60 * 1000
   );
+  const tokenAutoIssueEnabled = parseEnvBoolean(
+    "TOKEN_AUTO_ISSUE_ENABLED",
+    true
+  );
+  const tokenAutoRetryShadowEnabled = parseEnvBoolean(
+    "TOKEN_AUTO_RETRY_SHADOW_ENABLED",
+    true
+  );
+  const tokenAutoRetryEnabled = parseEnvBoolean(
+    "TOKEN_AUTO_RETRY_ENABLED",
+    true
+  );
 
   const snapshotStore = new FileStateSnapshotStore({
     filePath: path.resolve(__dirname, "..", ".state", "sidecar-state.json"),
@@ -126,6 +138,9 @@ function bootstrap(port, options) {
     unityQueryMaxEntries,
     unityQueryContractVersion,
     readTokenHardMaxAgeMs,
+    tokenAutoIssueEnabled,
+    tokenAutoRetryShadowEnabled,
+    tokenAutoRetryEnabled,
     v1PolishMetricsCollector,
     captureCompositeEnabled,
     captureCompositeFuseFailureThreshold,

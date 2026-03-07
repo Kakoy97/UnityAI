@@ -29,7 +29,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     target_object_active = selected.activeSelf,
                     component_count = components.Length,
                     components = components,
-                    read_token_candidate = SsotExecutorCommon.BuildReadTokenCandidate()
                 });
         }
     }

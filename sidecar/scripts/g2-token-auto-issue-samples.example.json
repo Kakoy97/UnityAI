@@ -1,0 +1,44 @@
+{
+  "schema_version": "g2_token_auto_issue_samples.v1",
+  "generated_at": "2026-03-08T00:00:00.000Z",
+  "events": [
+    {
+      "sample_id": "evt_001",
+      "tool_name": "modify_ui_layout",
+      "token_family": "write_requires_token",
+      "result_ok": true,
+      "continuation_eligible_success": true,
+      "continuation_issued": true,
+      "redaction_candidate": true,
+      "redaction_applied": true,
+      "decision_reason": "eligible",
+      "finalize_duration_ms": 1.2
+    },
+    {
+      "sample_id": "evt_002",
+      "tool_name": "get_scene_roots",
+      "token_family": "read_issues_token",
+      "result_ok": true,
+      "continuation_eligible_success": true,
+      "continuation_issued": true,
+      "redaction_candidate": false,
+      "redaction_applied": false,
+      "decision_reason": "eligible",
+      "finalize_duration_ms": 0.4
+    },
+    {
+      "sample_id": "evt_003",
+      "tool_name": "set_component_properties",
+      "token_family": "write_requires_token",
+      "result_ok": true,
+      "continuation_eligible_success": true,
+      "continuation_issued": false,
+      "skipped_missing_scene_revision": true,
+      "redaction_candidate": false,
+      "redaction_applied": false,
+      "decision_reason": "scene_revision_missing",
+      "anomaly_code": "CONTINUATION_SKIPPED_MISSING_SCENE_REVISION",
+      "finalize_duration_ms": 0.6
+    }
+  ]
+}

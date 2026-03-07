@@ -101,7 +101,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     truncated = truncated,
                     truncated_reason = truncatedReason,
                     root = root,
-                    read_token_candidate = SsotExecutorCommon.BuildReadTokenCandidate()
                 });
         }
 

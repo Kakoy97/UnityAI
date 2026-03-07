@@ -261,6 +261,40 @@
       "p0_total": 5,
       "p1_total": 4,
       "p2_total": 53
+    },
+    "token_automation_contract": {
+      "issuance_authority": "l2_sidecar",
+      "token_families": [
+        "read_issues_token",
+        "write_requires_token",
+        "local_static_no_token"
+      ],
+      "success_continuation": [
+        "read",
+        "write"
+      ],
+      "drift_recovery": {
+        "enabled": true,
+        "error_code": "E_SCENE_REVISION_DRIFT",
+        "max_retry": 1,
+        "requires_idempotency": true,
+        "refresh_tool_name": "get_scene_snapshot_for_write"
+      },
+      "redaction_policy": {
+        "strip_fields": [
+          "read_token",
+          "read_token_candidate",
+          "read_token_candidate_legacy"
+        ]
+      },
+      "auto_retry_policy": {
+        "max_retry": 1,
+        "requires_idempotency_key": true,
+        "on_retry_failure": "return_both_errors"
+      },
+      "auto_retry_safe_family": [
+        "write_requires_token"
+      ]
     }
   },
   "compiler": {
@@ -416,7 +450,9 @@
             "write"
           ]
         }
-      ]
+      ],
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_component_properties",
@@ -588,7 +624,9 @@
             "write"
           ]
         }
-      ]
+      ],
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "add_component",
@@ -707,7 +745,9 @@
             "write"
           ]
         }
-      ]
+      ],
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "remove_component",
@@ -756,7 +796,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "replace_component",
@@ -811,7 +853,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "create_object",
@@ -979,7 +1023,9 @@
             "write"
           ]
         }
-      ]
+      ],
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "instantiate_prefab",
@@ -1036,7 +1082,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "delete_object",
@@ -1079,7 +1127,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "rename_object",
@@ -1128,7 +1178,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_active",
@@ -1176,7 +1228,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_parent",
@@ -1231,7 +1285,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_sibling_index",
@@ -1280,7 +1336,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_local_position",
@@ -1338,7 +1396,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_local_rotation",
@@ -1396,7 +1456,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_local_scale",
@@ -1454,7 +1516,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_world_position",
@@ -1512,7 +1576,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_world_rotation",
@@ -1570,7 +1636,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "reset_transform",
@@ -1613,7 +1681,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_rect_anchored_position",
@@ -1666,7 +1736,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_rect_size_delta",
@@ -1719,7 +1791,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_rect_pivot",
@@ -1776,7 +1850,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_rect_anchors",
@@ -1847,7 +1923,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_canvas_group_alpha",
@@ -1897,7 +1975,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_layout_element",
@@ -1981,7 +2061,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_ui_image_color",
@@ -2129,7 +2211,9 @@
             "write"
           ]
         }
-      ]
+      ],
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_ui_image_raycast_target",
@@ -2177,7 +2261,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_ui_text_content",
@@ -2225,7 +2311,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_ui_text_color",
@@ -2296,7 +2384,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_ui_text_font_size",
@@ -2345,7 +2435,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "execute_unity_transaction",
@@ -2734,7 +2826,9 @@
             }
           }
         }
-      ]
+      ],
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "duplicate_object",
@@ -2782,7 +2876,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "get_scene_snapshot_for_write",
@@ -2877,7 +2973,9 @@
             "save"
           ]
         }
-      ]
+      ],
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "get_current_selection",
@@ -2900,7 +2998,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "get_gameobject_components",
@@ -2939,7 +3039,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "get_hierarchy_subtree",
@@ -2996,7 +3098,9 @@
       ],
       "tool_priority": "P1",
       "must_configure": false,
-      "priority_score": 0.057201
+      "priority_score": 0.057201,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "get_scene_roots",
@@ -3034,7 +3138,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "list_assets_in_folder",
@@ -3081,7 +3187,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "find_objects_by_component",
@@ -3133,7 +3241,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "query_prefab_info",
@@ -3193,7 +3303,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "get_ui_tree",
@@ -3301,7 +3413,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "get_ui_overlay_report",
@@ -3367,7 +3481,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "hit_test_ui_at_viewport_point",
@@ -3457,7 +3573,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "validate_ui_layout",
@@ -3550,7 +3668,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "get_serialized_property_tree",
@@ -3644,7 +3764,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "capture_scene_screenshot",
@@ -3736,7 +3858,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "get_action_catalog",
@@ -3796,7 +3920,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false
     },
     {
       "name": "get_action_schema",
@@ -3837,7 +3963,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false
     },
     {
       "name": "get_tool_schema",
@@ -3870,7 +3998,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false
     },
     {
       "name": "get_write_contract_bundle",
@@ -4057,7 +4187,9 @@
           ],
           "auto_fixable": true
         }
-      }
+      },
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false
     },
     {
       "name": "preflight_validate_write_payload",
@@ -4107,7 +4239,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0.007302
+      "priority_score": 0.007302,
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false
     },
     {
       "name": "setup_cursor_mcp",
@@ -4150,7 +4284,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false
     },
     {
       "name": "verify_mcp_setup",
@@ -4185,7 +4321,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false
     },
     {
       "name": "run_unity_tests",
@@ -4246,7 +4384,9 @@
       ],
       "tool_priority": "P1",
       "must_configure": false,
-      "priority_score": 0.081
+      "priority_score": 0.081,
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false
     },
     {
       "name": "get_unity_task_status",
@@ -4279,7 +4419,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "cancel_unity_task",
@@ -4312,7 +4454,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "submit_unity_task",
@@ -4438,7 +4582,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "apply_script_actions",
@@ -4529,7 +4675,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "apply_visual_actions",
@@ -4700,7 +4848,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_ui_properties",
@@ -4885,7 +5035,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "set_serialized_property",
@@ -5062,7 +5214,9 @@
             "write"
           ]
         }
-      ]
+      ],
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "hit_test_ui_at_screen_point",
@@ -5127,7 +5281,9 @@
       ],
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true
     },
     {
       "name": "save_scene",
@@ -5240,7 +5396,9 @@
             }
           }
         }
-      ]
+      ],
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     },
     {
       "name": "save_prefab",
@@ -5300,7 +5458,9 @@
       },
       "tool_priority": "P2",
       "must_configure": false,
-      "priority_score": 0
+      "priority_score": 0,
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true
     }
   ]
 }

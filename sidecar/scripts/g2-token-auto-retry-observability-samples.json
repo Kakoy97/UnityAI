@@ -1,0 +1,45 @@
+﻿{
+  "schema_version": "token_drift_recovery_execute_metrics.v1",
+  "generated_at": "2026-03-08T16:00:00.000Z",
+  "auto_retry_enabled": true,
+  "policy_limits": {
+    "snapshot_refresh_timeout_ms": 2000,
+    "retry_dispatch_timeout_ms": 5000,
+    "total_recovery_timeout_ms": 8000,
+    "max_global_recovery_tasks": 10,
+    "max_session_recovery_tasks": 1,
+    "max_tool_recovery_tasks": 1,
+    "max_recovery_queue_size": 10
+  },
+  "totals": {
+    "attempt_total": 30,
+    "success_total": 27,
+    "fail_total": 3,
+    "blocked_total": 4
+  },
+  "rates": {
+    "success_rate": 0.9,
+    "fail_rate": 0.1
+  },
+  "blocked_by_reason": {
+    "global_limit": 1,
+    "session_busy": 1,
+    "tool_busy": 1,
+    "queue_limit": 1,
+    "idempotency_conflict": 0,
+    "error_code_not_drift": 0
+  },
+  "fail_by_reason": {
+    "retry_dispatch_failed": 2,
+    "snapshot_refresh_failed": 1
+  },
+  "triggered_by_tool": {
+    "modify_ui_layout": 20,
+    "set_component_properties": 7,
+    "execute_unity_transaction": 3
+  },
+  "duration_ms": {
+    "p50": 520,
+    "p95": 1280
+  }
+}

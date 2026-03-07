@@ -119,11 +119,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     next_cursor = SsotExecutorCommon.Normalize(responseData.next_cursor),
                     serialized_property_nodes = nodes,
                     serialized_property_components = components,
-                    read_token_candidate =
-                        response.read_token != null &&
-                        !string.IsNullOrWhiteSpace(response.read_token.token)
-                            ? response.read_token.token
-                            : SsotExecutorCommon.BuildReadTokenCandidate()
                 });
         }
 

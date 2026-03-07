@@ -1,0 +1,77 @@
+{
+  "schema_version": "token_drift_recovery_shadow_metrics.v1",
+  "generated_at": "2026-03-08T12:00:00.000Z",
+  "shadow_mode_enabled": true,
+  "totals": {
+    "events_total": 24,
+    "drift_error_total": 20,
+    "recoverable_total": 11,
+    "blocked_total": 13
+  },
+  "blocked_by_reason": {
+    "idempotency_key_missing": 5,
+    "tool_family_not_safe": 3,
+    "global_limit": 2,
+    "queue_limit": 2,
+    "recovery_timeout": 1
+  },
+  "policy_limits": {
+    "snapshot_refresh_timeout_ms": 2000,
+    "retry_dispatch_timeout_ms": 5000,
+    "total_recovery_timeout_ms": 8000,
+    "max_global_recovery_tasks": 10,
+    "max_session_recovery_tasks": 1,
+    "max_tool_recovery_tasks": 1,
+    "max_recovery_queue_size": 10
+  },
+  "by_tool": [
+    {
+      "tool_name": "modify_ui_layout",
+      "token_family": "write_requires_token",
+      "events_total": 10,
+      "drift_error_total": 10,
+      "recoverable_total": 7,
+      "blocked_total": 3,
+      "recoverable_rate": 0.7
+    },
+    {
+      "tool_name": "set_component_properties",
+      "token_family": "write_requires_token",
+      "events_total": 6,
+      "drift_error_total": 6,
+      "recoverable_total": 3,
+      "blocked_total": 3,
+      "recoverable_rate": 0.5
+    },
+    {
+      "tool_name": "get_scene_roots",
+      "token_family": "read_issues_token",
+      "events_total": 4,
+      "drift_error_total": 2,
+      "recoverable_total": 0,
+      "blocked_total": 4,
+      "recoverable_rate": 0
+    },
+    {
+      "tool_name": "get_tool_schema",
+      "token_family": "local_static_no_token",
+      "events_total": 4,
+      "drift_error_total": 2,
+      "recoverable_total": 1,
+      "blocked_total": 3,
+      "recoverable_rate": 0.5
+    }
+  ],
+  "samples": [
+    {
+      "timestamp": "2026-03-08T12:00:01.000Z",
+      "tool_name": "modify_ui_layout",
+      "error_code": "E_SCENE_REVISION_DRIFT",
+      "stage": "before_write_validation",
+      "recoverable": false,
+      "blocked_reason": "idempotency_key_missing",
+      "request_fingerprint": "shadow_0"
+    }
+  ]
+}
+

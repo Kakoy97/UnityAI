@@ -39,6 +39,15 @@ const {
 } = require("./ssotRuntime/ssotRevisionState");
 const { validateSsotWriteToken } = require("./ssotRuntime/ssotWriteTokenGuard");
 const {
+  getTokenLifecycleOrchestratorSingleton,
+} = require("./ssotRuntime/tokenLifecycleOrchestrator");
+const {
+  getTokenLifecycleMetricsCollectorSingleton,
+} = require("./ssotRuntime/tokenLifecycleMetricsCollector");
+const {
+  getTokenDriftRecoveryCoordinatorSingleton,
+} = require("./ssotRuntime/tokenDriftRecoveryCoordinator");
+const {
   getActionCatalogView,
   getActionSchemaView,
   getToolSchemaView,
@@ -105,6 +114,145 @@ function mapRunUnityTestsErrorToStatusCode(errorCode) {
   return 500;
 }
 
+function toNonNegativeMetric(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) {
+    return 0;
+  }
+  return Math.floor(n);
+}
+
+function normalizeTokenAutomationEnvelope(source) {
+  const raw =
+    source && typeof source === "object" && !Array.isArray(source) ? source : {};
+  const rawData =
+    raw.data && typeof raw.data === "object" && !Array.isArray(raw.data)
+      ? raw.data
+      : {};
+  const topLevel =
+    raw.token_automation &&
+    typeof raw.token_automation === "object" &&
+    !Array.isArray(raw.token_automation)
+      ? raw.token_automation
+      : null;
+  const dataLevel =
+    rawData.token_automation &&
+    typeof rawData.token_automation === "object" &&
+    !Array.isArray(rawData.token_automation)
+      ? rawData.token_automation
+      : null;
+
+  const envelope = topLevel ? { ...topLevel } : dataLevel ? { ...dataLevel } : {};
+  if (typeof envelope.auto_refreshed !== "boolean") {
+    envelope.auto_refreshed =
+      typeof rawData.read_token_candidate === "string" &&
+      rawData.read_token_candidate.trim().length > 0;
+  }
+  if (typeof envelope.auto_retry_attempted !== "boolean") {
+    envelope.auto_retry_attempted = false;
+  }
+  if (typeof envelope.auto_retry_succeeded !== "boolean") {
+    envelope.auto_retry_succeeded = false;
+  }
+  if (typeof envelope.auto_recovery_triggered !== "boolean") {
+    envelope.auto_recovery_triggered = false;
+  }
+  return envelope;
+}
+
+function buildTokenAutomationBridge(source) {
+  const tokenAutomation = normalizeTokenAutomationEnvelope(source);
+  const bridge = {
+    token_automation: tokenAutomation,
+  };
+  const passthroughKeys = [
+    "auto_refreshed",
+    "auto_retry_attempted",
+    "auto_retry_succeeded",
+    "auto_retry_failure_reason",
+    "auto_retry_timeout",
+    "auto_recovery_triggered",
+    "auto_recovery_reason",
+    "auto_recovery_duration_ms",
+    "auto_recovery_blocked_reason",
+    "recovery_source",
+    "refreshed_token_issued",
+  ];
+  for (const key of passthroughKeys) {
+    if (Object.prototype.hasOwnProperty.call(tokenAutomation, key)) {
+      bridge[key] = tokenAutomation[key];
+    }
+  }
+  return bridge;
+}
+
+function attachTokenAutomationToData(data, tokenAutomation) {
+  const source =
+    data && typeof data === "object" && !Array.isArray(data) ? data : {};
+  const automation =
+    tokenAutomation &&
+    typeof tokenAutomation === "object" &&
+    !Array.isArray(tokenAutomation)
+      ? tokenAutomation
+      : null;
+  if (!automation) {
+    return source;
+  }
+  if (
+    source.token_automation &&
+    typeof source.token_automation === "object" &&
+    !Array.isArray(source.token_automation)
+  ) {
+    return source;
+  }
+  return {
+    ...source,
+    token_automation: automation,
+  };
+}
+
+function buildTokenAutomationMetricsSnapshot(
+  tokenLifecycleMetrics,
+  tokenRecoveryMetrics
+) {
+  const lifecycleTotals =
+    tokenLifecycleMetrics &&
+    tokenLifecycleMetrics.totals &&
+    typeof tokenLifecycleMetrics.totals === "object"
+      ? tokenLifecycleMetrics.totals
+      : {};
+  const recoveryTotals =
+    tokenRecoveryMetrics &&
+    tokenRecoveryMetrics.totals &&
+    typeof tokenRecoveryMetrics.totals === "object"
+      ? tokenRecoveryMetrics.totals
+      : {};
+  const recoveryDuration =
+    tokenRecoveryMetrics &&
+    tokenRecoveryMetrics.duration_ms &&
+    typeof tokenRecoveryMetrics.duration_ms === "object"
+      ? tokenRecoveryMetrics.duration_ms
+      : {};
+
+  return {
+    schema_version: "token_automation_metrics.v1",
+    token_auto_refresh_total: toNonNegativeMetric(
+      lifecycleTotals.continuation_issued_total
+    ),
+    token_auto_retry_attempt_total: toNonNegativeMetric(
+      recoveryTotals.attempt_total
+    ),
+    token_auto_retry_success_total: toNonNegativeMetric(
+      recoveryTotals.success_total
+    ),
+    token_auto_retry_fail_total: toNonNegativeMetric(recoveryTotals.fail_total),
+    token_auto_retry_blocked_total: toNonNegativeMetric(
+      recoveryTotals.blocked_total
+    ),
+    token_auto_retry_duration_p95_ms: toNonNegativeMetric(recoveryDuration.p95),
+  };
+}
+
 class TurnService {
   constructor(deps) {
     this.turnStore = deps.turnStore;
@@ -160,6 +308,20 @@ class TurnService {
     this.ssotRevisionState = getSsotRevisionStateSingleton({
       nowIso: this.nowIso,
     });
+    this.ssotTokenLifecycleOrchestrator = getTokenLifecycleOrchestratorSingleton({
+      validatorRegistry: this.ssotValidatorRegistry,
+      tokenRegistry: this.ssotTokenRegistry,
+      revisionState: this.ssotRevisionState,
+      tokenAutoIssueEnabled: deps.tokenAutoIssueEnabled !== false,
+    });
+    this.tokenLifecycleMetricsCollector =
+      getTokenLifecycleMetricsCollectorSingleton();
+    this.tokenAutoRetryEnabled = deps.tokenAutoRetryEnabled === true;
+    this.ssotTokenDriftRecoveryCoordinator =
+      getTokenDriftRecoveryCoordinatorSingleton({
+        shadowModeEnabled: deps.tokenAutoRetryShadowEnabled !== false,
+        autoRetryEnabled: this.tokenAutoRetryEnabled,
+      });
     this.unityTestRunnerService = new UnityTestRunnerService({
       nowIso: this.nowIso,
       enqueueAndWaitForUnityQuery: this.enqueueAndWaitForUnityQuery.bind(this),
@@ -196,6 +358,23 @@ class TurnService {
       this.turnStore && typeof this.turnStore.getSnapshot === "function"
         ? this.turnStore.getSnapshot()
         : { turns: [] };
+    const tokenLifecycleMetrics =
+      this.tokenLifecycleMetricsCollector &&
+      typeof this.tokenLifecycleMetricsCollector.getSnapshot === "function"
+        ? this.tokenLifecycleMetricsCollector.getSnapshot()
+        : null;
+    const tokenShadowMetrics =
+      this.ssotTokenDriftRecoveryCoordinator &&
+      typeof this.ssotTokenDriftRecoveryCoordinator.getShadowMetricsSnapshot ===
+        "function"
+        ? this.ssotTokenDriftRecoveryCoordinator.getShadowMetricsSnapshot()
+        : null;
+    const tokenRecoveryMetrics =
+      this.ssotTokenDriftRecoveryCoordinator &&
+      typeof this.ssotTokenDriftRecoveryCoordinator.getRecoveryMetricsSnapshot ===
+        "function"
+        ? this.ssotTokenDriftRecoveryCoordinator.getRecoveryMetricsSnapshot()
+        : null;
     return {
       ...turnSnapshot,
       mcp_runtime: {
@@ -204,6 +383,12 @@ class TurnService {
         jobs: [],
         capabilities: this.capabilityStore.getSnapshot(),
         query_runtime: queryRuntime,
+        token_drift_recovery_shadow: tokenShadowMetrics,
+        token_drift_recovery_execute: tokenRecoveryMetrics,
+        token_automation_metrics: buildTokenAutomationMetricsSnapshot(
+          tokenLifecycleMetrics,
+          tokenRecoveryMetrics
+        ),
       },
     };
   }
@@ -516,30 +701,6 @@ class TurnService {
       typeof this.ssotValidatorRegistry.getToolMetadata === "function"
         ? this.ssotValidatorRegistry.getToolMetadata(normalizedToolName)
         : null;
-    if (toolMetadata && toolMetadata.kind === "write") {
-      const tokenValidation = this.validateSsotTokenForMcp(
-        payload.based_on_read_token
-      );
-      if (!tokenValidation.ok) {
-        const isRevisionDrift = tokenValidation.error_code === "E_SCENE_REVISION_DRIFT";
-        return {
-          statusCode: tokenValidation.statusCode,
-          body: withMcpErrorFeedback({
-            status: "failed",
-            error_code: tokenValidation.error_code,
-            message: tokenValidation.message,
-            suggestion: tokenValidation.suggestion,
-            retry_policy: tokenValidation.retry_policy,
-            tool_name: normalizedToolName,
-            context: {
-              stage: "before_write",
-              previous_operation: "validate_write_token",
-              scene_revision_changed: isRevisionDrift,
-            },
-          }),
-        };
-      }
-    }
     if (normalizedToolName === "execute_unity_transaction") {
       const policyGuardResult = guardExecuteUnityTransactionSteps(payload);
       if (!policyGuardResult.ok) {
@@ -572,9 +733,9 @@ class TurnService {
         threadId: typeof payload.thread_id === "string" ? payload.thread_id : "",
         requestId: normalizeRequestId(payload.request_id || payload.idempotency_key),
         turnId: typeof payload.turn_id === "string" ? payload.turn_id : "",
-        validatorRegistry: this.ssotValidatorRegistry,
-        tokenRegistry: this.ssotTokenRegistry,
-        revisionState: this.ssotRevisionState,
+        tokenLifecycleOrchestrator: this.ssotTokenLifecycleOrchestrator,
+        tokenDriftRecoveryCoordinator: this.ssotTokenDriftRecoveryCoordinator,
+        tokenAutoRetryEnabled: this.tokenAutoRetryEnabled,
       });
 
       if (!unityResponse || typeof unityResponse !== "object") {
@@ -592,8 +753,8 @@ class TurnService {
           }),
         };
       }
-
-        if (unityResponse.ok !== true) {
+      const tokenAutomationBridge = buildTokenAutomationBridge(unityResponse);
+      if (unityResponse.ok !== true) {
         const rawErrorCode =
           typeof unityResponse.error_code === "string" &&
           unityResponse.error_code.trim()
@@ -630,6 +791,10 @@ class TurnService {
           nowMs: Date.now(),
         });
         const responseData = projectFailureDataFromContext(failureContext.context);
+        const responseDataWithAutomation = attachTokenAutomationToData(
+          responseData,
+          tokenAutomationBridge.token_automation
+        );
         const l3Context =
           failureContext.context.l3_context &&
           typeof failureContext.context.l3_context === "object"
@@ -659,7 +824,8 @@ class TurnService {
             error_code: errorCode,
             message: errorMessage,
             tool_name: normalizedToolName,
-            data: responseData,
+            ...tokenAutomationBridge,
+            data: responseDataWithAutomation,
             context: {
               stage:
                 typeof failureContext.context.stage === "string" &&
@@ -691,6 +857,12 @@ class TurnService {
         };
       }
 
+      const responseData = attachTokenAutomationToData(
+        unityResponse.data && typeof unityResponse.data === "object"
+          ? unityResponse.data
+          : unityResponse,
+        tokenAutomationBridge.token_automation
+      );
       return {
         statusCode: 200,
         body: {
@@ -698,10 +870,8 @@ class TurnService {
           status: "succeeded",
           query_type: "ssot.request",
           tool_name: normalizedToolName,
-          data:
-            unityResponse.data && typeof unityResponse.data === "object"
-              ? unityResponse.data
-              : unityResponse,
+          ...tokenAutomationBridge,
+          data: responseData,
         },
       };
     } catch (error) {
@@ -742,6 +912,7 @@ class TurnService {
             : {},
         nowMs: Date.now(),
       });
+      const tokenAutomationBridge = buildTokenAutomationBridge(error);
       return {
         statusCode: 409,
         body: withMcpErrorFeedback({
@@ -752,7 +923,11 @@ class TurnService {
               ? error.message.trim()
               : "Unity SSOT dispatch failed",
           tool_name: normalizedToolName,
-          data: projectFailureDataFromContext(failureContext.context),
+          ...tokenAutomationBridge,
+          data: attachTokenAutomationToData(
+            projectFailureDataFromContext(failureContext.context),
+            tokenAutomationBridge.token_automation
+          ),
           context: {
             ...errorContext,
             stage:

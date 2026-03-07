@@ -10,6 +10,7 @@ const {
   assertSsotArtifactsAvailable,
   DEFAULT_SSOT_AJV_SCHEMAS_PATH,
   DEFAULT_SIDECAR_COMMAND_MANIFEST_PATH,
+  DEFAULT_TOKEN_POLICY_PATH,
   DEFAULT_VISIBILITY_POLICY_PATH,
 } = require("../../src/application/ssotRuntime/startupArtifactsGuard");
 
@@ -23,7 +24,9 @@ test("startup guard accepts existing SSOT compiled artifacts", () => {
     result.sidecarCommandManifestPath,
     DEFAULT_SIDECAR_COMMAND_MANIFEST_PATH
   );
+  assert.equal(result.tokenPolicyPath, DEFAULT_TOKEN_POLICY_PATH);
   assert.ok(result.sidecarCommandCount > 0);
+  assert.ok(result.tokenPolicyToolCount > 0);
   assert.ok(result.visibilityPolicyActiveToolCount > 0);
 });
 
@@ -99,6 +102,20 @@ test("startup guard fails fast when sidecar command manifest artifact is missing
         sidecarCommandManifestPath: missingSidecarManifestPath,
       }),
     /missing sidecar-command-manifest artifact/
+  );
+});
+
+test("startup guard fails fast when token policy artifact is missing", () => {
+  const missingTokenPolicyPath = path.join(
+    os.tmpdir(),
+    `missing-token-policy-${Date.now()}.json`
+  );
+  assert.throws(
+    () =>
+      assertSsotArtifactsAvailable({
+        tokenPolicyPath: missingTokenPolicyPath,
+      }),
+    /missing token-policy artifact/
   );
 });
 

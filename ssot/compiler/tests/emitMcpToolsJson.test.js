@@ -57,6 +57,8 @@ test("emitMcpToolsJson maps tool IR to MCP tools payload", () => {
   assert.equal(tool.name, "modify_ui_layout");
   assert.equal(tool.kind, "write");
   assert.equal(tool.lifecycle, "stable");
+  assert.equal(tool.token_family, "write_requires_token");
+  assert.equal(tool.scene_revision_capable, true);
   assert.equal(tool.description, fullDescription);
   assert.equal(tool.inputSchema.required.includes("execution_mode"), true);
   assert.deepEqual(tool.examples[0].request, {
@@ -83,6 +85,8 @@ test("emitMcpToolsJson applies fallback defaults for missing optional tool field
   const tool = emitted.tools[0];
   assert.equal(tool.lifecycle, "stable");
   assert.equal(tool.kind, "write");
+  assert.equal(tool.token_family, "write_requires_token");
+  assert.equal(tool.scene_revision_capable, true);
   assert.deepEqual(tool.inputSchema, { type: "object", properties: {} });
   assert.deepEqual(tool.examples, []);
   assert.deepEqual(emitted.global_contracts, {});
@@ -154,6 +158,35 @@ test("emitMcpToolsJson projects v2 global contracts from _definitions", () => {
           },
         },
       },
+      token_automation_contract: {
+        issuance_authority: "l2_sidecar",
+        token_families: [
+          "read_issues_token",
+          "write_requires_token",
+          "local_static_no_token",
+        ],
+        success_continuation: ["read", "write"],
+        drift_recovery: {
+          enabled: true,
+          error_code: "E_SCENE_REVISION_DRIFT",
+          max_retry: 1,
+          requires_idempotency: true,
+          refresh_tool_name: "get_scene_snapshot_for_write",
+        },
+        redaction_policy: {
+          strip_fields: [
+            "read_token",
+            "read_token_candidate",
+            "read_token_candidate_legacy",
+          ],
+        },
+        auto_retry_policy: {
+          max_retry: 1,
+          requires_idempotency_key: true,
+          on_retry_failure: "return_both_errors",
+        },
+        auto_retry_safe_family: ["write_requires_token"],
+      },
       mixins: {
         write_envelope: {
           input: {
@@ -185,6 +218,10 @@ test("emitMcpToolsJson projects v2 global contracts from _definitions", () => {
   assert.equal(
     emitted.global_contracts.error_feedback_contract.catalog_version,
     "v1"
+  );
+  assert.equal(
+    emitted.global_contracts.token_automation_contract.issuance_authority,
+    "l2_sidecar"
   );
   assert.equal(
     Object.prototype.hasOwnProperty.call(emitted.global_contracts, "mixins"),

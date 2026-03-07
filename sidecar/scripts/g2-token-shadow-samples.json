@@ -1,0 +1,96 @@
+{
+  "schema_version": "token_drift_recovery_shadow_metrics.v1",
+  "generated_at": "2026-03-08T12:00:00.000Z",
+  "shadow_mode_enabled": true,
+  "totals": {
+    "events_total": 42,
+    "drift_error_total": 31,
+    "recoverable_total": 18,
+    "blocked_total": 24
+  },
+  "blocked_by_reason": {
+    "idempotency_key_missing": 9,
+    "tool_family_not_safe": 5,
+    "global_limit": 4,
+    "queue_limit": 3,
+    "recovery_timeout": 2,
+    "idempotency_conflict": 1
+  },
+  "policy_limits": {
+    "snapshot_refresh_timeout_ms": 2000,
+    "retry_dispatch_timeout_ms": 5000,
+    "total_recovery_timeout_ms": 8000,
+    "max_global_recovery_tasks": 10,
+    "max_session_recovery_tasks": 1,
+    "max_tool_recovery_tasks": 1,
+    "max_recovery_queue_size": 10
+  },
+  "by_tool": [
+    {
+      "tool_name": "modify_ui_layout",
+      "token_family": "write_requires_token",
+      "events_total": 14,
+      "drift_error_total": 14,
+      "recoverable_total": 10,
+      "blocked_total": 4,
+      "recoverable_rate": 0.714286
+    },
+    {
+      "tool_name": "set_component_properties",
+      "token_family": "write_requires_token",
+      "events_total": 11,
+      "drift_error_total": 10,
+      "recoverable_total": 6,
+      "blocked_total": 5,
+      "recoverable_rate": 0.6
+    },
+    {
+      "tool_name": "execute_unity_transaction",
+      "token_family": "write_requires_token",
+      "events_total": 7,
+      "drift_error_total": 5,
+      "recoverable_total": 2,
+      "blocked_total": 5,
+      "recoverable_rate": 0.4
+    },
+    {
+      "tool_name": "get_scene_roots",
+      "token_family": "read_issues_token",
+      "events_total": 5,
+      "drift_error_total": 1,
+      "recoverable_total": 0,
+      "blocked_total": 5,
+      "recoverable_rate": 0
+    },
+    {
+      "tool_name": "get_tool_schema",
+      "token_family": "local_static_no_token",
+      "events_total": 5,
+      "drift_error_total": 1,
+      "recoverable_total": 0,
+      "blocked_total": 5,
+      "recoverable_rate": 0
+    }
+  ],
+  "samples": [
+    {
+      "timestamp": "2026-03-08T12:05:01.000Z",
+      "tool_name": "execute_unity_transaction",
+      "error_code": "E_SCENE_REVISION_DRIFT",
+      "stage": "before_write_validation",
+      "recoverable": false,
+      "blocked_reason": "idempotency_key_missing",
+      "request_fingerprint": "shadow_001"
+    },
+    {
+      "timestamp": "2026-03-08T12:05:02.000Z",
+      "tool_name": "modify_ui_layout",
+      "error_code": "E_SCENE_REVISION_DRIFT",
+      "stage": "during_dispatch",
+      "recoverable": true,
+      "blocked_reason": "",
+      "request_fingerprint": "shadow_002"
+    }
+  ]
+}
+

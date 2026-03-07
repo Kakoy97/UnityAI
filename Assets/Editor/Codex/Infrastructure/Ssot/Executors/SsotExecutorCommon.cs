@@ -21,12 +21,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
             return "ssot_rev_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
         }
 
-        internal static string BuildReadTokenCandidate()
-        {
-            // Token issuance moved to Sidecar Token Authority (L2). L3 no longer emits write-ready token.
-            return string.Empty;
-        }
-
         internal static string BuildObjectId(GameObject gameObject)
         {
             if (gameObject == null)

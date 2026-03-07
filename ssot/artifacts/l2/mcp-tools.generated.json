@@ -111,13 +111,49 @@
           "suggestion": "请先调用读工具获取目标 object_id 与 path，再重试写操作。"
         }
       }
+    },
+    "token_automation_contract": {
+      "issuance_authority": "l2_sidecar",
+      "token_families": [
+        "read_issues_token",
+        "write_requires_token",
+        "local_static_no_token"
+      ],
+      "success_continuation": [
+        "read",
+        "write"
+      ],
+      "drift_recovery": {
+        "enabled": true,
+        "error_code": "E_SCENE_REVISION_DRIFT",
+        "max_retry": 1,
+        "requires_idempotency": true,
+        "refresh_tool_name": "get_scene_snapshot_for_write"
+      },
+      "redaction_policy": {
+        "strip_fields": [
+          "read_token",
+          "read_token_candidate",
+          "read_token_candidate_legacy"
+        ]
+      },
+      "auto_retry_policy": {
+        "max_retry": 1,
+        "requires_idempotency_key": true,
+        "on_retry_failure": "return_both_errors"
+      },
+      "auto_retry_safe_family": [
+        "write_requires_token"
+      ]
     }
   },
   "tools": [
     {
+      "kind": "write",
       "name": "modify_ui_layout",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Modify RectTransform geometry only (position and size fields such as anchored_x, anchored_y, width, height). Strictly do NOT use this tool for color, text, sprite, material, animation, gameplay values, or non-UI objects. If the target is not a valid UI node with RectTransform, the request must fail fast without implicit fallback or auto-repair.",
       "inputSchema": {
         "type": "object",
@@ -285,9 +321,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_component_properties",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set one explicit component property on one explicit target object. Use this only for scalar/component property writes. Strictly do NOT use this tool to create/delete objects, move hierarchy, or edit UI RectTransform geometry; those must use create_object/instantiate_prefab/delete_object/modify_ui_layout.",
       "inputSchema": {
         "type": "object",
@@ -486,9 +524,11 @@
       }
     },
     {
+      "kind": "write",
       "name": "add_component",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Add one explicit component to one explicit target object. Use this only for component attachment. Strictly do NOT use this tool for property writes, component removal, object hierarchy changes, or UI rect edits.",
       "inputSchema": {
         "type": "object",
@@ -636,9 +676,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "remove_component",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Remove one explicit component from one explicit target object. Use this only for component removal. Strictly do NOT use this tool for property writes, adding components, object deletion, or hierarchy parenting changes.",
       "inputSchema": {
         "type": "object",
@@ -722,9 +764,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "replace_component",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Replace one explicit source component on one explicit target object with one explicit new component type. Use this only for component type replacement. Do NOT use this tool for scalar property edits or hierarchy operations.",
       "inputSchema": {
         "type": "object",
@@ -814,9 +858,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "create_object",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Create a new empty object or predefined UI object under an explicit parent anchor. Strictly do NOT use this tool for prefab instantiation or deleting existing objects; use instantiate_prefab/delete_object for those operations.",
       "inputSchema": {
         "type": "object",
@@ -1013,9 +1059,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "instantiate_prefab",
       "lifecycle": "deprecated",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Instantiate one prefab asset under one explicit parent. Strictly do NOT use this tool for plain empty object creation, value patching, or UI rect edits; those must use create_object/set_component_properties/modify_ui_layout.",
       "inputSchema": {
         "type": "object",
@@ -1107,9 +1155,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "delete_object",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Delete one explicit target object by anchor. Strictly do NOT use this tool to disable/hide objects or clear values; if object should remain in scene, use set_component_properties or dedicated active-state tools instead.",
       "inputSchema": {
         "type": "object",
@@ -1187,9 +1237,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "rename_object",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Rename one explicit target object to one explicit new_name. Use this only for object name mutation. Do NOT use this tool for hierarchy changes, active-state toggles, or transform/UI edits.",
       "inputSchema": {
         "type": "object",
@@ -1273,9 +1325,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_active",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set active state for one explicit target object. Use this only for visibility/activation toggle. Do NOT use this tool to delete objects, rename objects, or reparent hierarchy.",
       "inputSchema": {
         "type": "object",
@@ -1358,9 +1412,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_parent",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Reparent one explicit target object under one explicit parent object. Use this only for hierarchy parenting changes. Do NOT use this tool for rename/active-state/property edits.",
       "inputSchema": {
         "type": "object",
@@ -1450,9 +1506,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_sibling_index",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set the sibling index for one explicit target object under its current parent. Use this only for order changes among siblings. Do NOT use this tool for reparenting, renaming, deleting, or value/property writes.",
       "inputSchema": {
         "type": "object",
@@ -1536,9 +1594,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_local_position",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set local position of one explicit target transform. Use this only for local space translation. Do NOT use this tool for world-space transform writes, hierarchy parenting, or UI RectTransform geometry writes.",
       "inputSchema": {
         "type": "object",
@@ -1631,9 +1691,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_local_rotation",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set local Euler rotation of one explicit target transform. Use this only for local-space rotation writes. Do NOT use this tool for world rotation, hierarchy parenting, or non-transform property edits.",
       "inputSchema": {
         "type": "object",
@@ -1726,9 +1788,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_local_scale",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set local scale of one explicit target transform. Use this only for local scale writes. Do NOT use this tool for position/rotation/world-space edits or hierarchy operations.",
       "inputSchema": {
         "type": "object",
@@ -1821,9 +1885,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_world_position",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set world position of one explicit target transform. Use this only for world-space translation. Do NOT use this tool for local-space transform edits, hierarchy parenting, or UI RectTransform layout changes.",
       "inputSchema": {
         "type": "object",
@@ -1916,9 +1982,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_world_rotation",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set world Euler rotation of one explicit target transform. Use this only for world-space rotation writes. Do NOT use this tool for local rotation, hierarchy parenting, or non-transform property updates.",
       "inputSchema": {
         "type": "object",
@@ -2011,9 +2079,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "reset_transform",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Reset local transform of one explicit target object to identity-like defaults (localPosition=0, localRotation=identity, localScale=1). Do NOT use this tool for selective partial transform edits; use dedicated set_local_* or set_world_* tools.",
       "inputSchema": {
         "type": "object",
@@ -2091,9 +2161,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_rect_anchored_position",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set RectTransform anchored position of one explicit UI target. Use this only for anchored position (x/y) writes. Do NOT use this tool for width/height or pivot/anchor changes; use dedicated UI geometry tools for those fields.",
       "inputSchema": {
         "type": "object",
@@ -2181,9 +2253,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_rect_size_delta",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set RectTransform sizeDelta of one explicit UI target. Use this only for width/height-like sizeDelta writes. Do NOT use this tool for anchored position, pivot, anchors, or non-RectTransform fields.",
       "inputSchema": {
         "type": "object",
@@ -2271,9 +2345,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_rect_pivot",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set RectTransform pivot of one explicit UI target. x and y must be in [0,1]. Do NOT use this tool for anchored position, sizeDelta, anchors, or non-RectTransform fields.",
       "inputSchema": {
         "type": "object",
@@ -2365,9 +2441,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_rect_anchors",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set RectTransform anchorMin/anchorMax of one explicit UI target. min/max values must be in [0,1] and min must not exceed max per axis. Do NOT use this tool for pivot or size/position fields.",
       "inputSchema": {
         "type": "object",
@@ -2473,9 +2551,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_canvas_group_alpha",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set CanvasGroup alpha on one explicit UI target object. Use this only for CanvasGroup transparency. Do NOT use this tool for Image color, text content, text style, RectTransform geometry, or hierarchy changes.",
       "inputSchema": {
         "type": "object",
@@ -2560,9 +2640,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_layout_element",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set LayoutElement sizing fields on one explicit UI target object. Use this only for LayoutElement constraints. Do NOT use this tool for Image/Text visual style, RectTransform anchor/pivot/size changes, or hierarchy edits.",
       "inputSchema": {
         "type": "object",
@@ -2681,9 +2763,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_ui_image_color",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set UnityEngine.UI.Image color on one explicit target object. Use this only for Image RGBA color. Do NOT use this tool for text color/content, CanvasGroup alpha, RectTransform geometry, or hierarchy operations.",
       "inputSchema": {
         "type": "object",
@@ -2860,9 +2944,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_ui_image_raycast_target",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set UnityEngine.UI.Image raycastTarget flag on one explicit target object. Use this only for Image input hit-testing behavior. Do NOT use this tool for color/text/layout/transform changes.",
       "inputSchema": {
         "type": "object",
@@ -2945,9 +3031,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_ui_text_content",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set UI text content on one explicit target object (Text or TMP_Text). Use this only for text string changes. Do NOT use this tool for color/font size/layout/transform/hierarchy changes.",
       "inputSchema": {
         "type": "object",
@@ -3030,9 +3118,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_ui_text_color",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set UI text color on one explicit target object (Text or TMP_Text). Use this only for text RGBA color. Do NOT use this tool for content/font size/layout/transform/hierarchy changes.",
       "inputSchema": {
         "type": "object",
@@ -3138,9 +3228,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_ui_text_font_size",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set UI text font size on one explicit target object (Text or TMP_Text). Use this only for font size changes. Do NOT use this tool for text content/color/layout/transform/hierarchy changes.",
       "inputSchema": {
         "type": "object",
@@ -3224,9 +3316,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "execute_unity_transaction",
       "lifecycle": "experimental",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Execute multiple SSOT write steps atomically in one Undo transaction. Use structured steps with alias/ref chaining. Do NOT use this tool for read operations or legacy action payloads.",
       "inputSchema": {
         "type": "object",
@@ -3734,9 +3828,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "duplicate_object",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Duplicate one explicit target object and place the clone under the same parent. Use this only for object duplication. Do NOT use this tool for renaming existing objects, reparenting hierarchy, or component/property edits.",
       "inputSchema": {
         "type": "object",
@@ -3819,9 +3915,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_scene_snapshot_for_write",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Get scene roots summary and a write token candidate.",
       "inputSchema": {
         "type": "object",
@@ -3915,9 +4013,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_current_selection",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Read the current Unity selection snapshot and return a write-ready read token candidate. Use this as the first step before any write workflow when you need deterministic target anchors. Do NOT use this tool to inspect deep hierarchy trees or component details; use get_hierarchy_subtree or get_gameobject_components for those tasks.",
       "inputSchema": {
         "type": "object",
@@ -3946,9 +4046,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_gameobject_components",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Read the component list of one explicit target object. target_object_id and target_path are both required and must resolve to the same object. Do NOT use this tool for hierarchy traversal or layout diagnosis; use get_hierarchy_subtree or validate_ui_layout instead.",
       "inputSchema": {
         "type": "object",
@@ -3992,9 +4094,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_hierarchy_subtree",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Read hierarchy subtree from one explicit target root. target_object_id and target_path are both required and must resolve to the same object. This tool can consume large token budget when depth/node_budget/char_budget are high: start with depth<=2, node_budget<=200, char_budget<=12000 and only increase when necessary. Do NOT use this tool to fetch component internals; use get_gameobject_components for component lists.",
       "inputSchema": {
         "type": "object",
@@ -4056,9 +4160,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_scene_roots",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Read root GameObjects from loaded scenes and return deterministic anchors (object_id/path). Use this tool when you need a stable scene-level entry point before any hierarchy traversal or write planning. Do NOT use this for deep subtree/component inspection; use get_hierarchy_subtree or get_gameobject_components for those.",
       "inputSchema": {
         "type": "object",
@@ -4100,9 +4206,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "list_assets_in_folder",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "List Unity assets under one explicit folder path. folder_path is required. Use this before prefab/script path selection to avoid path hallucination. Do NOT use this to inspect scene hierarchy or runtime object components; use get_scene_roots/get_hierarchy_subtree/get_gameobject_components for runtime targets.",
       "inputSchema": {
         "type": "object",
@@ -4154,9 +4262,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "find_objects_by_component",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Find scene objects by component query and return explicit anchors for deterministic follow-up calls. component_query is required. Use this when object names are unknown but component identity is known. Do NOT use this as a replacement for full hierarchy dump; use get_hierarchy_subtree when structure context is required.",
       "inputSchema": {
         "type": "object",
@@ -4213,9 +4323,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "query_prefab_info",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Inspect prefab hierarchy structure with explicit depth and budget controls. prefab_path and max_depth are required. Use this tool for prefab tree analysis before instantiate/edit operations. Do NOT use this for runtime scene hierarchy; use get_scene_roots/get_hierarchy_subtree for scene objects.",
       "inputSchema": {
         "type": "object",
@@ -4280,9 +4392,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_ui_tree",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Read structured UI tree for deterministic targeting and diagnosis. Use this tool to inspect UI node hierarchy, layout, interaction and text metrics budgets. Do NOT use this as a write operation; it is read-only and should not be used to mutate UI state.",
       "inputSchema": {
         "type": "object",
@@ -4395,9 +4509,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_ui_overlay_report",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Inspect ScreenSpaceOverlay coverage and overlay diagnostics for screenshot strategy decisions. Use this before image verification when UI overlay may hide render output. Do NOT use this tool to inspect non-overlay hierarchy details; use get_ui_tree for full structural tree.",
       "inputSchema": {
         "type": "object",
@@ -4468,9 +4584,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "hit_test_ui_at_viewport_point",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Hit test UI from deterministic viewport coordinates and return ordered hit stack. Use this when clickability/path targeting must be validated at specific points. Do NOT use this as a layout validator; use validate_ui_layout for structural issues.",
       "inputSchema": {
         "type": "object",
@@ -4565,9 +4683,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "validate_ui_layout",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Validate UI layout issues across target resolution and return issue list. Use this for OUT_OF_BOUNDS/OVERLAP/NOT_CLICKABLE/TEXT_OVERFLOW diagnostics. Do NOT use this tool for writing/fixing values directly.",
       "inputSchema": {
         "type": "object",
@@ -4665,9 +4785,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_serialized_property_tree",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Read serialized property tree for one explicit component on one explicit target. target_object_id/target_path/component_assembly_qualified_name are required. Do NOT use this for hierarchy traversal; use get_hierarchy_subtree.",
       "inputSchema": {
         "type": "object",
@@ -4766,9 +4888,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "capture_scene_screenshot",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Capture Unity visual output for verification. Use this tool for render snapshots and visual evidence collection. Do NOT use this to modify scene state or infer deep hierarchy/component data; use read structure tools for those.",
       "inputSchema": {
         "type": "object",
@@ -4865,9 +4989,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_action_catalog",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false,
       "description": "Deprecated in SSOT mode. This tool returns a static deprecation response and does not provide runtime action discovery.",
       "inputSchema": {
         "type": "object",
@@ -4932,9 +5058,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_action_schema",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false,
       "description": "Deprecated in SSOT mode. This tool returns a static deprecation response and does not provide runtime action schema payloads.",
       "inputSchema": {
         "type": "object",
@@ -4980,9 +5108,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_tool_schema",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false,
       "description": "Get static SSOT tool input schema by tool_name from compiled artifacts. tool_name is required. Use this to inspect authoritative parameters and required fields before composing requests. Do NOT use this tool as an execution endpoint.",
       "inputSchema": {
         "type": "object",
@@ -5020,9 +5150,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_write_contract_bundle",
       "lifecycle": "experimental",
-      "kind": "read",
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false,
       "description": "Aggregate write-contract guidance from SSOT compiled artifacts for a known tool_name. Use this for payload authoring and validation preparation only. Do NOT use this endpoint as an execution API.",
       "inputSchema": {
         "type": "object",
@@ -5209,9 +5341,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "preflight_validate_write_payload",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false,
       "description": "Validate one SSOT write-tool payload without dispatching to Unity execution. tool_name and payload are required. This endpoint only accepts tools that are classified as write in SSOT compiled metadata. Do NOT use this for legacy pipeline payloads or as an execution API.",
       "inputSchema": {
         "type": "object",
@@ -5266,9 +5400,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "setup_cursor_mcp",
       "lifecycle": "experimental",
-      "kind": "read",
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false,
       "description": "Write or update Cursor MCP config for unity-sidecar (native/cline path whitelist only). Use this for onboarding or reconfiguration of MCP client wiring. Do NOT use this tool to change Unity scene objects or to diagnose Unity runtime status.",
       "inputSchema": {
         "type": "object",
@@ -5316,9 +5452,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "verify_mcp_setup",
       "lifecycle": "experimental",
-      "kind": "read",
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false,
       "description": "Verify Cursor MCP onboarding readiness and return structured diagnostics for native/cline config. Use this after setup_cursor_mcp to confirm configuration health. Do NOT use this tool to mutate any scene state or as a replacement for Unity health checks.",
       "inputSchema": {
         "type": "object",
@@ -5358,9 +5496,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "run_unity_tests",
       "lifecycle": "experimental",
-      "kind": "read",
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false,
       "description": "Run Unity Test Runner in batchmode and return structured summary for all/editmode/playmode scopes. Use this for CI-style deterministic execution and machine-readable failure diagnostics.",
       "inputSchema": {
         "type": "object",
@@ -5425,9 +5565,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "get_unity_task_status",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Get the current status of one Unity task by job_id. Poll this tool until terminal state (succeeded/failed/cancelled). Do NOT use this tool to submit writes or infer schema contracts.",
       "inputSchema": {
         "type": "object",
@@ -5465,9 +5607,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "read",
       "name": "cancel_unity_task",
       "lifecycle": "stable",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Cancel one running or queued Unity task by job_id. Use this only for task cancellation control. Do NOT use this tool to submit new writes or inspect schema contracts.",
       "inputSchema": {
         "type": "object",
@@ -5505,9 +5649,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "submit_unity_task",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Submit an asynchronous Unity write task. This tool enqueues a job and returns job status handles; it does not guarantee immediate terminal completion. Do NOT use this for direct one-step scene mutation when a dedicated write tool exists.",
       "inputSchema": {
         "type": "object",
@@ -5634,9 +5780,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "apply_script_actions",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Apply structured file/script actions in one write request. Requires based_on_read_token and top-level write_anchor. Do NOT use this tool for visual hierarchy/component mutations; use dedicated visual/write tools instead.",
       "inputSchema": {
         "type": "object",
@@ -5728,9 +5876,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "apply_visual_actions",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Apply structured Unity visual actions with explicit anchors and action payloads. Use this tool only for action-array based visual writes.",
       "inputSchema": {
         "type": "object",
@@ -5902,9 +6052,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_ui_properties",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set common UI properties with a deterministic operation contract. This endpoint maps to legacy visual actions while enforcing SSOT schema validation at L2. Do NOT use this for non-UI component writes; use set_component_properties or set_serialized_property.",
       "inputSchema": {
         "type": "object",
@@ -6090,9 +6242,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "set_serialized_property",
       "lifecycle": "experimental",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Set one explicit SerializedProperty path on one explicit component instance. Use this as low-level precise write when dedicated high-level tools are not suitable. Do NOT use this as a generic fallback for hierarchy or transform workflows.",
       "inputSchema": {
         "type": "object",
@@ -6296,9 +6450,11 @@
       }
     },
     {
+      "kind": "read",
       "name": "hit_test_ui_at_screen_point",
       "lifecycle": "deprecated",
-      "kind": "read",
+      "token_family": "read_issues_token",
+      "scene_revision_capable": true,
       "description": "Hit test UGUI from deterministic screen-space coordinates. This command is currently disabled in runtime stabilization closure and may return E_COMMAND_DISABLED. Do NOT use this as a write API.",
       "inputSchema": {
         "type": "object",
@@ -6368,9 +6524,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "save_scene",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Save the current active Unity scene. If the scene has not been saved before, it will prompt for a save path. Use this tool to persist scene changes to disk.",
       "inputSchema": {
         "type": "object",
@@ -6519,9 +6677,11 @@
       "high_frequency_properties": {}
     },
     {
+      "kind": "write",
       "name": "save_prefab",
       "lifecycle": "stable",
-      "kind": "write",
+      "token_family": "write_requires_token",
+      "scene_revision_capable": true,
       "description": "Save a GameObject as a prefab asset or save changes to an existing prefab instance. Requires target_object_id and target_path to identify the GameObject to save.",
       "inputSchema": {
         "type": "object",

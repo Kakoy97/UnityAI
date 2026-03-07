@@ -78,6 +78,12 @@ test("dispatchSsotToolForMcp write success auto-issues continuation token from u
     assert.equal(outcome.body.ok, true);
     assert.equal(outcome.body.tool_name, "modify_ui_layout");
     assert.equal(outcome.body.data.scene_revision, "9002");
+    assert.equal(typeof outcome.body.token_automation, "object");
+    assert.equal(outcome.body.token_automation.auto_refreshed, true);
+    assert.equal(
+      outcome.body.data.token_automation.auto_refreshed,
+      true
+    );
     assert.equal(typeof outcome.body.data.read_token_candidate, "string");
     assert.equal(outcome.body.data.read_token_candidate.startsWith("ssot_rt_"), true);
     assert.notEqual(outcome.body.data.read_token_candidate, initialIssued.token);
@@ -123,9 +129,74 @@ test("dispatchSsotToolForMcp write success without scene revision keeps response
 
     assert.equal(outcome.statusCode, 200);
     assert.equal(outcome.body.ok, true);
+    assert.equal(typeof outcome.body.token_automation, "object");
+    assert.equal(outcome.body.token_automation.auto_refreshed, false);
     assert.equal(
       Object.prototype.hasOwnProperty.call(outcome.body.data, "read_token_candidate"),
       false
+    );
+    assert.equal(
+      outcome.body.data.token_automation.auto_refreshed,
+      false
+    );
+  } finally {
+    turnStore.stopMaintenance();
+  }
+});
+
+test("getStateSnapshotPayload exposes token automation counters for G2-5.5", () => {
+  const { service, turnStore } = createTurnServiceHarness();
+  try {
+    service.tokenLifecycleMetricsCollector = {
+      getSnapshot() {
+        return {
+          totals: {
+            continuation_issued_total: 12,
+          },
+        };
+      },
+    };
+    service.ssotTokenDriftRecoveryCoordinator = {
+      getShadowMetricsSnapshot() {
+        return {
+          schema_version: "token_drift_recovery_shadow_metrics.v1",
+          totals: {
+            events_total: 1,
+          },
+        };
+      },
+      getRecoveryMetricsSnapshot() {
+        return {
+          schema_version: "token_drift_recovery_execute_metrics.v1",
+          totals: {
+            attempt_total: 5,
+            success_total: 3,
+            fail_total: 2,
+            blocked_total: 1,
+          },
+          duration_ms: {
+            p95: 1875,
+          },
+        };
+      },
+    };
+
+    const snapshot = service.getStateSnapshotPayload();
+    assert.equal(
+      snapshot.mcp_runtime.token_automation_metrics.token_auto_refresh_total,
+      12
+    );
+    assert.equal(
+      snapshot.mcp_runtime.token_automation_metrics.token_auto_retry_success_total,
+      3
+    );
+    assert.equal(
+      snapshot.mcp_runtime.token_automation_metrics.token_auto_retry_fail_total,
+      2
+    );
+    assert.equal(
+      snapshot.mcp_runtime.token_automation_metrics.token_auto_retry_duration_p95_ms,
+      1875
     );
   } finally {
     turnStore.stopMaintenance();

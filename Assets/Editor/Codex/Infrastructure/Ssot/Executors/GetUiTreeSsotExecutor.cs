@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityAI.Editor.Codex.Domain;
 using UnityAI.Editor.Codex.Generated.Ssot;
 using UnityAI.Editor.Codex.Infrastructure.Ssot;
@@ -97,11 +97,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     truncated_reason = SsotExecutorCommon.Normalize(responseData.truncated_reason),
                     returned_canvas_count = canvasCount,
                     ui_roots = uiRoots,
-                    read_token_candidate =
-                        response.read_token != null &&
-                        !string.IsNullOrWhiteSpace(response.read_token.token)
-                            ? response.read_token.token
-                            : SsotExecutorCommon.BuildReadTokenCandidate()
                 });
         }
 

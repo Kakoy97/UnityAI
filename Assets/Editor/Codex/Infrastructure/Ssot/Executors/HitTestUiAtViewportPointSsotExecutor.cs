@@ -112,11 +112,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     hit_count = hitCount,
                     total_count = hitCount,
                     hits = hits,
-                    read_token_candidate =
-                        response.read_token != null &&
-                        !string.IsNullOrWhiteSpace(response.read_token.token)
-                            ? response.read_token.token
-                            : SsotExecutorCommon.BuildReadTokenCandidate()
                 });
         }
 

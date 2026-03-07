@@ -12,9 +12,73 @@ function normalizeToolKind(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-function isTokenIssuanceEligibleToolKind(kind) {
+function isTokenIssuanceEligibleToolKind(kind, continuationKinds = null) {
   const normalized = normalizeToolKind(kind);
+  if (!normalized) {
+    return false;
+  }
+  if (continuationKinds instanceof Set && continuationKinds.size > 0) {
+    return continuationKinds.has(normalized);
+  }
   return normalized === "read" || normalized === "write";
+}
+
+function isTokenIssuanceEligibleTokenFamily(family) {
+  const normalized = normalizeString(family).toLowerCase();
+  return (
+    normalized === "read_issues_token" || normalized === "write_requires_token"
+  );
+}
+
+function resolveToolContinuationPolicy(options = {}) {
+  const opts = isObject(options) ? options : {};
+  const toolName = normalizeString(opts.toolName);
+  const validatorRegistry =
+    opts.validatorRegistry &&
+    typeof opts.validatorRegistry.getToolMetadata === "function"
+      ? opts.validatorRegistry
+      : null;
+  const tokenPolicyRuntime =
+    opts.tokenPolicyRuntime && typeof opts.tokenPolicyRuntime === "object"
+      ? opts.tokenPolicyRuntime
+      : null;
+
+  let toolPolicy = null;
+  if (
+    tokenPolicyRuntime &&
+    typeof tokenPolicyRuntime.getToolPolicy === "function"
+  ) {
+    toolPolicy = tokenPolicyRuntime.getToolPolicy(toolName);
+  }
+  if (!toolPolicy && validatorRegistry) {
+    const metadata = validatorRegistry.getToolMetadata(toolName);
+    if (metadata && typeof metadata === "object") {
+      toolPolicy = {
+        name: toolName,
+        kind: normalizeToolKind(metadata.kind) || "read",
+        token_family:
+          normalizeToolKind(metadata.kind) === "write"
+            ? "write_requires_token"
+            : "read_issues_token",
+      };
+    }
+  }
+
+  let continuationKinds = null;
+  if (tokenPolicyRuntime && typeof tokenPolicyRuntime.getContract === "function") {
+    const contract = tokenPolicyRuntime.getContract();
+    if (contract && Array.isArray(contract.success_continuation)) {
+      continuationKinds = new Set(
+        contract.success_continuation
+          .map((item) => normalizeToolKind(item))
+          .filter((item) => !!item)
+      );
+    }
+  }
+  return {
+    toolPolicy: isObject(toolPolicy) ? toolPolicy : null,
+    continuationKinds,
+  };
 }
 
 function stripTokenEnvelope(result) {
@@ -94,34 +158,38 @@ function resolveTokenIssuanceDecision(options = {}) {
       result,
     };
   }
-  const validatorRegistry =
-    opts.validatorRegistry &&
-    typeof opts.validatorRegistry.getToolMetadata === "function"
-      ? opts.validatorRegistry
-      : null;
-  if (!validatorRegistry) {
+  const continuationPolicy = resolveToolContinuationPolicy({
+    toolName,
+    validatorRegistry: opts.validatorRegistry,
+    tokenPolicyRuntime: opts.tokenPolicyRuntime,
+  });
+  const toolPolicy = continuationPolicy.toolPolicy;
+  if (!toolPolicy) {
     return {
       should_issue: false,
-      reason: "validator_registry_missing",
+      reason: "tool_policy_missing",
       result,
     };
   }
-
-  const toolMetadata = validatorRegistry.getToolMetadata(toolName);
-  if (!toolMetadata || typeof toolMetadata !== "object") {
-    return {
-      should_issue: false,
-      reason: "tool_metadata_missing",
-      result,
-    };
-  }
-  const toolKind = normalizeToolKind(toolMetadata.kind);
-  if (!isTokenIssuanceEligibleToolKind(toolKind)) {
+  const toolKind = normalizeToolKind(toolPolicy.kind);
+  const tokenFamily = normalizeString(toolPolicy.token_family).toLowerCase();
+  if (
+    !isTokenIssuanceEligibleToolKind(toolKind, continuationPolicy.continuationKinds)
+  ) {
     return {
       should_issue: false,
       reason: "tool_kind_not_eligible",
       result,
       tool_kind: toolKind,
+    };
+  }
+  if (!isTokenIssuanceEligibleTokenFamily(tokenFamily)) {
+    return {
+      should_issue: false,
+      reason: "token_family_not_eligible",
+      result,
+      tool_kind: toolKind,
+      token_family: tokenFamily,
     };
   }
 
@@ -141,6 +209,7 @@ function resolveTokenIssuanceDecision(options = {}) {
     reason: "eligible",
     result,
     tool_kind: toolKind,
+    token_family: tokenFamily,
     scene_revision: sceneRevision,
     object_id: normalizeString(data.target_object_id),
     path:

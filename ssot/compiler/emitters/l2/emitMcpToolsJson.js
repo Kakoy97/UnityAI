@@ -56,6 +56,16 @@ function normalizeToolPriority(value) {
   return "P2";
 }
 
+function normalizeTokenFamily(value, kind) {
+  const token = typeof value === "string" ? value.trim() : "";
+  if (token) {
+    return token;
+  }
+  return String(kind || "").trim().toLowerCase() === "read"
+    ? "read_issues_token"
+    : "write_requires_token";
+}
+
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -187,6 +197,7 @@ function projectGlobalContracts(definitions) {
     "anchor_write_family",
     "create_family",
     "error_feedback_contract",
+    "token_automation_contract",
   ]) {
     if (!Object.prototype.hasOwnProperty.call(source, key)) {
       continue;
@@ -213,9 +224,15 @@ function emitMcpToolsJson(dictionary) {
     version: dictionary.version,
     global_contracts: projectGlobalContracts(definitions),
     tools: tools.map((tool) => ({
+      kind: tool.kind || "write",
       name: tool.name,
       lifecycle: tool.lifecycle || "stable",
-      kind: tool.kind || "write",
+      token_family: normalizeTokenFamily(tool.token_family, tool.kind || "write"),
+      scene_revision_capable:
+        typeof tool.scene_revision_capable === "boolean"
+          ? tool.scene_revision_capable
+          : normalizeTokenFamily(tool.token_family, tool.kind || "write") !==
+            "local_static_no_token",
       description: tool.description || "",
       inputSchema: buildToolInputSchema(
         tool && typeof tool === "object" ? tool.input : null,
