@@ -19,7 +19,10 @@
           "properties": {
             "execution_mode": {
               "type": "string",
-              "enum": ["validate", "execute"],
+              "enum": [
+                "validate",
+                "execute"
+              ],
               "case_insensitive": true
             },
             "thread_id": {
@@ -49,8 +52,94 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "thread_id": { "type": "string" }
+            "thread_id": {
+              "type": "string"
+            }
           }
+        }
+      }
+    },
+    "transaction_ref_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$ref"
+      ],
+      "properties": {
+        "$ref": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$"
+        }
+      }
+    },
+    "transaction_payload_value": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/_definitions/transaction_ref_value"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/_definitions/transaction_payload_value"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/_definitions/transaction_payload_value"
+          }
+        }
+      ]
+    },
+    "transaction_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step_id",
+        "tool_name",
+        "payload"
+      ],
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/_definitions/transaction_payload_value"
+          }
+        },
+        "save_as": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
         }
       }
     }
@@ -61,8 +150,12 @@
       "required_union": true,
       "properties_union": true,
       "apply_mixins_for_kind": {
-        "write": ["write_envelope"],
-        "read": ["read_envelope"]
+        "write": [
+          "write_envelope"
+        ],
+        "read": [
+          "read_envelope"
+        ]
       }
     }
   },
@@ -70,7 +163,9 @@
     {
       "name": "modify_ui_layout",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Modify RectTransform geometry only (position and size fields such as anchored_x, anchored_y, width, height). Strictly do NOT use this tool for color, text, sprite, material, animation, gameplay values, or non-UI objects. If the target is not a valid UI node with RectTransform, the request must fail fast without implicit fallback or auto-repair.",
       "input": {
@@ -85,12 +180,28 @@
           "height"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "anchored_x": { "type": "number" },
-          "anchored_y": { "type": "number" },
-          "width": { "type": "number", "minimum": 0 },
-          "height": { "type": "number", "minimum": 0 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "anchored_x": {
+            "type": "number"
+          },
+          "anchored_y": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number",
+            "minimum": 0
+          },
+          "height": {
+            "type": "number",
+            "minimum": 0
+          }
         }
       },
       "examples": [
@@ -105,12 +216,18 @@
             "height": 48
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_component_properties",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set one explicit component property on one explicit target object. Use this only for scalar/component property writes. Strictly do NOT use this tool to create/delete objects, move hierarchy, or edit UI RectTransform geometry; those must use create_object/instantiate_prefab/delete_object/modify_ui_layout.",
       "input": {
@@ -124,17 +241,39 @@
           "value_kind"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "component_type": { "type": "string", "minLength": 1 },
-          "property_path": { "type": "string", "minLength": 1 },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "property_path": {
+            "type": "string",
+            "minLength": 1
+          },
           "value_kind": {
             "type": "string",
-            "enum": ["string", "number", "boolean"]
+            "enum": [
+              "string",
+              "number",
+              "boolean"
+            ]
           },
-          "value_string": { "type": "string" },
-          "value_number": { "type": "number" },
-          "value_boolean": { "type": "boolean" }
+          "value_string": {
+            "type": "string"
+          },
+          "value_number": {
+            "type": "number"
+          },
+          "value_boolean": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -149,12 +288,18 @@
             "value_number": 0.5
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "add_component",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Add one explicit component to one explicit target object. Use this only for component attachment. Strictly do NOT use this tool for property writes, component removal, object hierarchy changes, or UI rect edits.",
       "input": {
@@ -166,9 +311,18 @@
           "component_type"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "component_type": { "type": "string", "minLength": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -180,12 +334,18 @@
             "component_type": "UnityEngine.CanvasGroup, UnityEngine.UI"
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "remove_component",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Remove one explicit component from one explicit target object. Use this only for component removal. Strictly do NOT use this tool for property writes, adding components, object deletion, or hierarchy parenting changes.",
       "input": {
@@ -197,9 +357,18 @@
           "component_type"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "component_type": { "type": "string", "minLength": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -211,12 +380,18 @@
             "component_type": "UnityEngine.CanvasGroup, UnityEngine.UI"
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "replace_component",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Replace one explicit source component on one explicit target object with one explicit new component type. Use this only for component type replacement. Do NOT use this tool for scalar property edits or hierarchy operations.",
       "input": {
@@ -229,10 +404,22 @@
           "new_component_type"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "source_component_type": { "type": "string", "minLength": 1 },
-          "new_component_type": { "type": "string", "minLength": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_component_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_component_type": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -245,12 +432,18 @@
             "new_component_type": "TMPro.TextMeshProUGUI, Unity.TextMeshPro"
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "create_object",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Create a new empty object or predefined UI object under an explicit parent anchor. Strictly do NOT use this tool for prefab instantiation or deleting existing objects; use instantiate_prefab/delete_object for those operations.",
       "input": {
@@ -264,14 +457,31 @@
           "set_active"
         ],
         "properties": {
-          "parent_object_id": { "type": "string", "minLength": 1 },
-          "parent_path": { "type": "string", "minLength": 1 },
-          "new_object_name": { "type": "string", "minLength": 1 },
+          "parent_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_object_name": {
+            "type": "string",
+            "minLength": 1
+          },
           "object_kind": {
             "type": "string",
-            "enum": ["empty", "ui_button", "ui_panel", "camera", "light"]
+            "enum": [
+              "empty",
+              "ui_button",
+              "ui_panel",
+              "camera",
+              "light"
+            ]
           },
-          "set_active": { "type": "boolean" }
+          "set_active": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -285,12 +495,18 @@
             "set_active": true
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "instantiate_prefab",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "deprecated",
       "description": "Instantiate one prefab asset under one explicit parent. Strictly do NOT use this tool for plain empty object creation, value patching, or UI rect edits; those must use create_object/set_component_properties/modify_ui_layout.",
       "input": {
@@ -302,11 +518,24 @@
           "prefab_asset_path"
         ],
         "properties": {
-          "parent_object_id": { "type": "string", "minLength": 1 },
-          "parent_path": { "type": "string", "minLength": 1 },
-          "prefab_asset_path": { "type": "string", "minLength": 1 },
-          "instance_name": { "type": "string" },
-          "world_position_stays": { "type": "boolean" }
+          "parent_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prefab_asset_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "instance_name": {
+            "type": "string"
+          },
+          "world_position_stays": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -320,12 +549,18 @@
             "world_position_stays": false
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
+      }
     },
     {
       "name": "delete_object",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Delete one explicit target object by anchor. Strictly do NOT use this tool to disable/hide objects or clear values; if object should remain in scene, use set_component_properties or dedicated active-state tools instead.",
       "input": {
@@ -336,8 +571,14 @@
           "target_path"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -348,12 +589,18 @@
             "target_path": "Scene/Canvas/DebugPanel"
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "rename_object",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Rename one explicit target object to one explicit new_name. Use this only for object name mutation. Do NOT use this tool for hierarchy changes, active-state toggles, or transform/UI edits.",
       "input": {
@@ -365,9 +612,18 @@
           "new_name"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "new_name": { "type": "string", "minLength": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "new_name": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -379,12 +635,18 @@
             "new_name": "StartButton"
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_active",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set active state for one explicit target object. Use this only for visibility/activation toggle. Do NOT use this tool to delete objects, rename objects, or reparent hierarchy.",
       "input": {
@@ -396,9 +658,17 @@
           "active"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "active": { "type": "boolean" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "active": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -410,12 +680,18 @@
             "active": false
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_parent",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Reparent one explicit target object under one explicit parent object. Use this only for hierarchy parenting changes. Do NOT use this tool for rename/active-state/property edits.",
       "input": {
@@ -428,10 +704,22 @@
           "parent_path"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "parent_object_id": { "type": "string", "minLength": 1 },
-          "parent_path": { "type": "string", "minLength": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parent_path": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -444,12 +732,18 @@
             "parent_path": "Scene/Canvas/Panel"
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_sibling_index",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set the sibling index for one explicit target object under its current parent. Use this only for order changes among siblings. Do NOT use this tool for reparenting, renaming, deleting, or value/property writes.",
       "input": {
@@ -461,9 +755,18 @@
           "sibling_index"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "sibling_index": { "type": "integer", "minimum": 0 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sibling_index": {
+            "type": "integer",
+            "minimum": 0
+          }
         }
       },
       "examples": [
@@ -475,12 +778,18 @@
             "sibling_index": 0
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_local_position",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set local position of one explicit target transform. Use this only for local space translation. Do NOT use this tool for world-space transform writes, hierarchy parenting, or UI RectTransform geometry writes.",
       "input": {
@@ -494,11 +803,23 @@
           "z"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "x": { "type": "number" },
-          "y": { "type": "number" },
-          "z": { "type": "number" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
         }
       },
       "examples": [
@@ -512,12 +833,18 @@
             "z": 0
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_local_rotation",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set local Euler rotation of one explicit target transform. Use this only for local-space rotation writes. Do NOT use this tool for world rotation, hierarchy parenting, or non-transform property edits.",
       "input": {
@@ -531,11 +858,23 @@
           "z"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "x": { "type": "number" },
-          "y": { "type": "number" },
-          "z": { "type": "number" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
         }
       },
       "examples": [
@@ -549,12 +888,18 @@
             "z": 0
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_local_scale",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set local scale of one explicit target transform. Use this only for local scale writes. Do NOT use this tool for position/rotation/world-space edits or hierarchy operations.",
       "input": {
@@ -568,11 +913,23 @@
           "z"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "x": { "type": "number" },
-          "y": { "type": "number" },
-          "z": { "type": "number" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
         }
       },
       "examples": [
@@ -586,12 +943,18 @@
             "z": 1
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_world_position",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set world position of one explicit target transform. Use this only for world-space translation. Do NOT use this tool for local-space transform edits, hierarchy parenting, or UI RectTransform layout changes.",
       "input": {
@@ -605,11 +968,23 @@
           "z"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "x": { "type": "number" },
-          "y": { "type": "number" },
-          "z": { "type": "number" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
         }
       },
       "examples": [
@@ -623,12 +998,18 @@
             "z": 0
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_world_rotation",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set world Euler rotation of one explicit target transform. Use this only for world-space rotation writes. Do NOT use this tool for local rotation, hierarchy parenting, or non-transform property updates.",
       "input": {
@@ -642,11 +1023,23 @@
           "z"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "x": { "type": "number" },
-          "y": { "type": "number" },
-          "z": { "type": "number" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
         }
       },
       "examples": [
@@ -660,12 +1053,18 @@
             "z": 0
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "reset_transform",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Reset local transform of one explicit target object to identity-like defaults (localPosition=0, localRotation=identity, localScale=1). Do NOT use this tool for selective partial transform edits; use dedicated set_local_* or set_world_* tools.",
       "input": {
@@ -676,8 +1075,14 @@
           "target_path"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -688,12 +1093,18 @@
             "target_path": "Scene/Canvas/Button"
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_rect_anchored_position",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set RectTransform anchored position of one explicit UI target. Use this only for anchored position (x/y) writes. Do NOT use this tool for width/height or pivot/anchor changes; use dedicated UI geometry tools for those fields.",
       "input": {
@@ -706,10 +1117,20 @@
           "y"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "x": { "type": "number" },
-          "y": { "type": "number" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
         }
       },
       "examples": [
@@ -722,12 +1143,18 @@
             "y": 100
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_rect_size_delta",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set RectTransform sizeDelta of one explicit UI target. Use this only for width/height-like sizeDelta writes. Do NOT use this tool for anchored position, pivot, anchors, or non-RectTransform fields.",
       "input": {
@@ -740,10 +1167,20 @@
           "y"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "x": { "type": "number" },
-          "y": { "type": "number" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
         }
       },
       "examples": [
@@ -756,12 +1193,18 @@
             "y": 48
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_rect_pivot",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set RectTransform pivot of one explicit UI target. x and y must be in [0,1]. Do NOT use this tool for anchored position, sizeDelta, anchors, or non-RectTransform fields.",
       "input": {
@@ -774,10 +1217,24 @@
           "y"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "x": { "type": "number", "minimum": 0, "maximum": 1 },
-          "y": { "type": "number", "minimum": 0, "maximum": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
         }
       },
       "examples": [
@@ -790,12 +1247,18 @@
             "y": 0.5
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_rect_anchors",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set RectTransform anchorMin/anchorMax of one explicit UI target. min/max values must be in [0,1] and min must not exceed max per axis. Do NOT use this tool for pivot or size/position fields.",
       "input": {
@@ -810,12 +1273,34 @@
           "max_y"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "min_x": { "type": "number", "minimum": 0, "maximum": 1 },
-          "min_y": { "type": "number", "minimum": 0, "maximum": 1 },
-          "max_x": { "type": "number", "minimum": 0, "maximum": 1 },
-          "max_y": { "type": "number", "minimum": 0, "maximum": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "min_x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "min_y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "max_x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "max_y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
         }
       },
       "examples": [
@@ -830,12 +1315,18 @@
             "max_y": 1
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_canvas_group_alpha",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set CanvasGroup alpha on one explicit UI target object. Use this only for CanvasGroup transparency. Do NOT use this tool for Image color, text content, text style, RectTransform geometry, or hierarchy changes.",
       "input": {
@@ -847,9 +1338,19 @@
           "alpha"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "alpha": { "type": "number", "minimum": 0, "maximum": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "alpha": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
         }
       },
       "examples": [
@@ -861,12 +1362,18 @@
             "alpha": 0.5
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_layout_element",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set LayoutElement sizing fields on one explicit UI target object. Use this only for LayoutElement constraints. Do NOT use this tool for Image/Text visual style, RectTransform anchor/pivot/size changes, or hierarchy edits.",
       "input": {
@@ -884,15 +1391,41 @@
           "ignore_layout"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "min_width": { "type": "number", "minimum": -1 },
-          "min_height": { "type": "number", "minimum": -1 },
-          "preferred_width": { "type": "number", "minimum": -1 },
-          "preferred_height": { "type": "number", "minimum": -1 },
-          "flexible_width": { "type": "number", "minimum": -1 },
-          "flexible_height": { "type": "number", "minimum": -1 },
-          "ignore_layout": { "type": "boolean" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "min_width": {
+            "type": "number",
+            "minimum": -1
+          },
+          "min_height": {
+            "type": "number",
+            "minimum": -1
+          },
+          "preferred_width": {
+            "type": "number",
+            "minimum": -1
+          },
+          "preferred_height": {
+            "type": "number",
+            "minimum": -1
+          },
+          "flexible_width": {
+            "type": "number",
+            "minimum": -1
+          },
+          "flexible_height": {
+            "type": "number",
+            "minimum": -1
+          },
+          "ignore_layout": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -910,12 +1443,18 @@
             "ignore_layout": false
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_ui_image_color",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set UnityEngine.UI.Image color on one explicit target object. Use this only for Image RGBA color. Do NOT use this tool for text color/content, CanvasGroup alpha, RectTransform geometry, or hierarchy operations.",
       "input": {
@@ -930,12 +1469,34 @@
           "a"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "r": { "type": "number", "minimum": 0, "maximum": 1 },
-          "g": { "type": "number", "minimum": 0, "maximum": 1 },
-          "b": { "type": "number", "minimum": 0, "maximum": 1 },
-          "a": { "type": "number", "minimum": 0, "maximum": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "r": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "g": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "b": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "a": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
         }
       },
       "examples": [
@@ -950,12 +1511,18 @@
             "a": 1
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_ui_image_raycast_target",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set UnityEngine.UI.Image raycastTarget flag on one explicit target object. Use this only for Image input hit-testing behavior. Do NOT use this tool for color/text/layout/transform changes.",
       "input": {
@@ -967,9 +1534,17 @@
           "raycast_target"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "raycast_target": { "type": "boolean" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "raycast_target": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -981,12 +1556,18 @@
             "raycast_target": false
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_ui_text_content",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set UI text content on one explicit target object (Text or TMP_Text). Use this only for text string changes. Do NOT use this tool for color/font size/layout/transform/hierarchy changes.",
       "input": {
@@ -998,9 +1579,17 @@
           "text"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "text": { "type": "string" }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text": {
+            "type": "string"
+          }
         }
       },
       "examples": [
@@ -1012,12 +1601,18 @@
             "text": "Start"
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_ui_text_color",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set UI text color on one explicit target object (Text or TMP_Text). Use this only for text RGBA color. Do NOT use this tool for content/font size/layout/transform/hierarchy changes.",
       "input": {
@@ -1032,12 +1627,34 @@
           "a"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "r": { "type": "number", "minimum": 0, "maximum": 1 },
-          "g": { "type": "number", "minimum": 0, "maximum": 1 },
-          "b": { "type": "number", "minimum": 0, "maximum": 1 },
-          "a": { "type": "number", "minimum": 0, "maximum": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "r": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "g": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "b": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "a": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
         }
       },
       "examples": [
@@ -1052,12 +1669,18 @@
             "a": 1
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_ui_text_font_size",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Set UI text font size on one explicit target object (Text or TMP_Text). Use this only for font size changes. Do NOT use this tool for text content/color/layout/transform/hierarchy changes.",
       "input": {
@@ -1069,9 +1692,18 @@
           "font_size"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "font_size": { "type": "number", "exclusiveMinimum": 0 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "font_size": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
         }
       },
       "examples": [
@@ -1083,40 +1715,125 @@
             "font_size": 24
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "execute_unity_transaction",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "experimental",
-      "description": "Execute multiple SSOT write steps atomically in one Undo transaction. Provide a transaction_id and steps_json (JSON array string) where each step includes tool_name and payload_json. Do NOT use this tool for read operations or legacy action payloads.",
+      "description": "Execute multiple SSOT write steps atomically in one Undo transaction. Use structured steps with alias/ref chaining. Do NOT use this tool for read operations or legacy action payloads.",
       "input": {
         "type": "object",
         "additionalProperties": false,
         "required": [
           "transaction_id",
-          "steps_json"
+          "steps"
         ],
         "properties": {
-          "transaction_id": { "type": "string", "minLength": 1 },
-          "steps_json": { "type": "string", "minLength": 2 }
+          "transaction_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/_definitions/transaction_step"
+            }
+          }
         }
       },
       "examples": [
         {
-          "name": "atomic_rename_and_disable",
+          "name": "atomic_create_and_set_position_v2_steps",
+          "request_business_only": {
+            "transaction_id": "txn_create_and_set_pos_001",
+            "steps": [
+              {
+                "step_id": "step_create_button",
+                "tool_name": "create_object",
+                "payload": {
+                  "parent_object_id": "mock_parent_object_id",
+                  "parent_path": "Scene/Canvas",
+                  "new_object_name": "StartButton",
+                  "object_kind": "ui_button",
+                  "set_active": true
+                },
+                "save_as": "button"
+              },
+              {
+                "step_id": "step_set_button_pos",
+                "tool_name": "set_rect_anchored_position",
+                "payload": {
+                  "target_object_id": {
+                    "$ref": "button.target_object_id"
+                  },
+                  "target_path": {
+                    "$ref": "button.target_path"
+                  },
+                  "x": -150,
+                  "y": -50
+                },
+                "depends_on": [
+                  "step_create_button"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "atomic_rename_and_disable_v2_steps",
           "request_business_only": {
             "transaction_id": "txn_rename_disable_001",
-            "steps_json": "[{\"tool_name\":\"rename_object\",\"payload_json\":\"{\\\"target_object_id\\\":\\\"mock_target_object_id\\\",\\\"target_path\\\":\\\"Scene/Canvas/Button\\\",\\\"new_name\\\":\\\"Button_Main\\\"}\"},{\"tool_name\":\"set_active\",\"payload_json\":\"{\\\"target_object_id\\\":\\\"mock_target_object_id\\\",\\\"target_path\\\":\\\"Scene/Canvas/Button_Main\\\",\\\"active\\\":false}\"}]"
+            "steps": [
+              {
+                "step_id": "step_rename_button",
+                "tool_name": "rename_object",
+                "payload": {
+                  "target_object_id": "mock_target_object_id",
+                  "target_path": "Scene/Canvas/Button",
+                  "new_name": "Button_Main"
+                },
+                "save_as": "button_main"
+              },
+              {
+                "step_id": "step_disable_button",
+                "tool_name": "set_active",
+                "payload": {
+                  "target_object_id": {
+                    "$ref": "button_main.target_object_id"
+                  },
+                  "target_path": {
+                    "$ref": "button_main.target_path"
+                  },
+                  "active": false
+                },
+                "depends_on": [
+                  "step_rename_button"
+                ]
+              }
+            ]
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
+      }
     },
     {
       "name": "duplicate_object",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Duplicate one explicit target object and place the clone under the same parent. Use this only for object duplication. Do NOT use this tool for renaming existing objects, reparenting hierarchy, or component/property edits.",
       "input": {
@@ -1127,9 +1844,18 @@
           "target_path"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "duplicate_name": { "type": "string", "minLength": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "duplicate_name": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -1141,19 +1867,27 @@
             "duplicate_name": "Button_Copy"
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "get_scene_snapshot_for_write",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Get scene roots summary and a write token candidate.",
       "input": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "scope_path": { "type": "string" }
+          "scope_path": {
+            "type": "string"
+          }
         }
       },
       "examples": [
@@ -1168,7 +1902,9 @@
     {
       "name": "get_current_selection",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Read the current Unity selection snapshot and return a write-ready read token candidate. Use this as the first step before any write workflow when you need deterministic target anchors. Do NOT use this tool to inspect deep hierarchy trees or component details; use get_hierarchy_subtree or get_gameobject_components for those tasks.",
       "input": {
@@ -1186,7 +1922,9 @@
     {
       "name": "get_gameobject_components",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Read the component list of one explicit target object. target_object_id and target_path are both required and must resolve to the same object. Do NOT use this tool for hierarchy traversal or layout diagnosis; use get_hierarchy_subtree or validate_ui_layout instead.",
       "input": {
@@ -1197,8 +1935,14 @@
           "target_path"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -1214,7 +1958,9 @@
     {
       "name": "get_hierarchy_subtree",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Read hierarchy subtree from one explicit target root. target_object_id and target_path are both required and must resolve to the same object. This tool can consume large token budget when depth/node_budget/char_budget are high: start with depth<=2, node_budget<=200, char_budget<=12000 and only increase when necessary. Do NOT use this tool to fetch component internals; use get_gameobject_components for component lists.",
       "input": {
@@ -1225,11 +1971,29 @@
           "target_path"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "depth": { "type": "integer", "minimum": 0, "maximum": 6 },
-          "node_budget": { "type": "integer", "minimum": 1, "maximum": 5000 },
-          "char_budget": { "type": "integer", "minimum": 256, "maximum": 200000 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 200000
+          }
         }
       },
       "examples": [
@@ -1248,15 +2012,22 @@
     {
       "name": "get_scene_roots",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Read root GameObjects from loaded scenes and return deterministic anchors (object_id/path). Use this tool when you need a stable scene-level entry point before any hierarchy traversal or write planning. Do NOT use this for deep subtree/component inspection; use get_hierarchy_subtree or get_gameobject_components for those.",
       "input": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "scene_path": { "type": "string", "minLength": 1 },
-          "include_inactive": { "type": "boolean" }
+          "scene_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "include_inactive": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -1276,7 +2047,9 @@
     {
       "name": "list_assets_in_folder",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "List Unity assets under one explicit folder path. folder_path is required. Use this before prefab/script path selection to avoid path hallucination. Do NOT use this to inspect scene hierarchy or runtime object components; use get_scene_roots/get_hierarchy_subtree/get_gameobject_components for runtime targets.",
       "input": {
@@ -1286,10 +2059,21 @@
           "folder_path"
         ],
         "properties": {
-          "folder_path": { "type": "string", "minLength": 1 },
-          "recursive": { "type": "boolean" },
-          "include_meta": { "type": "boolean" },
-          "limit": { "type": "integer", "minimum": 1, "maximum": 5000 }
+          "folder_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recursive": {
+            "type": "boolean"
+          },
+          "include_meta": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          }
         }
       },
       "examples": [
@@ -1307,7 +2091,9 @@
     {
       "name": "find_objects_by_component",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Find scene objects by component query and return explicit anchors for deterministic follow-up calls. component_query is required. Use this when object names are unknown but component identity is known. Do NOT use this as a replacement for full hierarchy dump; use get_hierarchy_subtree when structure context is required.",
       "input": {
@@ -1317,11 +2103,26 @@
           "component_query"
         ],
         "properties": {
-          "component_query": { "type": "string", "minLength": 1 },
-          "scene_path": { "type": "string", "minLength": 1 },
-          "under_path": { "type": "string", "minLength": 1 },
-          "include_inactive": { "type": "boolean" },
-          "limit": { "type": "integer", "minimum": 1, "maximum": 5000 }
+          "component_query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "under_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "include_inactive": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000
+          }
         }
       },
       "examples": [
@@ -1339,7 +2140,9 @@
     {
       "name": "query_prefab_info",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Inspect prefab hierarchy structure with explicit depth and budget controls. prefab_path and max_depth are required. Use this tool for prefab tree analysis before instantiate/edit operations. Do NOT use this for runtime scene hierarchy; use get_scene_roots/get_hierarchy_subtree for scene objects.",
       "input": {
@@ -1350,12 +2153,31 @@
           "max_depth"
         ],
         "properties": {
-          "prefab_path": { "type": "string", "minLength": 1 },
-          "max_depth": { "type": "integer", "minimum": 0, "maximum": 32 },
-          "node_budget": { "type": "integer", "minimum": 1, "maximum": 10000 },
-          "char_budget": { "type": "integer", "minimum": 256, "maximum": 200000 },
-          "include_components": { "type": "boolean" },
-          "include_missing_scripts": { "type": "boolean" }
+          "prefab_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 200000
+          },
+          "include_components": {
+            "type": "boolean"
+          },
+          "include_missing_scripts": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -1375,7 +2197,9 @@
     {
       "name": "get_ui_tree",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Read structured UI tree for deterministic targeting and diagnosis. Use this tool to inspect UI node hierarchy, layout, interaction and text metrics budgets. Do NOT use this as a write operation; it is read-only and should not be used to mutate UI state.",
       "input": {
@@ -1384,33 +2208,77 @@
         "properties": {
           "ui_system": {
             "type": "string",
-            "enum": ["auto", "ugui", "uitk"]
+            "enum": [
+              "auto",
+              "ugui",
+              "uitk"
+            ]
           },
-          "root_path": { "type": "string", "minLength": 1 },
+          "root_path": {
+            "type": "string",
+            "minLength": 1
+          },
           "scope": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "root_path": { "type": "string", "minLength": 1 }
+              "root_path": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           },
-          "include_inactive": { "type": "boolean" },
-          "include_components": { "type": "boolean" },
-          "include_layout": { "type": "boolean" },
-          "include_interaction": { "type": "boolean" },
-          "include_text_metrics": { "type": "boolean" },
-          "max_depth": { "type": "integer", "minimum": 0, "maximum": 32 },
-          "node_budget": { "type": "integer", "minimum": 1, "maximum": 10000 },
-          "char_budget": { "type": "integer", "minimum": 256, "maximum": 200000 },
+          "include_inactive": {
+            "type": "boolean"
+          },
+          "include_components": {
+            "type": "boolean"
+          },
+          "include_layout": {
+            "type": "boolean"
+          },
+          "include_interaction": {
+            "type": "boolean"
+          },
+          "include_text_metrics": {
+            "type": "boolean"
+          },
+          "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 200000
+          },
           "resolution": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "width": { "type": "integer", "minimum": 1, "maximum": 16384 },
-              "height": { "type": "integer", "minimum": 1, "maximum": 16384 }
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              }
             }
           },
-          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
         }
       },
       "examples": [
@@ -1434,26 +2302,50 @@
     {
       "name": "get_ui_overlay_report",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Inspect ScreenSpaceOverlay coverage and overlay diagnostics for screenshot strategy decisions. Use this before image verification when UI overlay may hide render output. Do NOT use this tool to inspect non-overlay hierarchy details; use get_ui_tree for full structural tree.",
       "input": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "root_path": { "type": "string", "minLength": 1 },
+          "root_path": {
+            "type": "string",
+            "minLength": 1
+          },
           "scope": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "root_path": { "type": "string", "minLength": 1 }
+              "root_path": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           },
-          "include_inactive": { "type": "boolean" },
-          "include_children_summary": { "type": "boolean" },
-          "max_nodes": { "type": "integer", "minimum": 1, "maximum": 20000 },
-          "max_children_per_canvas": { "type": "integer", "minimum": 1, "maximum": 2000 },
-          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+          "include_inactive": {
+            "type": "boolean"
+          },
+          "include_children_summary": {
+            "type": "boolean"
+          },
+          "max_nodes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20000
+          },
+          "max_children_per_canvas": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
         }
       },
       "examples": [
@@ -1473,31 +2365,72 @@
     {
       "name": "hit_test_ui_at_viewport_point",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Hit test UI from deterministic viewport coordinates and return ordered hit stack. Use this when clickability/path targeting must be validated at specific points. Do NOT use this as a layout validator; use validate_ui_layout for structural issues.",
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["x", "y"],
+        "required": [
+          "x",
+          "y"
+        ],
         "properties": {
-          "view": { "type": "string", "enum": ["game"] },
+          "view": {
+            "type": "string",
+            "enum": [
+              "game"
+            ]
+          },
           "coord_space": {
             "type": "string",
-            "enum": ["viewport_px", "normalized"]
+            "enum": [
+              "viewport_px",
+              "normalized"
+            ]
           },
           "coord_origin": {
             "type": "string",
-            "enum": ["bottom_left", "top_left"]
+            "enum": [
+              "bottom_left",
+              "top_left"
+            ]
           },
-          "x": { "type": "number" },
-          "y": { "type": "number" },
-          "resolution_width": { "type": "integer", "minimum": 1, "maximum": 16384 },
-          "resolution_height": { "type": "integer", "minimum": 1, "maximum": 16384 },
-          "scope_root_path": { "type": "string", "minLength": 1 },
-          "max_results": { "type": "integer", "minimum": 1, "maximum": 1000 },
-          "include_non_interactable": { "type": "boolean" },
-          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "resolution_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "resolution_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "scope_root_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "include_non_interactable": {
+            "type": "boolean"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
         }
       },
       "examples": [
@@ -1519,31 +2452,75 @@
     {
       "name": "validate_ui_layout",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Validate UI layout issues across target resolution and return issue list. Use this for OUT_OF_BOUNDS/OVERLAP/NOT_CLICKABLE/TEXT_OVERFLOW diagnostics. Do NOT use this tool for writing/fixing values directly.",
       "input": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "scope_root_path": { "type": "string", "minLength": 1 },
-          "resolution_name": { "type": "string", "minLength": 1 },
-          "resolution_width": { "type": "integer", "minimum": 1, "maximum": 16384 },
-          "resolution_height": { "type": "integer", "minimum": 1, "maximum": 16384 },
-          "checks_csv": { "type": "string", "minLength": 1 },
-          "max_issues": { "type": "integer", "minimum": 1, "maximum": 10000 },
-          "time_budget_ms": { "type": "integer", "minimum": 1, "maximum": 300000 },
+          "scope_root_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "resolution_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384
+          },
+          "checks_csv": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_issues": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "time_budget_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300000
+          },
           "layout_refresh_mode": {
             "type": "string",
-            "enum": ["scoped_roots_only", "full_tree"]
+            "enum": [
+              "scoped_roots_only",
+              "full_tree"
+            ]
           },
-          "include_repair_plan": { "type": "boolean" },
-          "max_repair_suggestions": { "type": "integer", "minimum": 1, "maximum": 1000 },
+          "include_repair_plan": {
+            "type": "boolean"
+          },
+          "max_repair_suggestions": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
           "repair_style": {
             "type": "string",
-            "enum": ["conservative", "balanced", "aggressive"]
+            "enum": [
+              "conservative",
+              "balanced",
+              "aggressive"
+            ]
           },
-          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
         }
       },
       "examples": [
@@ -1565,7 +2542,9 @@
     {
       "name": "get_serialized_property_tree",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Read serialized property tree for one explicit component on one explicit target. target_object_id/target_path/component_assembly_qualified_name are required. Do NOT use this for hierarchy traversal; use get_hierarchy_subtree.",
       "input": {
@@ -1577,19 +2556,60 @@
           "component_assembly_qualified_name"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "component_assembly_qualified_name": { "type": "string", "minLength": 1 },
-          "component_index": { "type": "integer", "minimum": 0, "maximum": 256 },
-          "root_property_path": { "type": "string" },
-          "depth": { "type": "integer", "minimum": 0, "maximum": 64 },
-          "after_property_path": { "type": "string" },
-          "page_size": { "type": "integer", "minimum": 1, "maximum": 4096 },
-          "node_budget": { "type": "integer", "minimum": 1, "maximum": 100000 },
-          "char_budget": { "type": "integer", "minimum": 256, "maximum": 2000000 },
-          "include_value_summary": { "type": "boolean" },
-          "include_non_visible": { "type": "boolean" },
-          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 }
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_assembly_qualified_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 256
+          },
+          "root_property_path": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 64
+          },
+          "after_property_path": {
+            "type": "string"
+          },
+          "page_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "node_budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "char_budget": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 2000000
+          },
+          "include_value_summary": {
+            "type": "boolean"
+          },
+          "include_non_visible": {
+            "type": "boolean"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          }
         }
       },
       "examples": [
@@ -1613,7 +2633,9 @@
     {
       "name": "capture_scene_screenshot",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Capture Unity visual output for verification. Use this tool for render snapshots and visual evidence collection. Do NOT use this to modify scene state or infer deep hierarchy/component data; use read structure tools for those.",
       "input": {
@@ -1622,26 +2644,63 @@
         "properties": {
           "view_mode": {
             "type": "string",
-            "enum": ["auto", "scene", "game"]
+            "enum": [
+              "auto",
+              "scene",
+              "game"
+            ]
           },
           "capture_mode": {
             "type": "string",
-            "enum": ["render_output", "composite", "final_pixels", "editor_view"]
+            "enum": [
+              "render_output",
+              "composite",
+              "final_pixels",
+              "editor_view"
+            ]
           },
           "output_mode": {
             "type": "string",
-            "enum": ["artifact_uri", "inline_base64"]
+            "enum": [
+              "artifact_uri",
+              "inline_base64"
+            ]
           },
           "image_format": {
             "type": "string",
-            "enum": ["png", "jpg"]
+            "enum": [
+              "png",
+              "jpg"
+            ]
           },
-          "width": { "type": "integer", "minimum": 64, "maximum": 4096 },
-          "height": { "type": "integer", "minimum": 64, "maximum": 4096 },
-          "jpeg_quality": { "type": "integer", "minimum": 1, "maximum": 100 },
-          "max_base64_bytes": { "type": "integer", "minimum": 1, "maximum": 10485760 },
-          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 120000 },
-          "include_ui": { "type": "boolean" }
+          "width": {
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 4096
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 4096
+          },
+          "jpeg_quality": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "max_base64_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10485760
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 120000
+          },
+          "include_ui": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -1663,20 +2722,45 @@
     {
       "name": "get_action_catalog",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Deprecated in SSOT mode. This tool returns a static deprecation response and does not provide runtime action discovery.",
       "input": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "domain": { "type": "string", "minLength": 1 },
-          "tier": { "type": "string", "minLength": 1 },
-          "lifecycle": { "type": "string", "minLength": 1 },
-          "cursor": { "type": "integer", "minimum": 0, "maximum": 1000000 },
-          "limit": { "type": "integer", "minimum": 1, "maximum": 1000 },
-          "catalog_version": { "type": "string", "minLength": 1 },
-          "if_none_match": { "type": "string", "minLength": 1 }
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tier": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lifecycle": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "catalog_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "if_none_match": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -1695,17 +2779,30 @@
     {
       "name": "get_action_schema",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Deprecated in SSOT mode. This tool returns a static deprecation response and does not provide runtime action schema payloads.",
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["action_type"],
+        "required": [
+          "action_type"
+        ],
         "properties": {
-          "action_type": { "type": "string", "minLength": 1 },
-          "catalog_version": { "type": "string", "minLength": 1 },
-          "if_none_match": { "type": "string", "minLength": 1 }
+          "action_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "catalog_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "if_none_match": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -1720,15 +2817,22 @@
     {
       "name": "get_tool_schema",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Get static SSOT tool input schema by tool_name from compiled artifacts. tool_name is required. Use this to inspect authoritative parameters and required fields before composing requests. Do NOT use this tool as an execution endpoint.",
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["tool_name"],
+        "required": [
+          "tool_name"
+        ],
         "properties": {
-          "tool_name": { "type": "string", "minLength": 1 }
+          "tool_name": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -1743,19 +2847,38 @@
     {
       "name": "get_write_contract_bundle",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "experimental",
       "description": "Aggregate write-contract guidance from SSOT compiled artifacts for a known tool_name. Use this for payload authoring and validation preparation only. Do NOT use this endpoint as an execution API.",
       "input": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "tool_name": { "type": "string", "minLength": 1 },
-          "action_type": { "type": "string", "minLength": 1 },
-          "catalog_version": { "type": "string", "minLength": 1 },
-          "budget_chars": { "type": "integer", "minimum": 1, "maximum": 200000 },
-          "include_error_fix_map": { "type": "boolean" },
-          "include_canonical_examples": { "type": "boolean" }
+          "tool_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "catalog_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "budget_chars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200000
+          },
+          "include_error_fix_map": {
+            "type": "boolean"
+          },
+          "include_canonical_examples": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -1774,16 +2897,26 @@
     {
       "name": "preflight_validate_write_payload",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Validate one SSOT write-tool payload without dispatching to Unity execution. tool_name and payload are required. This endpoint only accepts tools that are classified as write in SSOT compiled metadata. Do NOT use this for legacy pipeline payloads or as an execution API.",
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["tool_name", "payload"],
+        "required": [
+          "tool_name",
+          "payload"
+        ],
         "properties": {
-          "tool_name": { "type": "string", "minLength": 1 },
-          "payload": { "type": "object" }
+          "tool_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payload": {
+            "type": "object"
+          }
         }
       },
       "examples": [
@@ -1811,7 +2944,9 @@
     {
       "name": "setup_cursor_mcp",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "experimental",
       "description": "Write or update Cursor MCP config for unity-sidecar (native/cline path whitelist only). Use this for onboarding or reconfiguration of MCP client wiring. Do NOT use this tool to change Unity scene objects or to diagnose Unity runtime status.",
       "input": {
@@ -1820,7 +2955,10 @@
         "properties": {
           "mode": {
             "type": "string",
-            "enum": ["native", "cline"],
+            "enum": [
+              "native",
+              "cline"
+            ],
             "case_insensitive": true
           },
           "sidecar_base_url": {
@@ -1828,7 +2966,9 @@
             "minLength": 1,
             "pattern": "^https?://"
           },
-          "dry_run": { "type": "boolean" }
+          "dry_run": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -1844,7 +2984,9 @@
     {
       "name": "verify_mcp_setup",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "experimental",
       "description": "Verify Cursor MCP onboarding readiness and return structured diagnostics for native/cline config. Use this after setup_cursor_mcp to confirm configuration health. Do NOT use this tool to mutate any scene state or as a replacement for Unity health checks.",
       "input": {
@@ -1853,7 +2995,11 @@
         "properties": {
           "mode": {
             "type": "string",
-            "enum": ["auto", "native", "cline"],
+            "enum": [
+              "auto",
+              "native",
+              "cline"
+            ],
             "case_insensitive": true
           }
         }
@@ -1870,15 +3016,22 @@
     {
       "name": "get_unity_task_status",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Get the current status of one Unity task by job_id. Poll this tool until terminal state (succeeded/failed/cancelled). Do NOT use this tool to submit writes or infer schema contracts.",
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["job_id"],
+        "required": [
+          "job_id"
+        ],
         "properties": {
-          "job_id": { "type": "string", "minLength": 1 }
+          "job_id": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -1893,15 +3046,22 @@
     {
       "name": "cancel_unity_task",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Cancel one running or queued Unity task by job_id. Use this only for task cancellation control. Do NOT use this tool to submit new writes or inspect schema contracts.",
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["job_id"],
+        "required": [
+          "job_id"
+        ],
         "properties": {
-          "job_id": { "type": "string", "minLength": 1 }
+          "job_id": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "examples": [
@@ -1930,50 +3090,88 @@
         ],
         "oneOf": [
           {
-            "required": ["file_actions"],
+            "required": [
+              "file_actions"
+            ],
             "properties": {
               "file_actions": {
                 "type": "array",
-                "items": { "type": "object" }
+                "items": {
+                  "type": "object"
+                }
               }
             }
           },
           {
-            "required": ["visual_layer_actions"],
+            "required": [
+              "visual_layer_actions"
+            ],
             "properties": {
               "visual_layer_actions": {
                 "type": "array",
-                "items": { "type": "object" }
+                "items": {
+                  "type": "object"
+                }
               }
             }
           }
         ],
         "properties": {
-          "thread_id": { "type": "string", "minLength": 1 },
-          "idempotency_key": { "type": "string", "minLength": 1 },
+          "thread_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
           "approval_mode": {
             "type": "string",
-            "enum": ["auto", "require_user"]
+            "enum": [
+              "auto",
+              "require_user"
+            ]
           },
-          "user_intent": { "type": "string", "minLength": 1 },
-          "based_on_read_token": { "type": "string", "minLength": 1 },
+          "user_intent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
           "write_anchor": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["object_id", "path"],
+            "required": [
+              "object_id",
+              "path"
+            ],
             "properties": {
-              "object_id": { "type": "string", "minLength": 1 },
-              "path": { "type": "string", "minLength": 1 }
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           },
-          "context": { "type": "object" },
+          "context": {
+            "type": "object"
+          },
           "file_actions": {
             "type": "array",
-            "items": { "type": "object" }
+            "items": {
+              "type": "object"
+            }
           },
           "visual_layer_actions": {
             "type": "array",
-            "items": { "type": "object" }
+            "items": {
+              "type": "object"
+            }
           }
         }
       },
@@ -1992,7 +3190,11 @@
             "file_actions": []
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
+      }
     },
     {
       "name": "apply_script_actions",
@@ -2002,33 +3204,64 @@
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["based_on_read_token", "write_anchor", "actions"],
+        "required": [
+          "based_on_read_token",
+          "write_anchor",
+          "actions"
+        ],
         "properties": {
-          "based_on_read_token": { "type": "string", "minLength": 1 },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
           "write_anchor": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["object_id", "path"],
+            "required": [
+              "object_id",
+              "path"
+            ],
             "properties": {
-              "object_id": { "type": "string", "minLength": 1 },
-              "path": { "type": "string", "minLength": 1 }
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           },
           "actions": {
             "type": "array",
-            "items": { "type": "object" }
+            "items": {
+              "type": "object"
+            }
           },
           "preconditions": {
             "type": "array",
-            "items": { "type": "object" }
+            "items": {
+              "type": "object"
+            }
           },
-          "dry_run": { "type": "boolean" },
-          "thread_id": { "type": "string" },
-          "idempotency_key": { "type": "string" },
-          "user_intent": { "type": "string" },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "user_intent": {
+            "type": "string"
+          },
           "approval_mode": {
             "type": "string",
-            "enum": ["auto", "require_user"]
+            "enum": [
+              "auto",
+              "require_user"
+            ]
           }
         }
       },
@@ -2045,7 +3278,11 @@
             "dry_run": true
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
+      }
     },
     {
       "name": "apply_visual_actions",
@@ -2055,16 +3292,32 @@
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["based_on_read_token", "write_anchor", "actions"],
+        "required": [
+          "based_on_read_token",
+          "write_anchor",
+          "actions"
+        ],
         "properties": {
-          "based_on_read_token": { "type": "string", "minLength": 1 },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
           "write_anchor": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["object_id", "path"],
+            "required": [
+              "object_id",
+              "path"
+            ],
             "properties": {
-              "object_id": { "type": "string", "minLength": 1 },
-              "path": { "type": "string", "minLength": 1 }
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           },
           "actions": {
@@ -2073,25 +3326,48 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["type"],
+              "required": [
+                "type"
+              ],
               "properties": {
-                "type": { "type": "string", "minLength": 1 },
+                "type": {
+                  "type": "string",
+                  "minLength": 1
+                },
                 "target_anchor": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["object_id", "path"],
+                  "required": [
+                    "object_id",
+                    "path"
+                  ],
                   "properties": {
-                    "object_id": { "type": "string", "minLength": 1 },
-                    "path": { "type": "string", "minLength": 1 }
+                    "object_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   }
                 },
                 "parent_anchor": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["object_id", "path"],
+                  "required": [
+                    "object_id",
+                    "path"
+                  ],
                   "properties": {
-                    "object_id": { "type": "string", "minLength": 1 },
-                    "path": { "type": "string", "minLength": 1 }
+                    "object_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   }
                 },
                 "action_data": {
@@ -2104,29 +3380,46 @@
                   "properties": {
                     "target_anchor": {}
                   },
-                  "required": ["target_anchor"]
+                  "required": [
+                    "target_anchor"
+                  ]
                 },
                 {
                   "type": "object",
                   "properties": {
                     "parent_anchor": {}
                   },
-                  "required": ["parent_anchor"]
+                  "required": [
+                    "parent_anchor"
+                  ]
                 }
               ]
             }
           },
           "preconditions": {
             "type": "array",
-            "items": { "type": "object" }
+            "items": {
+              "type": "object"
+            }
           },
-          "dry_run": { "type": "boolean" },
-          "thread_id": { "type": "string" },
-          "idempotency_key": { "type": "string" },
-          "user_intent": { "type": "string" },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "user_intent": {
+            "type": "string"
+          },
           "approval_mode": {
             "type": "string",
-            "enum": ["auto", "require_user"]
+            "enum": [
+              "auto",
+              "require_user"
+            ]
           }
         }
       },
@@ -2153,7 +3446,11 @@
             ]
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
+      }
     },
     {
       "name": "set_ui_properties",
@@ -2163,16 +3460,32 @@
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["based_on_read_token", "write_anchor", "operations"],
+        "required": [
+          "based_on_read_token",
+          "write_anchor",
+          "operations"
+        ],
         "properties": {
-          "based_on_read_token": { "type": "string", "minLength": 1 },
+          "based_on_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
           "write_anchor": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["object_id", "path"],
+            "required": [
+              "object_id",
+              "path"
+            ],
             "properties": {
-              "object_id": { "type": "string", "minLength": 1 },
-              "path": { "type": "string", "minLength": 1 }
+              "object_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           },
           "operations": {
@@ -2181,21 +3494,40 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["target_anchor"],
+              "required": [
+                "target_anchor"
+              ],
               "properties": {
                 "target_anchor": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["object_id", "path"],
+                  "required": [
+                    "object_id",
+                    "path"
+                  ],
                   "properties": {
-                    "object_id": { "type": "string", "minLength": 1 },
-                    "path": { "type": "string", "minLength": 1 }
+                    "object_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   }
                 },
-                "rect_transform": { "type": "object" },
-                "image": { "type": "object" },
-                "text": { "type": "object" },
-                "layout_element": { "type": "object" }
+                "rect_transform": {
+                  "type": "object"
+                },
+                "image": {
+                  "type": "object"
+                },
+                "text": {
+                  "type": "object"
+                },
+                "layout_element": {
+                  "type": "object"
+                }
               },
               "anyOf": [
                 {
@@ -2203,44 +3535,67 @@
                   "properties": {
                     "rect_transform": {}
                   },
-                  "required": ["rect_transform"]
+                  "required": [
+                    "rect_transform"
+                  ]
                 },
                 {
                   "type": "object",
                   "properties": {
                     "image": {}
                   },
-                  "required": ["image"]
+                  "required": [
+                    "image"
+                  ]
                 },
                 {
                   "type": "object",
                   "properties": {
                     "text": {}
                   },
-                  "required": ["text"]
+                  "required": [
+                    "text"
+                  ]
                 },
                 {
                   "type": "object",
                   "properties": {
                     "layout_element": {}
                   },
-                  "required": ["layout_element"]
+                  "required": [
+                    "layout_element"
+                  ]
                 }
               ]
             }
           },
-          "atomic": { "type": "boolean" },
+          "atomic": {
+            "type": "boolean"
+          },
           "preconditions": {
             "type": "array",
-            "items": { "type": "object" }
+            "items": {
+              "type": "object"
+            }
           },
-          "dry_run": { "type": "boolean" },
-          "thread_id": { "type": "string" },
-          "idempotency_key": { "type": "string" },
-          "user_intent": { "type": "string" },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "user_intent": {
+            "type": "string"
+          },
           "approval_mode": {
             "type": "string",
-            "enum": ["auto", "require_user"]
+            "enum": [
+              "auto",
+              "require_user"
+            ]
           }
         }
       },
@@ -2260,19 +3615,31 @@
                   "path": "Scene/Canvas/Button"
                 },
                 "rect_transform": {
-                  "anchored_position": { "x": 100, "y": 100 },
-                  "size_delta": { "x": 160, "y": 48 }
+                  "anchored_position": {
+                    "x": 100,
+                    "y": 100
+                  },
+                  "size_delta": {
+                    "x": 160,
+                    "y": 48
+                  }
                 }
               }
             ]
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "set_serialized_property",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "experimental",
       "description": "Set one explicit SerializedProperty path on one explicit component instance. Use this as low-level precise write when dedicated high-level tools are not suitable. Do NOT use this as a generic fallback for hierarchy or transform workflows.",
       "input": {
@@ -2286,20 +3653,50 @@
           "value_kind"
         ],
         "properties": {
-          "target_object_id": { "type": "string", "minLength": 1 },
-          "target_path": { "type": "string", "minLength": 1 },
-          "component_type": { "type": "string", "minLength": 1 },
-          "component_index": { "type": "integer", "minimum": 0 },
-          "property_path": { "type": "string", "minLength": 1 },
+          "target_object_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "property_path": {
+            "type": "string",
+            "minLength": 1
+          },
           "value_kind": {
             "type": "string",
-            "enum": ["integer", "float", "string", "bool"]
+            "enum": [
+              "integer",
+              "float",
+              "string",
+              "bool"
+            ]
           },
-          "int_value": { "type": "integer" },
-          "float_value": { "type": "number" },
-          "string_value": { "type": "string" },
-          "bool_value": { "type": "boolean" },
-          "dry_run": { "type": "boolean" }
+          "int_value": {
+            "type": "integer"
+          },
+          "float_value": {
+            "type": "number"
+          },
+          "string_value": {
+            "type": "string"
+          },
+          "bool_value": {
+            "type": "boolean"
+          },
+          "dry_run": {
+            "type": "boolean"
+          }
         }
       },
       "examples": [
@@ -2315,29 +3712,59 @@
             "float_value": 120
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
+      }
     },
     {
       "name": "hit_test_ui_at_screen_point",
       "kind": "read",
-      "mixins": ["read_envelope"],
+      "mixins": [
+        "read_envelope"
+      ],
       "lifecycle": "deprecated",
       "description": "Hit test UGUI from deterministic screen-space coordinates. This command is currently disabled in runtime stabilization closure and may return E_COMMAND_DISABLED. Do NOT use this as a write API.",
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["x", "y"],
+        "required": [
+          "x",
+          "y"
+        ],
         "properties": {
           "view_mode": {
             "type": "string",
-            "enum": ["auto", "game"]
+            "enum": [
+              "auto",
+              "game"
+            ]
           },
-          "x": { "type": "integer", "minimum": 0 },
-          "y": { "type": "integer", "minimum": 0 },
-          "reference_width": { "type": "integer", "minimum": 1 },
-          "reference_height": { "type": "integer", "minimum": 1 },
-          "max_results": { "type": "integer", "minimum": 1 },
-          "timeout_ms": { "type": "integer", "minimum": 1000 }
+          "x": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reference_width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reference_height": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000
+          }
         }
       },
       "examples": [
@@ -2356,7 +3783,9 @@
     {
       "name": "save_scene",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Save the current active Unity scene. If the scene has not been saved before, it will prompt for a save path. Use this tool to persist scene changes to disk.",
       "input": {
@@ -2384,12 +3813,18 @@
             "scene_path": "Assets/Scenes/MyScene.unity"
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
+      }
     },
     {
       "name": "save_prefab",
       "kind": "write",
-      "mixins": ["write_envelope"],
+      "mixins": [
+        "write_envelope"
+      ],
       "lifecycle": "stable",
       "description": "Save a GameObject as a prefab asset or save changes to an existing prefab instance. Requires target_object_id and target_path to identify the GameObject to save.",
       "input": {
@@ -2435,7 +3870,11 @@
             "save_as_new": true
           }
         }
-      ]
+      ],
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
+      }
     }
   ]
 }

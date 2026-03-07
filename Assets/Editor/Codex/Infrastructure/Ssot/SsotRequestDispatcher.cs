@@ -210,6 +210,14 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot
         public string read_token_candidate;
         public string scope_path;
         public SsotSceneNodeSummary[] scene_roots;
+        public int failed_step_index;
+        public string failed_step_id;
+        public string failed_tool_name;
+        public bool rollback_applied;
+        public string failed_error_code;
+        public string failed_error_message;
+        public int resolved_ref_count;
+        public int executed_step_count;
     }
 
     public sealed class SsotRequestDispatcher

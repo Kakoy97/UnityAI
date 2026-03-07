@@ -30,7 +30,8 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     GetUiTreeRequestDto.ToolName);
             }
 
-            var rootPath = ResolveRootPath(request.root_path, request.scope);
+            var scope = ParseScope(request.scope);
+            var rootPath = ResolveRootPath(request.root_path, scope);
             var readRequest = new UnityGetUiTreeRequest
             {
                 @event = "unity.query.get_ui_tree.request",
@@ -104,7 +105,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                 });
         }
 
-        private static string ResolveRootPath(string rootPath, string scopeRaw)
+        private static string ResolveRootPath(string rootPath, UnityQueryScope scope)
         {
             var normalizedRootPath = SsotExecutorCommon.Normalize(rootPath);
             if (!string.IsNullOrEmpty(normalizedRootPath))
@@ -112,13 +113,68 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                 return normalizedRootPath;
             }
 
-            var scope = ParseScope(scopeRaw);
             return scope == null ? string.Empty : SsotExecutorCommon.Normalize(scope.root_path);
         }
 
-        private static UnityQueryScope ParseScope(string raw)
+        private static UnityQueryScope ParseScope(object raw)
         {
-            var normalized = SsotExecutorCommon.Normalize(raw);
+            if (raw == null)
+            {
+                return null;
+            }
+
+            if (raw is UnityQueryScope scope)
+            {
+                return scope;
+            }
+
+            if (raw is string rawJson)
+            {
+                return ParseJsonScope(rawJson);
+            }
+
+            try
+            {
+                var json = JsonUtility.ToJson(raw);
+                return ParseJsonScope(json);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static UnityQueryResolution ParseResolution(object raw)
+        {
+            if (raw == null)
+            {
+                return null;
+            }
+
+            if (raw is UnityQueryResolution resolution)
+            {
+                return resolution;
+            }
+
+            if (raw is string rawJson)
+            {
+                return ParseJsonResolution(rawJson);
+            }
+
+            try
+            {
+                var json = JsonUtility.ToJson(raw);
+                return ParseJsonResolution(json);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static UnityQueryScope ParseJsonScope(string rawJson)
+        {
+            var normalized = SsotExecutorCommon.Normalize(rawJson);
             if (string.IsNullOrEmpty(normalized))
             {
                 return null;
@@ -134,9 +190,9 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
             }
         }
 
-        private static UnityQueryResolution ParseResolution(string raw)
+        private static UnityQueryResolution ParseJsonResolution(string rawJson)
         {
-            var normalized = SsotExecutorCommon.Normalize(raw);
+            var normalized = SsotExecutorCommon.Normalize(rawJson);
             if (string.IsNullOrEmpty(normalized))
             {
                 return null;

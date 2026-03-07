@@ -9,6 +9,7 @@ const path = require("node:path");
 const {
   assertSsotArtifactsAvailable,
   DEFAULT_SSOT_AJV_SCHEMAS_PATH,
+  DEFAULT_SIDECAR_COMMAND_MANIFEST_PATH,
   DEFAULT_VISIBILITY_POLICY_PATH,
 } = require("../../src/application/ssotRuntime/startupArtifactsGuard");
 
@@ -18,6 +19,11 @@ test("startup guard accepts existing SSOT compiled artifacts", () => {
   assert.ok(result.toolCount > 0);
   assert.ok(result.schemaCount > 0);
   assert.equal(result.visibilityPolicyPath, DEFAULT_VISIBILITY_POLICY_PATH);
+  assert.equal(
+    result.sidecarCommandManifestPath,
+    DEFAULT_SIDECAR_COMMAND_MANIFEST_PATH
+  );
+  assert.ok(result.sidecarCommandCount > 0);
   assert.ok(result.visibilityPolicyActiveToolCount > 0);
 });
 
@@ -79,6 +85,20 @@ test("startup guard fails fast when visibility policy artifact is missing", () =
         visibilityPolicyPath: missingVisibilityPath,
       }),
     /missing visibility-policy artifact/
+  );
+});
+
+test("startup guard fails fast when sidecar command manifest artifact is missing", () => {
+  const missingSidecarManifestPath = path.join(
+    os.tmpdir(),
+    `missing-sidecar-command-manifest-${Date.now()}.json`
+  );
+  assert.throws(
+    () =>
+      assertSsotArtifactsAvailable({
+        sidecarCommandManifestPath: missingSidecarManifestPath,
+      }),
+    /missing sidecar-command-manifest artifact/
   );
 });
 

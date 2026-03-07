@@ -10,6 +10,10 @@
         "method": "POST",
         "path": "/mcp/modify_ui_layout",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -21,6 +25,10 @@
         "method": "POST",
         "path": "/mcp/set_component_properties",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -32,6 +40,10 @@
         "method": "POST",
         "path": "/mcp/add_component",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -43,6 +55,10 @@
         "method": "POST",
         "path": "/mcp/remove_component",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -54,6 +70,10 @@
         "method": "POST",
         "path": "/mcp/replace_component",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -65,6 +85,10 @@
         "method": "POST",
         "path": "/mcp/create_object",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -76,6 +100,10 @@
         "method": "POST",
         "path": "/mcp/instantiate_prefab",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -87,6 +115,10 @@
         "method": "POST",
         "path": "/mcp/delete_object",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -98,6 +130,10 @@
         "method": "POST",
         "path": "/mcp/rename_object",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -109,6 +145,10 @@
         "method": "POST",
         "path": "/mcp/set_active",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -120,6 +160,10 @@
         "method": "POST",
         "path": "/mcp/set_parent",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -131,6 +175,10 @@
         "method": "POST",
         "path": "/mcp/set_sibling_index",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -142,6 +190,10 @@
         "method": "POST",
         "path": "/mcp/set_local_position",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -153,6 +205,10 @@
         "method": "POST",
         "path": "/mcp/set_local_rotation",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -164,6 +220,10 @@
         "method": "POST",
         "path": "/mcp/set_local_scale",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -175,6 +235,10 @@
         "method": "POST",
         "path": "/mcp/set_world_position",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -186,6 +250,10 @@
         "method": "POST",
         "path": "/mcp/set_world_rotation",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -197,6 +265,10 @@
         "method": "POST",
         "path": "/mcp/reset_transform",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -208,6 +280,10 @@
         "method": "POST",
         "path": "/mcp/set_rect_anchored_position",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -219,6 +295,10 @@
         "method": "POST",
         "path": "/mcp/set_rect_size_delta",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -230,6 +310,10 @@
         "method": "POST",
         "path": "/mcp/set_rect_pivot",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -241,6 +325,10 @@
         "method": "POST",
         "path": "/mcp/set_rect_anchors",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -252,6 +340,10 @@
         "method": "POST",
         "path": "/mcp/set_canvas_group_alpha",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -263,6 +355,10 @@
         "method": "POST",
         "path": "/mcp/set_layout_element",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -274,6 +370,10 @@
         "method": "POST",
         "path": "/mcp/set_ui_image_color",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -285,6 +385,10 @@
         "method": "POST",
         "path": "/mcp/set_ui_image_raycast_target",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -296,6 +400,10 @@
         "method": "POST",
         "path": "/mcp/set_ui_text_content",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -307,6 +415,10 @@
         "method": "POST",
         "path": "/mcp/set_ui_text_color",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -318,6 +430,10 @@
         "method": "POST",
         "path": "/mcp/set_ui_text_font_size",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -329,6 +445,10 @@
         "method": "POST",
         "path": "/mcp/execute_unity_transaction",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -340,6 +460,10 @@
         "method": "POST",
         "path": "/mcp/duplicate_object",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -351,6 +475,10 @@
         "method": "POST",
         "path": "/mcp/get_scene_snapshot_for_write",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -362,6 +490,10 @@
         "method": "POST",
         "path": "/mcp/get_current_selection",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -373,6 +505,10 @@
         "method": "POST",
         "path": "/mcp/get_gameobject_components",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -384,6 +520,10 @@
         "method": "POST",
         "path": "/mcp/get_hierarchy_subtree",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -395,6 +535,10 @@
         "method": "POST",
         "path": "/mcp/get_scene_roots",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -406,6 +550,10 @@
         "method": "POST",
         "path": "/mcp/list_assets_in_folder",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -417,6 +565,10 @@
         "method": "POST",
         "path": "/mcp/find_objects_by_component",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -428,6 +580,10 @@
         "method": "POST",
         "path": "/mcp/query_prefab_info",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -439,6 +595,10 @@
         "method": "POST",
         "path": "/mcp/get_ui_tree",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -450,6 +610,10 @@
         "method": "POST",
         "path": "/mcp/get_ui_overlay_report",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -461,6 +625,10 @@
         "method": "POST",
         "path": "/mcp/hit_test_ui_at_viewport_point",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -472,6 +640,10 @@
         "method": "POST",
         "path": "/mcp/validate_ui_layout",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -483,6 +655,10 @@
         "method": "POST",
         "path": "/mcp/get_serialized_property_tree",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -494,6 +670,10 @@
         "method": "POST",
         "path": "/mcp/capture_scene_screenshot",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -505,6 +685,10 @@
         "method": "POST",
         "path": "/mcp/get_action_catalog",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -516,6 +700,10 @@
         "method": "POST",
         "path": "/mcp/get_action_schema",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -527,6 +715,10 @@
         "method": "POST",
         "path": "/mcp/get_tool_schema",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -538,6 +730,10 @@
         "method": "POST",
         "path": "/mcp/get_write_contract_bundle",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -549,6 +745,10 @@
         "method": "POST",
         "path": "/mcp/preflight_validate_write_payload",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -560,6 +760,10 @@
         "method": "POST",
         "path": "/mcp/setup_cursor_mcp",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -571,6 +775,10 @@
         "method": "POST",
         "path": "/mcp/verify_mcp_setup",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -583,6 +791,10 @@
         "path": "/mcp/get_unity_task_status",
         "source": "query",
         "queryKey": "job_id"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -594,6 +806,10 @@
         "method": "POST",
         "path": "/mcp/cancel_unity_task",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -605,6 +821,10 @@
         "method": "POST",
         "path": "/mcp/submit_unity_task",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -616,6 +836,10 @@
         "method": "POST",
         "path": "/mcp/apply_script_actions",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -627,6 +851,10 @@
         "method": "POST",
         "path": "/mcp/apply_visual_actions",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -638,6 +866,10 @@
         "method": "POST",
         "path": "/mcp/set_ui_properties",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -649,6 +881,10 @@
         "method": "POST",
         "path": "/mcp/set_serialized_property",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": true,
+        "undo_safe": true
       }
     },
     {
@@ -660,6 +896,10 @@
         "method": "POST",
         "path": "/mcp/hit_test_ui_at_screen_point",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -671,6 +911,10 @@
         "method": "POST",
         "path": "/mcp/save_scene",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     },
     {
@@ -682,6 +926,10 @@
         "method": "POST",
         "path": "/mcp/save_prefab",
         "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
       }
     }
   ]

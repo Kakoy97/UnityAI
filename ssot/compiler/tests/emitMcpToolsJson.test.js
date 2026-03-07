@@ -86,3 +86,113 @@ test("emitMcpToolsJson applies fallback defaults for missing optional tool field
   assert.deepEqual(tool.inputSchema, { type: "object", properties: {} });
   assert.deepEqual(tool.examples, []);
 });
+
+test("emitMcpToolsJson emits self-contained $defs closure for _definitions refs", () => {
+  const emitted = emitMcpToolsJson({
+    version: 1,
+    _definitions: {
+      transaction_ref_value: {
+        type: "object",
+        additionalProperties: false,
+        required: ["$ref"],
+        properties: {
+          $ref: { type: "string" },
+        },
+      },
+      transaction_payload_value: {
+        anyOf: [
+          { type: "string" },
+          { $ref: "#/_definitions/transaction_ref_value" },
+        ],
+      },
+      transaction_step: {
+        type: "object",
+        additionalProperties: false,
+        required: ["step_id", "tool_name", "payload"],
+        properties: {
+          step_id: { type: "string" },
+          tool_name: { type: "string" },
+          payload: {
+            type: "object",
+            additionalProperties: {
+              $ref: "#/_definitions/transaction_payload_value",
+            },
+          },
+        },
+      },
+      mixins: {
+        write_envelope: {
+          input: {
+            type: "object",
+          },
+        },
+      },
+      removed_tool_names: ["instantiate_prefab"],
+    },
+    tools: [
+      {
+        name: "execute_unity_transaction",
+        kind: "write",
+        lifecycle: "experimental",
+        input: {
+          type: "object",
+          required: ["steps"],
+          properties: {
+            steps: {
+              type: "array",
+              items: { $ref: "#/_definitions/transaction_step" },
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  const schema = emitted.tools[0].inputSchema;
+  assert.equal(
+    schema.properties.steps.items.$ref,
+    "#/$defs/transaction_step"
+  );
+  assert.equal(
+    schema.$defs.transaction_step.properties.payload.additionalProperties.$ref,
+    "#/$defs/transaction_payload_value"
+  );
+  assert.equal(
+    schema.$defs.transaction_payload_value.anyOf[1].$ref,
+    "#/$defs/transaction_ref_value"
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(schema.$defs, "mixins"),
+    false
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(schema.$defs, "removed_tool_names"),
+    false
+  );
+});
+
+test("emitMcpToolsJson throws when _definitions ref cannot be resolved", () => {
+  assert.throws(
+    () =>
+      emitMcpToolsJson({
+        version: 1,
+        _definitions: {},
+        tools: [
+          {
+            name: "execute_unity_transaction",
+            input: {
+              type: "object",
+              required: ["steps"],
+              properties: {
+                steps: {
+                  type: "array",
+                  items: { $ref: "#/_definitions/transaction_step" },
+                },
+              },
+            },
+          },
+        ],
+      }),
+    /transaction_step/
+  );
+});

@@ -220,6 +220,97 @@ test("L1 closure: active tools have reusable examples in SSOT artifacts", () => 
   }
 });
 
+test("L1 closure: every write tool defines complete transaction metadata", () => {
+  const { dictionary } = loadL1Sources();
+  const tools = Array.isArray(dictionary && dictionary.tools) ? dictionary.tools : [];
+  for (const tool of tools) {
+    if (String(tool && tool.kind || "").toLowerCase() !== "write") {
+      continue;
+    }
+    const transaction = tool && typeof tool.transaction === "object" ? tool.transaction : null;
+    assert.equal(!!transaction, true, `write tool missing transaction metadata: ${tool.name}`);
+    assert.equal(
+      typeof transaction.enabled,
+      "boolean",
+      `write tool transaction.enabled must be boolean: ${tool.name}`
+    );
+    assert.equal(
+      typeof transaction.undo_safe,
+      "boolean",
+      `write tool transaction.undo_safe must be boolean: ${tool.name}`
+    );
+  }
+});
+
+test("L1 closure: execute_unity_transaction uses structured steps only", () => {
+  const { dictionary } = loadL1Sources();
+  const tools = Array.isArray(dictionary && dictionary.tools) ? dictionary.tools : [];
+  const transactionTool = tools.find(
+    (tool) => String(tool && tool.name || "") === "execute_unity_transaction"
+  );
+  assert.ok(transactionTool, "execute_unity_transaction should exist in dictionary");
+  const input = transactionTool && typeof transactionTool.input === "object"
+    ? transactionTool.input
+    : {};
+  const required = Array.isArray(input.required) ? input.required : [];
+  const properties = input && typeof input.properties === "object" ? input.properties : {};
+  const legacyStepFieldName = ["steps", "json"].join("_");
+
+  assert.equal(required.includes("steps"), true);
+  assert.equal(required.includes(legacyStepFieldName), false);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(properties, "steps"),
+    true
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(properties, legacyStepFieldName),
+    false
+  );
+});
+
+test("L1 closure: execute_unity_transaction tools/list schema is self-contained and ref-resolvable", async () => {
+  const registry = getMcpCommandRegistry();
+  const server = Object.create(UnityMcpServer.prototype);
+  server.commandRegistry = registry;
+  const tools = await server.getToolDefinitions();
+  const txTool = tools.find(
+    (item) => String(item && item.name || "").trim() === "execute_unity_transaction"
+  );
+  assert.ok(txTool, "tools/list should expose execute_unity_transaction");
+
+  const schema = txTool && txTool.inputSchema && typeof txTool.inputSchema === "object"
+    ? txTool.inputSchema
+    : {};
+  const stepsItemsRef = String(
+    schema &&
+      schema.properties &&
+      schema.properties.steps &&
+      schema.properties.steps.items &&
+      schema.properties.steps.items.$ref || ""
+  );
+  assert.equal(stepsItemsRef, "#/$defs/transaction_step");
+  assert.equal(
+    !!(schema.$defs && typeof schema.$defs === "object"),
+    true,
+    "transaction schema should carry $defs for MCP clients"
+  );
+  assert.equal(
+    !!(schema.$defs && schema.$defs.transaction_step),
+    true,
+    "missing transaction_step in $defs"
+  );
+  assert.equal(
+    !!(schema.$defs && schema.$defs.transaction_payload_value),
+    true,
+    "missing transaction_payload_value in $defs"
+  );
+  assert.equal(
+    !!(schema.$defs && schema.$defs.transaction_ref_value),
+    true,
+    "missing transaction_ref_value in $defs"
+  );
+});
+
 test("L1 closure: tools/list full schema payload stays within token budget guard", async () => {
   const registry = getMcpCommandRegistry();
   const server = Object.create(UnityMcpServer.prototype);

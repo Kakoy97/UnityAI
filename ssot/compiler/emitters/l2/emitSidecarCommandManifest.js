@@ -34,6 +34,17 @@ function buildDispatchMode(toolName) {
   return LOCAL_STATIC_TOOL_NAMES.has(toolName) ? "local_static" : "ssot_query";
 }
 
+function normalizeTransactionPolicy(tool) {
+  const source =
+    tool && tool.transaction && typeof tool.transaction === "object" && !Array.isArray(tool.transaction)
+      ? tool.transaction
+      : {};
+  return {
+    enabled: source.enabled === true,
+    undo_safe: source.undo_safe === true,
+  };
+}
+
 function emitSidecarCommandManifest(dictionary) {
   const tools = Array.isArray(dictionary && dictionary.tools)
     ? dictionary.tools
@@ -52,6 +63,7 @@ function emitSidecarCommandManifest(dictionary) {
           lifecycle: normalizeToolName(tool && tool.lifecycle) || "stable",
           dispatch_mode: buildDispatchMode(toolName),
           http: buildHttpTransport(toolName),
+          transaction: normalizeTransactionPolicy(tool),
         };
       })
       .filter((item) => !!item),
@@ -61,4 +73,3 @@ function emitSidecarCommandManifest(dictionary) {
 module.exports = {
   emitSidecarCommandManifest,
 };
-

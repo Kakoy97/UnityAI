@@ -82,19 +82,20 @@ namespace UnityAI.Editor.Codex.Infrastructure
                     cameraGo = new GameObject("__CODEX_COMPOSITE_CAPTURE_CAMERA__");
                     cameraGo.hideFlags = HideFlags.HideAndDontSave;
                     MoveGameObjectToSceneIfNeeded(cameraGo, tempScene);
+                    var normalizedWidth = ClampInRange(width, DefaultScreenshotWidth, MinScreenshotDimension, MaxScreenshotDimension);
+                    var normalizedHeight = ClampInRange(height, DefaultScreenshotHeight, MinScreenshotDimension, MaxScreenshotDimension);
+
                     var camera = cameraGo.AddComponent<Camera>();
                     camera.orthographic = true;
-                    camera.orthographicSize = height * 0.5f;
+                    camera.orthographicSize = normalizedHeight * 0.5f;
+                    camera.aspect = normalizedWidth / (float)normalizedHeight;
                     camera.nearClipPlane = 0.01f;
                     camera.farClipPlane = 2000f;
                     camera.clearFlags = CameraClearFlags.SolidColor;
                     camera.backgroundColor = new Color(0f, 0f, 0f, 0f);
                     camera.cullingMask = ~0;
-                    camera.transform.position = new Vector3(width * 0.5f, height * 0.5f, -1000f);
+                    camera.transform.position = new Vector3(0f, 0f, -1000f);
                     camera.transform.rotation = Quaternion.identity;
-
-                    var normalizedWidth = ClampInRange(width, DefaultScreenshotWidth, MinScreenshotDimension, MaxScreenshotDimension);
-                    var normalizedHeight = ClampInRange(height, DefaultScreenshotHeight, MinScreenshotDimension, MaxScreenshotDimension);
                     targetTexture = new RenderTexture(normalizedWidth, normalizedHeight, 24, RenderTextureFormat.ARGB32);
                     camera.targetTexture = targetTexture;
 
@@ -148,6 +149,7 @@ namespace UnityAI.Editor.Codex.Infrastructure
                         return true;
                     }
 
+                    ForceRebuildClonedLayoutTrees(cloneRoots);
                     camera.Render();
                     RenderTexture.active = targetTexture;
                     readTexture = new Texture2D(normalizedWidth, normalizedHeight, TextureFormat.RGBA32, false);
@@ -540,6 +542,34 @@ namespace UnityAI.Editor.Codex.Infrastructure
                         }
                     }
                 }
+            }
+
+            private static void ForceRebuildClonedLayoutTrees(List<GameObject> cloneRoots)
+            {
+                if (cloneRoots == null || cloneRoots.Count <= 0)
+                {
+                    return;
+                }
+
+                Canvas.ForceUpdateCanvases();
+                for (var i = 0; i < cloneRoots.Count; i++)
+                {
+                    var root = cloneRoots[i];
+                    if (root == null)
+                    {
+                        continue;
+                    }
+
+                    var rect = root.transform as RectTransform;
+                    if (rect == null)
+                    {
+                        continue;
+                    }
+
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+                }
+
+                Canvas.ForceUpdateCanvases();
             }
 
             private static void MoveGameObjectToSceneIfNeeded(GameObject gameObject, Scene scene)

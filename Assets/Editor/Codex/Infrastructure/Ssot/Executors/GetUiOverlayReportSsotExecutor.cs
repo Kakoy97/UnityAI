@@ -91,9 +91,37 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                 });
         }
 
-        private static UnityQueryScope ParseScope(string raw)
+        private static UnityQueryScope ParseScope(object raw)
         {
-            var normalized = SsotExecutorCommon.Normalize(raw);
+            if (raw == null)
+            {
+                return null;
+            }
+
+            if (raw is UnityQueryScope scope)
+            {
+                return scope;
+            }
+
+            if (raw is string rawJson)
+            {
+                return ParseJsonScope(rawJson);
+            }
+
+            try
+            {
+                var json = JsonUtility.ToJson(raw);
+                return ParseJsonScope(json);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static UnityQueryScope ParseJsonScope(string rawJson)
+        {
+            var normalized = SsotExecutorCommon.Normalize(rawJson);
             if (string.IsNullOrEmpty(normalized))
             {
                 return null;

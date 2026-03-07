@@ -44,6 +44,9 @@ const {
   getWriteContractBundleView,
 } = require("./ssotRuntime/staticContractViews");
 const {
+  guardExecuteUnityTransactionSteps,
+} = require("./ssotRuntime/transactionPolicyGuard");
+const {
   setupCursorMcp,
   verifyCursorMcpSetup,
 } = require("./cursorMcpSetupService");
@@ -433,6 +436,22 @@ class TurnService {
             error_code: tokenValidation.error_code,
             message: tokenValidation.message,
             suggestion: tokenValidation.suggestion,
+          },
+        };
+      }
+    }
+    if (normalizedToolName === "execute_unity_transaction") {
+      const policyGuardResult = guardExecuteUnityTransactionSteps(payload);
+      if (!policyGuardResult.ok) {
+        return {
+          statusCode: 409,
+          body: {
+            status: "failed",
+            error_code: policyGuardResult.error_code,
+            message: policyGuardResult.message,
+            failed_step_index: policyGuardResult.failed_step_index,
+            failed_step_id: policyGuardResult.failed_step_id,
+            failed_tool_name: policyGuardResult.failed_tool_name,
           },
         };
       }

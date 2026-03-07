@@ -1,0 +1,463 @@
+﻿{
+    "ok":  true,
+    "status":  "succeeded",
+    "query_type":  "ssot.request",
+    "tool_name":  "get_serialized_property_tree",
+    "data":  {
+                 "scene_revision":  "ssot_rev_1772812275781",
+                 "prefab_path":  "",
+                 "max_depth":  0,
+                 "target_object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-591447327-0",
+                 "target_path":  "Scene/Canvas/TxnButtonRow",
+                 "target_object_name":  "",
+                 "target_object_active":  false,
+                 "ui_system":  "",
+                 "root_path":  "",
+                 "anchored_x":  0,
+                 "anchored_y":  0,
+                 "width":  0,
+                 "height":  0,
+                 "component_count":  0,
+                 "components":  [
+
+                                ],
+                 "component_type":  "UnityEngine.RectTransform, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+                 "property_path":  "",
+                 "value_kind":  "",
+                 "value_string":  "",
+                 "value_number":  0,
+                 "value_boolean":  false,
+                 "depth":  2,
+                 "node_budget":  512,
+                 "char_budget":  60000,
+                 "returned_node_count":  29,
+                 "truncated":  false,
+                 "truncated_reason":  "",
+                 "root":  {
+                              "name":  "",
+                              "object_id":  "",
+                              "path":  "",
+                              "depth":  0,
+                              "component_count":  0,
+                              "active":  false,
+                              "children_truncated_count":  0,
+                              "children":  [
+
+                                           ]
+                          },
+                 "scene_path":  "",
+                 "include_inactive":  false,
+                 "total_count":  29,
+                 "folder_path":  "",
+                 "recursive":  false,
+                 "include_meta":  false,
+                 "include_components":  false,
+                 "include_missing_scripts":  false,
+                 "include_layout":  false,
+                 "include_interaction":  false,
+                 "include_text_metrics":  false,
+                 "include_value_summary":  true,
+                 "include_non_visible":  false,
+                 "returned_canvas_count":  0,
+                 "overlay_total_coverage_percent":  0,
+                 "diagnosis":  "",
+                 "recommended_capture_mode":  "",
+                 "view":  "",
+                 "coord_space":  "",
+                 "coord_origin":  "",
+                 "requested_x":  0,
+                 "requested_y":  0,
+                 "mapped_x":  0,
+                 "mapped_y":  0,
+                 "resolution_width":  0,
+                 "resolution_height":  0,
+                 "runtime_resolution_width":  0,
+                 "runtime_resolution_height":  0,
+                 "runtime_source":  "",
+                 "approximate":  false,
+                 "approx_reason":  "",
+                 "confidence":  "",
+                 "hit_count":  0,
+                 "issue_count":  0,
+                 "partial":  false,
+                 "runtime_resolution_name":  "",
+                 "next_cursor":  "",
+                 "capture_mode_effective":  "",
+                 "output_mode":  "",
+                 "image_format":  "",
+                 "mime_type":  "",
+                 "byte_size":  0,
+                 "artifact_uri":  "",
+                 "image_base64":  "",
+                 "fallback_reason":  "",
+                 "diagnosis_tags":  [
+
+                                    ],
+                 "assets":  [
+
+                            ],
+                 "component_query":  "",
+                 "under_path":  "",
+                 "ui_roots":  [
+
+                              ],
+                 "found_objects":  [
+
+                                   ],
+                 "overlay_canvases":  [
+
+                                      ],
+                 "hits":  [
+
+                          ],
+                 "layout_issues":  [
+
+                                   ],
+                 "serialized_property_nodes":  [
+                                                   {
+                                                       "property_path":  "m_LocalRotation",
+                                                       "display_name":  "Local Rotation",
+                                                       "property_type":  "Quaternion",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "",
+                                                       "has_visible_children":  true,
+                                                       "common_use":  true,
+                                                       "llm_hint":  "Use value_kind=quaternion with quaternion_value{x,y,z,w}."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalRotation.x",
+                                                       "display_name":  "X",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalRotation.y",
+                                                       "display_name":  "Y",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalRotation.z",
+                                                       "display_name":  "Z",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalRotation.w",
+                                                       "display_name":  "W",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "1",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalPosition",
+                                                       "display_name":  "Local Position",
+                                                       "property_type":  "Vector3",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "(0,0,0)",
+                                                       "has_visible_children":  true,
+                                                       "common_use":  true,
+                                                       "llm_hint":  "Use value_kind=vector3 with vector3_value{x,y,z}."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalPosition.x",
+                                                       "display_name":  "X",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalPosition.y",
+                                                       "display_name":  "Y",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalPosition.z",
+                                                       "display_name":  "Z",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalScale",
+                                                       "display_name":  "Local Scale",
+                                                       "property_type":  "Vector3",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "(1,1,1)",
+                                                       "has_visible_children":  true,
+                                                       "common_use":  true,
+                                                       "llm_hint":  "Use value_kind=vector3 with vector3_value{x,y,z}."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalScale.x",
+                                                       "display_name":  "X",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "1",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalScale.y",
+                                                       "display_name":  "Y",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "1",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_LocalScale.z",
+                                                       "display_name":  "Z",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "1",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_ConstrainProportionsScale",
+                                                       "display_name":  "Constrain Proportions Scale",
+                                                       "property_type":  "Boolean",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "false",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=bool with bool_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_AnchorMin",
+                                                       "display_name":  "Anchor Min",
+                                                       "property_type":  "Vector2",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "(0.5,0.5)",
+                                                       "has_visible_children":  true,
+                                                       "common_use":  true,
+                                                       "llm_hint":  "Use value_kind=vector2 with vector2_value{x,y}."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_AnchorMin.x",
+                                                       "display_name":  "X",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0.5",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_AnchorMin.y",
+                                                       "display_name":  "Y",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0.5",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_AnchorMax",
+                                                       "display_name":  "Anchor Max",
+                                                       "property_type":  "Vector2",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "(0.5,0.5)",
+                                                       "has_visible_children":  true,
+                                                       "common_use":  true,
+                                                       "llm_hint":  "Use value_kind=vector2 with vector2_value{x,y}."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_AnchorMax.x",
+                                                       "display_name":  "X",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0.5",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_AnchorMax.y",
+                                                       "display_name":  "Y",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0.5",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_AnchoredPosition",
+                                                       "display_name":  "Anchored Position",
+                                                       "property_type":  "Vector2",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "(0,0)",
+                                                       "has_visible_children":  true,
+                                                       "common_use":  true,
+                                                       "llm_hint":  "Use value_kind=vector2 with vector2_value{x,y}."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_AnchoredPosition.x",
+                                                       "display_name":  "X",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_AnchoredPosition.y",
+                                                       "display_name":  "Y",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_SizeDelta",
+                                                       "display_name":  "Size Delta",
+                                                       "property_type":  "Vector2",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "(900,120)",
+                                                       "has_visible_children":  true,
+                                                       "common_use":  true,
+                                                       "llm_hint":  "Use value_kind=vector2 with vector2_value{x,y}."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_SizeDelta.x",
+                                                       "display_name":  "X",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "900",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_SizeDelta.y",
+                                                       "display_name":  "Y",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "120",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_Pivot",
+                                                       "display_name":  "Pivot",
+                                                       "property_type":  "Vector2",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "(0.5,0.5)",
+                                                       "has_visible_children":  true,
+                                                       "common_use":  true,
+                                                       "llm_hint":  "Use value_kind=vector2 with vector2_value{x,y}."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_Pivot.x",
+                                                       "display_name":  "X",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0.5",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_Pivot.y",
+                                                       "display_name":  "Y",
+                                                       "property_type":  "Float",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0.5",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   }
+                                               ],
+                 "serialized_property_components":  [
+                                                        {
+                                                            "selector_index":  0,
+                                                            "type":  "UnityEngine.RectTransform, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+                                                            "target_object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-591447327-0",
+                                                            "target_path":  "Scene/Canvas/TxnButtonRow",
+                                                            "returned_count":  29,
+                                                            "truncated":  false,
+                                                            "truncated_reason":  "",
+                                                            "next_cursor":  ""
+                                                        }
+                                                    ],
+                 "read_token_candidate":  "ssot_rt_mmf2nmmf9c65891cb67e82e510cb2976",
+                 "scope_path":  "",
+                 "scene_roots":  [
+
+                                 ],
+                 "failed_step_index":  0,
+                 "failed_step_id":  "",
+                 "failed_tool_name":  "",
+                 "rollback_applied":  false,
+                 "failed_error_code":  "",
+                 "failed_error_message":  "",
+                 "resolved_ref_count":  0,
+                 "executed_step_count":  0
+             }
+}

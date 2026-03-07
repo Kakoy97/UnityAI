@@ -20,6 +20,8 @@ test("emitBindingsCs generates tool_name dispatcher and typed JsonUtility deseri
   assert.match(output, /case GetSceneSnapshotForWriteRequestDto\.ToolName:/);
   assert.match(output, /TryDeserialize<ModifyUiLayoutRequestDto>\(payloadJson, out requestDto, out errorMessage\)/);
   assert.match(output, /TryDeserialize<GetSceneSnapshotForWriteRequestDto>\(payloadJson, out requestDto, out errorMessage\)/);
+  assert.match(output, /string\.Equals\(typeof\(T\)\.Name, "ExecuteUnityTransactionRequestDto"/);
+  assert.match(output, /ExecuteUnityTransactionPayloadParser\.TryDeserialize/);
   assert.match(output, /JsonUtility\.FromJson<T>\(payloadJson\)/);
   assert.match(output, /public static bool TryDeserializeModifyUiLayout/);
   assert.match(output, /public static bool TryDeserializeGetSceneSnapshotForWrite/);

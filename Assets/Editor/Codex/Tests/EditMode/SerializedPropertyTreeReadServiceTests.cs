@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityAI.Editor.Codex.Domain;
 using UnityAI.Editor.Codex.Infrastructure;
@@ -11,6 +12,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
     {
         private const string NamePrefix = "__R16_SP_TREE__";
         private UnityRagReadService _service;
+        private readonly List<GameObject> _createdObjects = new List<GameObject>();
 
         [SetUp]
         public void SetUp()
@@ -21,28 +23,24 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         [TearDown]
         public void TearDown()
         {
-            var allObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
-            for (var i = 0; i < allObjects.Length; i++)
+            for (var i = 0; i < _createdObjects.Count; i++)
             {
-                var go = allObjects[i];
+                var go = _createdObjects[i];
                 if (go == null)
-                {
-                    continue;
-                }
-
-                if (!go.name.StartsWith(NamePrefix, StringComparison.Ordinal))
                 {
                     continue;
                 }
 
                 UnityEngine.Object.DestroyImmediate(go);
             }
+
+            _createdObjects.Clear();
         }
 
         [Test]
         public void GetSerializedPropertyTree_ReturnsReadOnlyScriptField_AndWritableUserField()
         {
-            var target = new GameObject(NamePrefix + "Target_ReadOnly");
+            var target = CreateTestObject("Target_ReadOnly");
             target.AddComponent<SerializedPropertyTreeFixtureComponent>();
             var payload = BuildPayload(target);
             payload.page_size = 64;
@@ -79,7 +77,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         [Test]
         public void GetSerializedPropertyTree_PageSizePagination_UsesCursorAndSkipsReturnedNode()
         {
-            var target = new GameObject(NamePrefix + "Target_Page");
+            var target = CreateTestObject("Target_Page");
             target.AddComponent<SerializedPropertyTreeFixtureComponent>();
 
             var firstPagePayload = BuildPayload(target);
@@ -130,7 +128,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         [Test]
         public void GetSerializedPropertyTree_NodeBudgetExceeded_ReturnsTruncatedWithCursor()
         {
-            var target = new GameObject(NamePrefix + "Target_NodeBudget");
+            var target = CreateTestObject("Target_NodeBudget");
             target.AddComponent<SerializedPropertyTreeFixtureComponent>();
             var payload = BuildPayload(target);
             payload.page_size = 64;
@@ -158,7 +156,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         [Test]
         public void GetSerializedPropertyTree_CharBudgetExceeded_ReturnsTruncatedWithCursor()
         {
-            var target = new GameObject(NamePrefix + "Target_CharBudget");
+            var target = CreateTestObject("Target_CharBudget");
             target.AddComponent<SerializedPropertyTreeFixtureComponent>();
             var payload = BuildPayload(target);
             payload.page_size = 64;
@@ -186,7 +184,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         [Test]
         public void GetSerializedPropertyTree_AfterPropertyPathMissing_ReturnsCursorNotFoundError()
         {
-            var target = new GameObject(NamePrefix + "Target_CursorNotFound");
+            var target = CreateTestObject("Target_CursorNotFound");
             target.AddComponent<SerializedPropertyTreeFixtureComponent>();
             var payload = BuildPayload(target);
             payload.after_property_path = "__missing_cursor__";
@@ -206,7 +204,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         [Test]
         public void GetSerializedPropertyTree_ComponentSelectors_ReturnsGroupedComponentResults()
         {
-            var target = new GameObject(NamePrefix + "Target_Multi");
+            var target = CreateTestObject("Target_Multi");
             target.AddComponent<SerializedPropertyTreeFixtureComponent>();
             target.AddComponent<SerializedPropertyTreeSecondaryFixtureComponent>();
 
@@ -247,6 +245,14 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.Greater(response.data.components[1].returned_count, 0);
             Assert.IsNotEmpty(response.data.components[0].nodes[0].llm_hint);
             Assert.AreEqual(response.data.components[0].component.type, response.data.component.type);
+        }
+
+        private GameObject CreateTestObject(string suffix)
+        {
+            var safeSuffix = string.IsNullOrEmpty(suffix) ? "Target" : suffix;
+            var go = new GameObject(NamePrefix + safeSuffix);
+            _createdObjects.Add(go);
+            return go;
         }
 
         private static UnityGetSerializedPropertyTreePayload BuildPayload(GameObject target)

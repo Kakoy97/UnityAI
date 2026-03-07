@@ -1,0 +1,9 @@
+{
+  "view_mode": "game",
+  "capture_mode": "composite",
+  "output_mode": "artifact_uri",
+  "image_format": "png",
+  "width": 1280,
+  "height": 720,
+  "include_ui": true
+}

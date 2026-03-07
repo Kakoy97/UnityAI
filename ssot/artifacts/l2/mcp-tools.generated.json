@@ -2407,7 +2407,7 @@
       "name": "execute_unity_transaction",
       "lifecycle": "experimental",
       "kind": "write",
-      "description": "Execute multiple SSOT write steps atomically in one Undo transaction. Provide a transaction_id and steps_json (JSON array string) where each step includes tool_name and payload_json. Do NOT use this tool for read operations or legacy action payloads.",
+      "description": "Execute multiple SSOT write steps atomically in one Undo transaction. Use structured steps with alias/ref chaining. Do NOT use this tool for read operations or legacy action payloads.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -2418,7 +2418,7 @@
           "write_anchor_object_id",
           "write_anchor_path",
           "transaction_id",
-          "steps_json"
+          "steps"
         ],
         "properties": {
           "execution_mode": {
@@ -2452,9 +2452,98 @@
             "type": "string",
             "minLength": 1
           },
-          "steps_json": {
-            "type": "string",
-            "minLength": 2
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/transaction_step"
+            }
+          }
+        },
+        "$defs": {
+          "transaction_step": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "step_id",
+              "tool_name",
+              "payload"
+            ],
+            "properties": {
+              "step_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "tool_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "payload": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/transaction_payload_value"
+                }
+              },
+              "save_as": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "depends_on": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              }
+            }
+          },
+          "transaction_payload_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/transaction_ref_value"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/transaction_payload_value"
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/transaction_payload_value"
+                }
+              }
+            ]
+          },
+          "transaction_ref_value": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "$ref"
+            ],
+            "properties": {
+              "$ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            }
           }
         }
       },
@@ -2466,8 +2555,76 @@
             "based_on_read_token": "mock_read_token",
             "write_anchor_object_id": "mock_write_anchor_object_id",
             "write_anchor_path": "Scene",
+            "transaction_id": "txn_create_and_set_pos_001",
+            "steps": [
+              {
+                "step_id": "step_create_button",
+                "tool_name": "create_object",
+                "payload": {
+                  "parent_object_id": "mock_parent_object_id",
+                  "parent_path": "Scene/Canvas",
+                  "new_object_name": "StartButton",
+                  "object_kind": "ui_button",
+                  "set_active": true
+                },
+                "save_as": "button"
+              },
+              {
+                "step_id": "step_set_button_pos",
+                "tool_name": "set_rect_anchored_position",
+                "payload": {
+                  "target_object_id": {
+                    "$ref": "button.target_object_id"
+                  },
+                  "target_path": {
+                    "$ref": "button.target_path"
+                  },
+                  "x": -150,
+                  "y": -50
+                },
+                "depends_on": [
+                  "step_create_button"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "request": {
+            "execution_mode": "execute",
+            "idempotency_key": "mock_idempotency_key",
+            "based_on_read_token": "mock_read_token",
+            "write_anchor_object_id": "mock_write_anchor_object_id",
+            "write_anchor_path": "Scene",
             "transaction_id": "txn_rename_disable_001",
-            "steps_json": "[{\"tool_name\":\"rename_object\",\"payload_json\":\"{\\\"target_object_id\\\":\\\"mock_target_object_id\\\",\\\"target_path\\\":\\\"Scene/Canvas/Button\\\",\\\"new_name\\\":\\\"Button_Main\\\"}\"},{\"tool_name\":\"set_active\",\"payload_json\":\"{\\\"target_object_id\\\":\\\"mock_target_object_id\\\",\\\"target_path\\\":\\\"Scene/Canvas/Button_Main\\\",\\\"active\\\":false}\"}]"
+            "steps": [
+              {
+                "step_id": "step_rename_button",
+                "tool_name": "rename_object",
+                "payload": {
+                  "target_object_id": "mock_target_object_id",
+                  "target_path": "Scene/Canvas/Button",
+                  "new_name": "Button_Main"
+                },
+                "save_as": "button_main"
+              },
+              {
+                "step_id": "step_disable_button",
+                "tool_name": "set_active",
+                "payload": {
+                  "target_object_id": {
+                    "$ref": "button_main.target_object_id"
+                  },
+                  "target_path": {
+                    "$ref": "button_main.target_path"
+                  },
+                  "active": false
+                },
+                "depends_on": [
+                  "step_rename_button"
+                ]
+              }
+            ]
           }
         }
       ]

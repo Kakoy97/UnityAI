@@ -2860,8 +2860,17 @@ test("ssot execute_unity_transaction route validates by SSOT schema then dispatc
       write_anchor_object_id: "go_canvas",
       write_anchor_path: "Scene/Canvas",
       transaction_id: "txn_demo",
-      steps_json:
-        "[{\"tool_name\":\"set_active\",\"payload_json\":\"{\\\"target_object_id\\\":\\\"go_target\\\",\\\"target_path\\\":\\\"Scene/Canvas/Button\\\",\\\"active\\\":false}\"}]",
+      steps: [
+        {
+          step_id: "step_disable",
+          tool_name: "set_active",
+          payload: {
+            target_object_id: "go_target",
+            target_path: "Scene/Canvas/Button",
+            active: false,
+          },
+        },
+      ],
     },
     turnService
   );

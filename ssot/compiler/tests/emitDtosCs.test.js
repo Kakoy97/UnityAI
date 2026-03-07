@@ -35,3 +35,96 @@ test("emitDtosCs generates strongly-typed DTO fields from input schema", () => {
   assert.match(output, /public bool active;/);
 });
 
+test("emitDtosCs generates nested DTOs for object and object-array properties", () => {
+  const output = emitDtosCs({
+    version: 1,
+    _definitions: {
+      transaction_step: {
+        type: "object",
+        properties: {
+          step_id: { type: "string" },
+          tool_name: { type: "string" },
+          payload: {
+            type: "object",
+            additionalProperties: true,
+          },
+        },
+      },
+    },
+    tools: [
+      {
+        name: "get_ui_tree",
+        input: {
+          type: "object",
+          properties: {
+            root_path: { type: "string" },
+            scope: {
+              type: "object",
+              properties: {
+                root_path: { type: "string" },
+              },
+            },
+            resolution: {
+              type: "object",
+              properties: {
+                width: { type: "integer" },
+                height: { type: "integer" },
+              },
+            },
+          },
+        },
+      },
+      {
+        name: "execute_unity_transaction",
+        input: {
+          type: "object",
+          properties: {
+            transaction_id: { type: "string" },
+            steps: {
+              type: "array",
+              items: {
+                $ref: "#/_definitions/transaction_step",
+              },
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  assert.match(output, /public sealed class GetUiTreeRequestDtoScopeDto/);
+  assert.match(output, /public GetUiTreeRequestDtoScopeDto scope;/);
+  assert.match(output, /public sealed class GetUiTreeRequestDtoResolutionDto/);
+  assert.match(output, /public int width;/);
+  assert.match(output, /public int height;/);
+
+  assert.match(output, /public sealed class ExecuteUnityTransactionRequestDtoStepsItemDto/);
+  assert.match(output, /public ExecuteUnityTransactionRequestDtoStepsItemDto\[\] steps;/);
+  assert.match(output, /public Dictionary<string, object> payload;/);
+});
+
+test("emitDtosCs keeps non-transaction open-shape objects as string", () => {
+  const output = emitDtosCs({
+    version: 1,
+    tools: [
+      {
+        name: "preflight_validate_write_payload",
+        input: {
+          type: "object",
+          required: ["tool_name", "payload"],
+          properties: {
+            tool_name: { type: "string" },
+            payload: {
+              type: "object",
+              additionalProperties: true,
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  assert.match(output, /public sealed class PreflightValidateWritePayloadRequestDto/);
+  assert.match(output, /public string payload;/);
+  assert.doesNotMatch(output, /public Dictionary<string, object> payload;/);
+});

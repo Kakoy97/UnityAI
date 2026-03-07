@@ -115,6 +115,20 @@ ${typedMethods}
                 return false;
             }
 
+            if (string.Equals(typeof(T).Name, "ExecuteUnityTransactionRequestDto", StringComparison.Ordinal))
+            {
+                if (!UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction.ExecuteUnityTransactionPayloadParser.TryDeserialize(
+                        payloadJson,
+                        out UnityAI.Editor.Codex.Generated.Ssot.ExecuteUnityTransactionRequestDto executeUnityTransactionRequest,
+                        out errorMessage))
+                {
+                    return false;
+                }
+
+                requestDto = executeUnityTransactionRequest;
+                return true;
+            }
+
             try
             {
                 var parsed = JsonUtility.FromJson<T>(payloadJson);

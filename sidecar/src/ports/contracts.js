@@ -6,6 +6,7 @@
  */
 const {
   loadVisibilityPolicyArtifact,
+  loadSidecarCommandManifestArtifact,
 } = require("../application/ssotRuntime/startupArtifactsGuard");
 
 function normalizeToolName(value) {
@@ -31,6 +32,10 @@ const {
   visibilityPolicyPath: MCP_VISIBILITY_POLICY_PATH,
   visibilityPolicy: MCP_VISIBILITY_POLICY,
 } = loadVisibilityPolicyArtifact();
+const {
+  sidecarCommandManifestPath: MCP_SIDECAR_COMMAND_MANIFEST_PATH,
+  sidecarCommandManifest: MCP_SIDECAR_COMMAND_MANIFEST,
+} = loadSidecarCommandManifestArtifact();
 
 const MCP_ACTIVE_TOOL_NAMES = toFrozenStringArray(
   MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.active_tool_names
@@ -46,6 +51,28 @@ const MCP_EXPOSED_TOOL_NAMES = toFrozenStringArray(
 );
 const MCP_LOCAL_STATIC_TOOL_NAMES = toFrozenStringArray(
   MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.local_static_tool_names
+);
+const MCP_DISABLED_TOOL_NAMES = Object.freeze([]);
+const MCP_TRANSACTION_ENABLED_WRITE_TOOL_NAMES = toFrozenStringArray(
+  (MCP_SIDECAR_COMMAND_MANIFEST &&
+  Array.isArray(MCP_SIDECAR_COMMAND_MANIFEST.commands)
+    ? MCP_SIDECAR_COMMAND_MANIFEST.commands
+    : []
+  )
+    .filter((command) => {
+      const source =
+        command && typeof command === "object" ? command : {};
+      const transaction =
+        source.transaction && typeof source.transaction === "object"
+          ? source.transaction
+          : {};
+      return (
+        normalizeToolName(source.kind).toLowerCase() === "write" &&
+        transaction.enabled === true &&
+        transaction.undo_safe === true
+      );
+    })
+    .map((command) => command.name)
 );
 
 const OCC_WRITE_GUARD_CONTRACT = Object.freeze({
@@ -175,11 +202,31 @@ const MCP_TOOL_VISIBILITY_FREEZE_CONTRACT = Object.freeze({
     Number.isFinite(Number(MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.version))
       ? Number(MCP_VISIBILITY_POLICY.version)
       : 0,
-  disabled_tools: Object.freeze([]),
+  disabled_tools: MCP_DISABLED_TOOL_NAMES,
   disabled_tool_notes: Object.freeze({}),
   capture_mode_notes: Object.freeze({
     capture_scene_screenshot: "render_output_stable_composite_flagged",
   }),
+});
+
+const MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT = Object.freeze({
+  step_policy_formula:
+    "transaction_step_allowed = active - deprecated - removed - disabled & transaction_enabled_write",
+  active_tool_names: MCP_ACTIVE_TOOL_NAMES,
+  deprecated_tool_names: MCP_DEPRECATED_TOOL_NAMES,
+  removed_tool_names: MCP_REMOVED_TOOL_NAMES,
+  disabled_tool_names: MCP_DISABLED_TOOL_NAMES,
+  transaction_enabled_write_tool_names: MCP_TRANSACTION_ENABLED_WRITE_TOOL_NAMES,
+  sidecar_manifest_path: MCP_SIDECAR_COMMAND_MANIFEST_PATH,
+  visibility_policy_path: MCP_VISIBILITY_POLICY_PATH,
+  sidecar_manifest_version:
+    Number.isFinite(
+      Number(
+        MCP_SIDECAR_COMMAND_MANIFEST && MCP_SIDECAR_COMMAND_MANIFEST.version
+      )
+    )
+      ? Number(MCP_SIDECAR_COMMAND_MANIFEST.version)
+      : 0,
 });
 
 module.exports = {
@@ -188,4 +235,5 @@ module.exports = {
   LEGACY_ANCHOR_MIGRATION_CONTRACT,
   ROUTER_PROTOCOL_FREEZE_CONTRACT,
   MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
+  MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT,
 };

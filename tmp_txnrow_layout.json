@@ -1,0 +1,309 @@
+﻿{
+    "ok":  true,
+    "status":  "succeeded",
+    "query_type":  "ssot.request",
+    "tool_name":  "get_serialized_property_tree",
+    "data":  {
+                 "scene_revision":  "ssot_rev_1772812277078",
+                 "prefab_path":  "",
+                 "max_depth":  0,
+                 "target_object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-591447327-0",
+                 "target_path":  "Scene/Canvas/TxnButtonRow",
+                 "target_object_name":  "",
+                 "target_object_active":  false,
+                 "ui_system":  "",
+                 "root_path":  "",
+                 "anchored_x":  0,
+                 "anchored_y":  0,
+                 "width":  0,
+                 "height":  0,
+                 "component_count":  0,
+                 "components":  [
+
+                                ],
+                 "component_type":  "UnityEngine.UI.HorizontalLayoutGroup, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                 "property_path":  "",
+                 "value_kind":  "",
+                 "value_string":  "",
+                 "value_number":  0,
+                 "value_boolean":  false,
+                 "depth":  3,
+                 "node_budget":  512,
+                 "char_budget":  60000,
+                 "returned_node_count":  15,
+                 "truncated":  false,
+                 "truncated_reason":  "",
+                 "root":  {
+                              "name":  "",
+                              "object_id":  "",
+                              "path":  "",
+                              "depth":  0,
+                              "component_count":  0,
+                              "active":  false,
+                              "children_truncated_count":  0,
+                              "children":  [
+
+                                           ]
+                          },
+                 "scene_path":  "",
+                 "include_inactive":  false,
+                 "total_count":  15,
+                 "folder_path":  "",
+                 "recursive":  false,
+                 "include_meta":  false,
+                 "include_components":  false,
+                 "include_missing_scripts":  false,
+                 "include_layout":  false,
+                 "include_interaction":  false,
+                 "include_text_metrics":  false,
+                 "include_value_summary":  true,
+                 "include_non_visible":  false,
+                 "returned_canvas_count":  0,
+                 "overlay_total_coverage_percent":  0,
+                 "diagnosis":  "",
+                 "recommended_capture_mode":  "",
+                 "view":  "",
+                 "coord_space":  "",
+                 "coord_origin":  "",
+                 "requested_x":  0,
+                 "requested_y":  0,
+                 "mapped_x":  0,
+                 "mapped_y":  0,
+                 "resolution_width":  0,
+                 "resolution_height":  0,
+                 "runtime_resolution_width":  0,
+                 "runtime_resolution_height":  0,
+                 "runtime_source":  "",
+                 "approximate":  false,
+                 "approx_reason":  "",
+                 "confidence":  "",
+                 "hit_count":  0,
+                 "issue_count":  0,
+                 "partial":  false,
+                 "runtime_resolution_name":  "",
+                 "next_cursor":  "",
+                 "capture_mode_effective":  "",
+                 "output_mode":  "",
+                 "image_format":  "",
+                 "mime_type":  "",
+                 "byte_size":  0,
+                 "artifact_uri":  "",
+                 "image_base64":  "",
+                 "fallback_reason":  "",
+                 "diagnosis_tags":  [
+
+                                    ],
+                 "assets":  [
+
+                            ],
+                 "component_query":  "",
+                 "under_path":  "",
+                 "ui_roots":  [
+
+                              ],
+                 "found_objects":  [
+
+                                   ],
+                 "overlay_canvases":  [
+
+                                      ],
+                 "hits":  [
+
+                          ],
+                 "layout_issues":  [
+
+                                   ],
+                 "serialized_property_nodes":  [
+                                                   {
+                                                       "property_path":  "m_Script",
+                                                       "display_name":  "Script",
+                                                       "property_type":  "ObjectReference",
+                                                       "depth":  0,
+                                                       "writable":  false,
+                                                       "value_summary":  "MonoScript:HorizontalLayoutGroup@Packages/com.unity.ugui/Runtime/UI/Core/Layout/HorizontalLayoutGroup.cs",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Read-only Unity script reference; cannot be changed via set_serialized_property."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_Padding",
+                                                       "display_name":  "Padding",
+                                                       "property_type":  "Generic",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "",
+                                                       "has_visible_children":  true,
+                                                       "common_use":  false,
+                                                       "llm_hint":  ""
+                                                   },
+                                                   {
+                                                       "property_path":  "m_Padding.m_Left",
+                                                       "display_name":  "Left",
+                                                       "property_type":  "Integer",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=integer with int_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_Padding.m_Right",
+                                                       "display_name":  "Right",
+                                                       "property_type":  "Integer",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=integer with int_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_Padding.m_Top",
+                                                       "display_name":  "Top",
+                                                       "property_type":  "Integer",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=integer with int_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_Padding.m_Bottom",
+                                                       "display_name":  "Bottom",
+                                                       "property_type":  "Integer",
+                                                       "depth":  1,
+                                                       "writable":  true,
+                                                       "value_summary":  "0",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=integer with int_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_ChildAlignment",
+                                                       "display_name":  "Child Alignment",
+                                                       "property_type":  "Enum",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "Upper Left(0)",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=enum with enum_name or enum_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_Spacing",
+                                                       "display_name":  "Spacing",
+                                                       "property_type":  "Float",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "50",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=float with float_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_ChildForceExpandWidth",
+                                                       "display_name":  "Child Force Expand Width",
+                                                       "property_type":  "Boolean",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "true",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=bool with bool_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_ChildForceExpandHeight",
+                                                       "display_name":  "Child Force Expand Height",
+                                                       "property_type":  "Boolean",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "true",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=bool with bool_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_ChildControlWidth",
+                                                       "display_name":  "Child Control Width",
+                                                       "property_type":  "Boolean",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "false",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=bool with bool_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_ChildControlHeight",
+                                                       "display_name":  "Child Control Height",
+                                                       "property_type":  "Boolean",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "false",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=bool with bool_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_ChildScaleWidth",
+                                                       "display_name":  "Child Scale Width",
+                                                       "property_type":  "Boolean",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "false",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=bool with bool_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_ChildScaleHeight",
+                                                       "display_name":  "Child Scale Height",
+                                                       "property_type":  "Boolean",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "false",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=bool with bool_value."
+                                                   },
+                                                   {
+                                                       "property_path":  "m_ReverseArrangement",
+                                                       "display_name":  "Reverse Arrangement",
+                                                       "property_type":  "Boolean",
+                                                       "depth":  0,
+                                                       "writable":  true,
+                                                       "value_summary":  "false",
+                                                       "has_visible_children":  false,
+                                                       "common_use":  false,
+                                                       "llm_hint":  "Use value_kind=bool with bool_value."
+                                                   }
+                                               ],
+                 "serialized_property_components":  [
+                                                        {
+                                                            "selector_index":  0,
+                                                            "type":  "UnityEngine.UI.HorizontalLayoutGroup, UnityEngine.UI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null",
+                                                            "target_object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-591447327-0",
+                                                            "target_path":  "Scene/Canvas/TxnButtonRow",
+                                                            "returned_count":  15,
+                                                            "truncated":  false,
+                                                            "truncated_reason":  "",
+                                                            "next_cursor":  ""
+                                                        }
+                                                    ],
+                 "read_token_candidate":  "ssot_rt_mmf2nnmk7c108142c00a3c8e1547a4b6",
+                 "scope_path":  "",
+                 "scene_roots":  [
+
+                                 ],
+                 "failed_step_index":  0,
+                 "failed_step_id":  "",
+                 "failed_tool_name":  "",
+                 "rollback_applied":  false,
+                 "failed_error_code":  "",
+                 "failed_error_message":  "",
+                 "resolved_ref_count":  0,
+                 "executed_step_count":  0
+             }
+}

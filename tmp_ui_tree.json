@@ -1,0 +1,454 @@
+﻿{
+    "ok":  true,
+    "status":  "succeeded",
+    "query_type":  "ssot.request",
+    "tool_name":  "get_ui_tree",
+    "data":  {
+                 "scene_revision":  "ssot_rev_1772812228784",
+                 "prefab_path":  "",
+                 "max_depth":  8,
+                 "target_object_id":  "",
+                 "target_path":  "",
+                 "target_object_name":  "",
+                 "target_object_active":  false,
+                 "ui_system":  "auto",
+                 "root_path":  "",
+                 "anchored_x":  0,
+                 "anchored_y":  0,
+                 "width":  0,
+                 "height":  0,
+                 "component_count":  0,
+                 "components":  [
+
+                                ],
+                 "component_type":  "",
+                 "property_path":  "",
+                 "value_kind":  "",
+                 "value_string":  "",
+                 "value_number":  0,
+                 "value_boolean":  false,
+                 "depth":  0,
+                 "node_budget":  1200,
+                 "char_budget":  200000,
+                 "returned_node_count":  27,
+                 "truncated":  false,
+                 "truncated_reason":  "",
+                 "root":  {
+                              "name":  "",
+                              "object_id":  "",
+                              "path":  "",
+                              "depth":  0,
+                              "component_count":  0,
+                              "active":  false,
+                              "children_truncated_count":  0,
+                              "children":  [
+
+                                           ]
+                          },
+                 "scene_path":  "",
+                 "include_inactive":  true,
+                 "total_count":  0,
+                 "folder_path":  "",
+                 "recursive":  false,
+                 "include_meta":  false,
+                 "include_components":  true,
+                 "include_missing_scripts":  false,
+                 "include_layout":  true,
+                 "include_interaction":  true,
+                 "include_text_metrics":  false,
+                 "include_value_summary":  false,
+                 "include_non_visible":  false,
+                 "returned_canvas_count":  1,
+                 "overlay_total_coverage_percent":  0,
+                 "diagnosis":  "",
+                 "recommended_capture_mode":  "",
+                 "view":  "",
+                 "coord_space":  "",
+                 "coord_origin":  "",
+                 "requested_x":  0,
+                 "requested_y":  0,
+                 "mapped_x":  0,
+                 "mapped_y":  0,
+                 "resolution_width":  0,
+                 "resolution_height":  0,
+                 "runtime_resolution_width":  0,
+                 "runtime_resolution_height":  0,
+                 "runtime_source":  "",
+                 "approximate":  false,
+                 "approx_reason":  "",
+                 "confidence":  "",
+                 "hit_count":  0,
+                 "issue_count":  0,
+                 "partial":  false,
+                 "runtime_resolution_name":  "",
+                 "next_cursor":  "",
+                 "capture_mode_effective":  "",
+                 "output_mode":  "",
+                 "image_format":  "",
+                 "mime_type":  "",
+                 "byte_size":  0,
+                 "artifact_uri":  "",
+                 "image_base64":  "",
+                 "fallback_reason":  "",
+                 "diagnosis_tags":  [
+
+                                    ],
+                 "assets":  [
+
+                            ],
+                 "component_query":  "",
+                 "under_path":  "",
+                 "ui_roots":  [
+                                  {
+                                      "name":  "Canvas",
+                                      "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2115572880-0",
+                                      "path":  "Scene/Canvas",
+                                      "depth":  0,
+                                      "component_count":  3,
+                                      "active":  true,
+                                      "children_truncated_count":  0,
+                                      "children":  [
+                                                       {
+                                                           "name":  "B",
+                                                           "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1127317666-0",
+                                                           "path":  "Scene/Canvas/B",
+                                                           "depth":  1,
+                                                           "component_count":  1,
+                                                           "active":  true,
+                                                           "children_truncated_count":  0,
+                                                           "children":  [
+
+                                                                        ]
+                                                       },
+                                                       {
+                                                           "name":  "Panel",
+                                                           "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1473030173-0",
+                                                           "path":  "Scene/Canvas/Panel",
+                                                           "depth":  1,
+                                                           "component_count":  1,
+                                                           "active":  true,
+                                                           "children_truncated_count":  0,
+                                                           "children":  [
+
+                                                                        ]
+                                                       },
+                                                       {
+                                                           "name":  "Slider",
+                                                           "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-792206244-0",
+                                                           "path":  "Scene/Canvas/Slider",
+                                                           "depth":  1,
+                                                           "component_count":  1,
+                                                           "active":  true,
+                                                           "children_truncated_count":  0,
+                                                           "children":  [
+                                                                            {
+                                                                                "name":  "Background",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1369237896-0",
+                                                                                "path":  "Scene/Canvas/Slider/Background",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "Fill Area",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1295590551-0",
+                                                                                "path":  "Scene/Canvas/Slider/Fill Area",
+                                                                                "depth":  2,
+                                                                                "component_count":  0,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+                                                                                                 {
+                                                                                                     "name":  "Fill",
+                                                                                                     "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-618371812-0",
+                                                                                                     "path":  "Scene/Canvas/Slider/Fill Area/Fill",
+                                                                                                     "depth":  3,
+                                                                                                     "component_count":  1,
+                                                                                                     "active":  true,
+                                                                                                     "children_truncated_count":  0,
+                                                                                                     "children":  [
+
+                                                                                                                  ]
+                                                                                                 }
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "Handle Slide Area",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-9427629-0",
+                                                                                "path":  "Scene/Canvas/Slider/Handle Slide Area",
+                                                                                "depth":  2,
+                                                                                "component_count":  0,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+                                                                                                 {
+                                                                                                     "name":  "Handle",
+                                                                                                     "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-43242821-0",
+                                                                                                     "path":  "Scene/Canvas/Slider/Handle Slide Area/Handle",
+                                                                                                     "depth":  3,
+                                                                                                     "component_count":  1,
+                                                                                                     "active":  true,
+                                                                                                     "children_truncated_count":  0,
+                                                                                                     "children":  [
+
+                                                                                                                  ]
+                                                                                                 }
+                                                                                             ]
+                                                                            }
+                                                                        ]
+                                                       },
+                                                       {
+                                                           "name":  "Button",
+                                                           "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1941285599-0",
+                                                           "path":  "Scene/Canvas/Button",
+                                                           "depth":  1,
+                                                           "component_count":  2,
+                                                           "active":  true,
+                                                           "children_truncated_count":  0,
+                                                           "children":  [
+
+                                                                        ]
+                                                       },
+                                                       {
+                                                           "name":  "Image",
+                                                           "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-617655645-0",
+                                                           "path":  "Scene/Canvas/Image",
+                                                           "depth":  1,
+                                                           "component_count":  1,
+                                                           "active":  true,
+                                                           "children_truncated_count":  0,
+                                                           "children":  [
+
+                                                                        ]
+                                                       },
+                                                       {
+                                                           "name":  "TxnButtonRow",
+                                                           "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-591447327-0",
+                                                           "path":  "Scene/Canvas/TxnButtonRow",
+                                                           "depth":  1,
+                                                           "component_count":  2,
+                                                           "active":  true,
+                                                           "children_truncated_count":  0,
+                                                           "children":  [
+                                                                            {
+                                                                                "name":  "TxnBtn1",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-818555162-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/TxnBtn1",
+                                                                                "depth":  2,
+                                                                                "component_count":  2,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "TxnBtn2",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1739110275-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/TxnBtn2",
+                                                                                "depth":  2,
+                                                                                "component_count":  2,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "TxnBtn3",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-828624396-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/TxnBtn3",
+                                                                                "depth":  2,
+                                                                                "component_count":  2,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "TxnBtn4",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-346987778-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/TxnBtn4",
+                                                                                "depth":  2,
+                                                                                "component_count":  2,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "TxnBtn5",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1976431732-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/TxnBtn5",
+                                                                                "depth":  2,
+                                                                                "component_count":  2,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "ColorImage1",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-365292479-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/ColorImage1",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "ColorImage2",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-302260615-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/ColorImage2",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "ColorImage3",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-686828903-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/ColorImage3",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "ColorImage4",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-2145232354-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/ColorImage4",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "ColorImage5",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1767372077-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/ColorImage5",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "DemoImage1",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-999604197-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/DemoImage1",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "DemoImage2",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-39266915-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/DemoImage2",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "DemoImage3",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-414516579-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/DemoImage3",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "DemoImage4",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1105076674-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/DemoImage4",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            },
+                                                                            {
+                                                                                "name":  "DemoImage5",
+                                                                                "object_id":  "GlobalObjectId_V1-2-9fc0d4010bbf28b4594072e72b8655ab-1596704139-0",
+                                                                                "path":  "Scene/Canvas/TxnButtonRow/DemoImage5",
+                                                                                "depth":  2,
+                                                                                "component_count":  1,
+                                                                                "active":  true,
+                                                                                "children_truncated_count":  0,
+                                                                                "children":  [
+
+                                                                                             ]
+                                                                            }
+                                                                        ]
+                                                       }
+                                                   ]
+                                  }
+                              ],
+                 "found_objects":  [
+
+                                   ],
+                 "overlay_canvases":  [
+
+                                      ],
+                 "hits":  [
+
+                          ],
+                 "layout_issues":  [
+
+                                   ],
+                 "serialized_property_nodes":  [
+
+                                               ],
+                 "serialized_property_components":  [
+
+                                                    ],
+                 "read_token_candidate":  "ssot_rt_mmf2mmcz8032a37e108a4d6eeedb629a",
+                 "scope_path":  "",
+                 "scene_roots":  [
+
+                                 ],
+                 "failed_step_index":  0,
+                 "failed_step_id":  "",
+                 "failed_tool_name":  "",
+                 "rollback_applied":  false,
+                 "failed_error_code":  "",
+                 "failed_error_message":  "",
+                 "resolved_ref_count":  0,
+                 "executed_step_count":  0
+             }
+}

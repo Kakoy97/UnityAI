@@ -28,6 +28,7 @@ namespace UnityAI.Editor.Codex.Infrastructure
             private const int MinCharBudget = 256;
             private const int MaxComponentSelectors = 8;
             private const int MaxValueSummaryLength = 120;
+            private const int MaxTraversalIterations = 200000;
 
             internal static UnityGetSerializedPropertyTreeResponse Execute(
                 UnityGetSerializedPropertyTreeRequest request)
@@ -262,9 +263,18 @@ namespace UnityAI.Editor.Codex.Infrastructure
                 var cursorFound = cursorSatisfied;
                 var totalChars = 0;
                 var lastReturnedPath = string.Empty;
+                var iterationCount = 0;
 
                 while (hasCurrent)
                 {
+                    iterationCount += 1;
+                    if (iterationCount > MaxTraversalIterations)
+                    {
+                        return TraversalOutcome.Fail(
+                            "E_QUERY_HANDLER_FAILED",
+                            "SerializedProperty traversal exceeded safety iteration limit.");
+                    }
+
                     if (rootProperty != null &&
                         !isFirst &&
                         SerializedProperty.EqualContents(iterator, end))
@@ -786,6 +796,16 @@ namespace UnityAI.Editor.Codex.Infrastructure
                     return null;
                 }
 
+                var fromObjectId = FindGameObjectByObjectId(requestedObjectId);
+                if (fromObjectId != null)
+                {
+                    var fromObjectPath = BuildObjectPath(fromObjectId.transform, "Scene");
+                    if (string.Equals(fromObjectPath, requestedPath, StringComparison.Ordinal))
+                    {
+                        return fromObjectId;
+                    }
+                }
+
                 var fromPathTransform = FindTransformByScenePath(requestedPath);
                 if (fromPathTransform == null || fromPathTransform.gameObject == null)
                 {
@@ -795,21 +815,18 @@ namespace UnityAI.Editor.Codex.Infrastructure
                 }
 
                 var fromPath = fromPathTransform.gameObject;
-                var fromObjectId = FindGameObjectByObjectId(requestedObjectId);
                 if (fromObjectId == null)
                 {
                     var fromPathObjectId = BuildObjectId(fromPath);
                     if (!string.IsNullOrEmpty(fromPathObjectId) &&
                         string.Equals(fromPathObjectId, requestedObjectId, StringComparison.Ordinal))
                     {
-                        fromObjectId = fromPath;
+                        return fromPath;
                     }
-                    else
-                    {
-                        errorCode = "E_TARGET_NOT_FOUND";
-                        errorMessage = "target_anchor.object_id not found: " + requestedObjectId;
-                        return null;
-                    }
+
+                    errorCode = "E_TARGET_NOT_FOUND";
+                    errorMessage = "target_anchor.object_id not found: " + requestedObjectId;
+                    return null;
                 }
 
                 if (!ReferenceEquals(fromPath, fromObjectId))
@@ -823,7 +840,7 @@ namespace UnityAI.Editor.Codex.Infrastructure
                     return null;
                 }
 
-                return fromObjectId;
+                return fromPath;
             }
 
             private static GameObject FindGameObjectByObjectId(string objectId)
