@@ -2880,3 +2880,57 @@ test("ssot execute_unity_transaction route validates by SSOT schema then dispatc
   assert.equal(calls.length, 1);
   assert.equal(calls[0].execution_mode, "execute");
 });
+
+test("ssot run_unity_tests route validates by SSOT schema then dispatches", async () => {
+  const registry = getMcpCommandRegistry();
+  const calls = [];
+  const turnService = {
+    runUnityTestsForMcp(payload) {
+      calls.push(payload);
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          data: {
+            tool_name: "run_unity_tests",
+            scope_requested: payload.scope || "all",
+            status: "succeeded",
+            total: 12,
+            passed: 12,
+            failed: 0,
+            skipped: 0,
+            inconclusive: 0,
+          },
+        },
+      };
+    },
+  };
+
+  const invalid = await dispatchBodyCommand(
+    registry,
+    "/mcp/run_unity_tests",
+    {
+      scope: "editmode",
+      timeout_seconds: "600",
+    },
+    turnService
+  );
+  assert.equal(invalid.statusCode, 400);
+  assert.equal(invalid.body.error_code, "E_SSOT_SCHEMA_INVALID");
+
+  const valid = await dispatchBodyCommand(
+    registry,
+    "/mcp/run_unity_tests",
+    {
+      scope: "all",
+      test_filter: "UnityAI.Editor.Codex.Tests.EditMode.SsotRequestQueryHandlerTests",
+      timeout_seconds: 600,
+    },
+    turnService
+  );
+  assert.equal(valid.statusCode, 200);
+  assert.equal(valid.body.ok, true);
+  assert.equal(valid.body.data.tool_name, "run_unity_tests");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].scope, "all");
+});

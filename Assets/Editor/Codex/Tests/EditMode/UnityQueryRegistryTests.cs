@@ -60,12 +60,13 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
         }
 
         [Test]
-        public void BuildDefaultRegistry_IsSsotOnly()
+        public void BuildDefaultRegistry_RegistersSsotAndUnityTestRun()
         {
             var registry = UnityQueryRegistryBootstrap.BuildDefaultRegistry();
             Assert.NotNull(registry);
             Assert.IsTrue(registry.Contains(UnityQueryTypes.SsotRequest));
-            Assert.AreEqual(1, registry.Count);
+            Assert.IsTrue(registry.Contains(UnityQueryTypes.UnityTestRun));
+            Assert.AreEqual(2, registry.Count);
         }
 
         private static UnityQueryExecutionContext BuildExecutionContext()

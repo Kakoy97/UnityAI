@@ -12,6 +12,50 @@ function projectExample(example) {
   return projected;
 }
 
+function projectContractExample(example) {
+  const source = example && typeof example === "object" ? example : {};
+  const projected = {};
+  if (Object.prototype.hasOwnProperty.call(source, "scenario")) {
+    projected.scenario = source.scenario;
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "example_revision")) {
+    projected.example_revision = source.example_revision;
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "context_tags")) {
+    projected.context_tags = source.context_tags;
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "request")) {
+    projected.request = source.request;
+  }
+  return projected;
+}
+
+function projectNegativeExample(example) {
+  const source = example && typeof example === "object" ? example : {};
+  const projected = {};
+  if (Object.prototype.hasOwnProperty.call(source, "error_code")) {
+    projected.error_code = source.error_code;
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "fix_hint")) {
+    projected.fix_hint = source.fix_hint;
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "wrong_payload_fragment")) {
+    projected.wrong_payload_fragment = source.wrong_payload_fragment;
+  }
+  if (Object.prototype.hasOwnProperty.call(source, "category")) {
+    projected.category = source.category;
+  }
+  return projected;
+}
+
+function normalizeToolPriority(value) {
+  const token = typeof value === "string" ? value.trim().toUpperCase() : "";
+  if (token === "P0" || token === "P1" || token === "P2") {
+    return token;
+  }
+  return "P2";
+}
+
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -129,6 +173,32 @@ function buildToolInputSchema(toolInput, rawDefinitions) {
   return outputSchema;
 }
 
+function projectGlobalContracts(definitions) {
+  const source =
+    definitions && typeof definitions === "object" && !Array.isArray(definitions)
+      ? definitions
+      : {};
+  const projected = {};
+  for (const key of [
+    "error_context_contract",
+    "recovery_action_contract",
+    "ambiguity_resolution_policy_contract",
+    "transaction_write_family",
+    "anchor_write_family",
+    "create_family",
+    "error_feedback_contract",
+  ]) {
+    if (!Object.prototype.hasOwnProperty.call(source, key)) {
+      continue;
+    }
+    const value = source[key];
+    if (value && typeof value === "object") {
+      projected[key] = cloneJson(value);
+    }
+  }
+  return projected;
+}
+
 function emitMcpToolsJson(dictionary) {
   const tools = Array.isArray(dictionary.tools) ? dictionary.tools : [];
   const definitions =
@@ -141,6 +211,7 @@ function emitMcpToolsJson(dictionary) {
 
   return {
     version: dictionary.version,
+    global_contracts: projectGlobalContracts(definitions),
     tools: tools.map((tool) => ({
       name: tool.name,
       lifecycle: tool.lifecycle || "stable",
@@ -151,6 +222,40 @@ function emitMcpToolsJson(dictionary) {
         definitions
       ),
       examples: Array.isArray(tool.examples) ? tool.examples.map(projectExample) : [],
+      tool_priority: normalizeToolPriority(tool.tool_priority),
+      must_configure: tool.must_configure === true,
+      priority_score: Number(tool.priority_score) || 0,
+      usage_notes: typeof tool.usage_notes === "string" ? tool.usage_notes : "",
+      examples_positive: Array.isArray(tool.examples_positive)
+        ? tool.examples_positive.map(projectContractExample)
+        : [],
+      examples_negative: Array.isArray(tool.examples_negative)
+        ? tool.examples_negative.map(projectNegativeExample)
+        : [],
+      common_error_fixes:
+        tool.common_error_fixes &&
+        typeof tool.common_error_fixes === "object" &&
+        !Array.isArray(tool.common_error_fixes)
+          ? cloneJson(tool.common_error_fixes)
+          : {},
+      related_tools: Array.isArray(tool.related_tools)
+        ? tool.related_tools.filter((item) => typeof item === "string")
+        : [],
+      tool_combinations: Array.isArray(tool.tool_combinations)
+        ? cloneJson(tool.tool_combinations)
+        : [],
+      property_path_rules:
+        tool.property_path_rules &&
+        typeof tool.property_path_rules === "object" &&
+        !Array.isArray(tool.property_path_rules)
+          ? cloneJson(tool.property_path_rules)
+          : null,
+      high_frequency_properties:
+        tool.high_frequency_properties &&
+        typeof tool.high_frequency_properties === "object" &&
+        !Array.isArray(tool.high_frequency_properties)
+          ? cloneJson(tool.high_frequency_properties)
+          : {},
     })),
   };
 }

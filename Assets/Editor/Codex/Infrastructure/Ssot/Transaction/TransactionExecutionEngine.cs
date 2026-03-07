@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityAI.Editor.Codex.Generated.Ssot;
 using UnityAI.Editor.Codex.Infrastructure.Ssot;
+using UnityAI.Editor.Codex.Infrastructure.Ssot.Errors;
 using UnityAI.Editor.Codex.Infrastructure.Ssot.Executors;
 using UnityEditor;
 
@@ -13,6 +14,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction
         private readonly TransactionPlanValidator _planValidator;
         private readonly TransactionSafetyPolicy _safetyPolicy;
         private readonly TransactionReferenceResolver _referenceResolver;
+        private readonly ExecutionFailureContextBuilder _failureContextBuilder;
 
         internal TransactionExecutionEngine(
             Func<string, string, SsotDispatchResponse> stepDispatcher,
@@ -24,32 +26,69 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction
             _planValidator = planValidator ?? new TransactionPlanValidator();
             _safetyPolicy = safetyPolicy ?? new TransactionSafetyPolicy();
             _referenceResolver = referenceResolver ?? new TransactionReferenceResolver();
+            _failureContextBuilder = new ExecutionFailureContextBuilder();
         }
 
         internal SsotDispatchResponse Execute(TransactionExecutionContext context, TransactionPlan plan)
         {
             if (_stepDispatcher == null)
             {
-                return SsotRequestDispatcher.Failure(
+                return BuildFailureResponse(
                     "E_INTERNAL",
                     "execute_unity_transaction dispatcher is unavailable.",
-                    ExecuteUnityTransactionRequestDto.ToolName);
+                    failedStepIndex: -1,
+                    failedStepId: string.Empty,
+                    failedToolName: string.Empty,
+                    failedErrorCode: string.Empty,
+                    failedErrorMessage: string.Empty,
+                    nestedContextData: null,
+                    rollbackApplied: false,
+                    rollbackPolicy: "rollback_none",
+                    rollbackReason: "dispatcher_unavailable",
+                    suppressedErrorCount: 0,
+                    resolvedRefCount: 0,
+                    executedStepCount: 0,
+                    requiresContextRefresh: false);
             }
 
             if (context == null)
             {
-                return SsotRequestDispatcher.Failure(
+                return BuildFailureResponse(
                     "E_TRANSACTION_CONTEXT_INVALID",
                     "transaction execution context is required.",
-                    ExecuteUnityTransactionRequestDto.ToolName);
+                    failedStepIndex: -1,
+                    failedStepId: string.Empty,
+                    failedToolName: string.Empty,
+                    failedErrorCode: string.Empty,
+                    failedErrorMessage: string.Empty,
+                    nestedContextData: null,
+                    rollbackApplied: false,
+                    rollbackPolicy: "rollback_none",
+                    rollbackReason: "transaction_context_invalid",
+                    suppressedErrorCount: 0,
+                    resolvedRefCount: 0,
+                    executedStepCount: 0,
+                    requiresContextRefresh: false);
             }
 
             if (!_planValidator.Validate(plan, out var planErrorCode, out var planErrorMessage))
             {
-                return SsotRequestDispatcher.Failure(
+                return BuildFailureResponse(
                     planErrorCode,
                     planErrorMessage,
-                    ExecuteUnityTransactionRequestDto.ToolName);
+                    failedStepIndex: -1,
+                    failedStepId: string.Empty,
+                    failedToolName: string.Empty,
+                    failedErrorCode: string.Empty,
+                    failedErrorMessage: string.Empty,
+                    nestedContextData: null,
+                    rollbackApplied: false,
+                    rollbackPolicy: "rollback_none",
+                    rollbackReason: "transaction_plan_invalid",
+                    suppressedErrorCount: 0,
+                    resolvedRefCount: 0,
+                    executedStepCount: 0,
+                    requiresContextRefresh: false);
             }
 
             if (!_safetyPolicy.Validate(
@@ -63,14 +102,19 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction
                 return BuildFailureResponse(
                     safetyErrorCode,
                     safetyErrorMessage,
-                    safetyFailedStepIndex,
-                    safetyFailedStepId,
-                    safetyFailedToolName,
-                    string.Empty,
-                    string.Empty,
+                    failedStepIndex: safetyFailedStepIndex,
+                    failedStepId: safetyFailedStepId,
+                    failedToolName: safetyFailedToolName,
+                    failedErrorCode: string.Empty,
+                    failedErrorMessage: string.Empty,
+                    nestedContextData: null,
                     rollbackApplied: false,
+                    rollbackPolicy: "rollback_none",
+                    rollbackReason: "transaction_safety_policy_rejected",
+                    suppressedErrorCount: 0,
                     resolvedRefCount: 0,
-                    executedStepCount: 0);
+                    executedStepCount: 0,
+                    requiresContextRefresh: false);
             }
 
             Undo.IncrementCurrentGroup();
@@ -93,14 +137,19 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction
                         return BuildFailureResponse(
                             "E_TRANSACTION_DEPENDENCY_ORDER_INVALID",
                             "step dependencies are not satisfied at runtime for step '" + step.StepId + "'.",
-                            step.StepIndex,
-                            step.StepId,
-                            step.ToolName,
-                            string.Empty,
-                            string.Empty,
+                            failedStepIndex: step.StepIndex,
+                            failedStepId: step.StepId,
+                            failedToolName: step.ToolName,
+                            failedErrorCode: string.Empty,
+                            failedErrorMessage: string.Empty,
+                            nestedContextData: null,
                             rollbackApplied: true,
+                            rollbackPolicy: "rollback_all",
+                            rollbackReason: "runtime_dependency_unsatisfied",
+                            suppressedErrorCount: 0,
                             resolvedRefCount: resolvedRefCountTotal,
-                            executedStepCount: executedStepCount);
+                            executedStepCount: executedStepCount,
+                            requiresContextRefresh: false);
                     }
 
                     if (!_referenceResolver.TryResolvePayload(
@@ -115,14 +164,19 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction
                         return BuildFailureResponse(
                             resolveErrorCode,
                             resolveErrorMessage,
-                            step.StepIndex,
-                            step.StepId,
-                            step.ToolName,
-                            string.Empty,
-                            string.Empty,
+                            failedStepIndex: step.StepIndex,
+                            failedStepId: step.StepId,
+                            failedToolName: step.ToolName,
+                            failedErrorCode: string.Empty,
+                            failedErrorMessage: string.Empty,
+                            nestedContextData: null,
                             rollbackApplied: true,
+                            rollbackPolicy: "rollback_all",
+                            rollbackReason: "reference_resolution_failed",
+                            suppressedErrorCount: 0,
                             resolvedRefCount: resolvedRefCountTotal,
-                            executedStepCount: executedStepCount);
+                            executedStepCount: executedStepCount,
+                            requiresContextRefresh: false);
                     }
 
                     resolvedRefCountTotal += resolvedRefCount;
@@ -141,14 +195,19 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction
                         return BuildFailureResponse(
                             "E_TRANSACTION_STEP_FAILED",
                             "transaction step failed: " + step.StepId,
-                            step.StepIndex,
-                            step.StepId,
-                            step.ToolName,
-                            failedErrorCode,
-                            failedErrorMessage,
+                            failedStepIndex: step.StepIndex,
+                            failedStepId: step.StepId,
+                            failedToolName: step.ToolName,
+                            failedErrorCode: failedErrorCode,
+                            failedErrorMessage: failedErrorMessage,
+                            nestedContextData: stepResponse == null ? null : stepResponse.data,
                             rollbackApplied: true,
+                            rollbackPolicy: "rollback_all",
+                            rollbackReason: "nested_step_failed",
+                            suppressedErrorCount: 0,
                             resolvedRefCount: resolvedRefCountTotal,
-                            executedStepCount: executedStepCount);
+                            executedStepCount: executedStepCount,
+                            requiresContextRefresh: false);
                     }
 
                     executedStepCount += 1;
@@ -159,14 +218,19 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction
                         return BuildFailureResponse(
                             aliasErrorCode,
                             aliasErrorMessage,
-                            step.StepIndex,
-                            step.StepId,
-                            step.ToolName,
-                            string.Empty,
-                            string.Empty,
+                            failedStepIndex: step.StepIndex,
+                            failedStepId: step.StepId,
+                            failedToolName: step.ToolName,
+                            failedErrorCode: string.Empty,
+                            failedErrorMessage: string.Empty,
+                            nestedContextData: null,
                             rollbackApplied: true,
+                            rollbackPolicy: "rollback_all",
+                            rollbackReason: "alias_bind_failed",
+                            suppressedErrorCount: 0,
                             resolvedRefCount: resolvedRefCountTotal,
-                            executedStepCount: executedStepCount);
+                            executedStepCount: executedStepCount,
+                            requiresContextRefresh: false);
                     }
                 }
             }
@@ -181,9 +245,14 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction
                     failedToolName: string.Empty,
                     failedErrorCode: "E_TRANSACTION_EXCEPTION",
                     failedErrorMessage: ex.Message,
+                    nestedContextData: null,
                     rollbackApplied: true,
+                    rollbackPolicy: "rollback_all",
+                    rollbackReason: "transaction_exception",
+                    suppressedErrorCount: 0,
                     resolvedRefCount: resolvedRefCountTotal,
-                    executedStepCount: executedStepCount);
+                    executedStepCount: executedStepCount,
+                    requiresContextRefresh: false);
             }
 
             Undo.CollapseUndoOperations(undoGroup);
@@ -229,7 +298,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction
             return output;
         }
 
-        private static SsotDispatchResponse BuildFailureResponse(
+        private SsotDispatchResponse BuildFailureResponse(
             string errorCode,
             string errorMessage,
             int failedStepIndex,
@@ -237,35 +306,32 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Transaction
             string failedToolName,
             string failedErrorCode,
             string failedErrorMessage,
+            SsotDispatchResultData nestedContextData,
             bool rollbackApplied,
+            string rollbackPolicy,
+            string rollbackReason,
+            int suppressedErrorCount,
             int resolvedRefCount,
-            int executedStepCount)
+            int executedStepCount,
+            bool requiresContextRefresh)
         {
-            return new SsotDispatchResponse
-            {
-                ok = false,
-                success = false,
-                tool_name = ExecuteUnityTransactionRequestDto.ToolName,
-                error_code = string.IsNullOrEmpty(errorCode)
-                    ? "E_TRANSACTION_STEP_FAILED"
-                    : errorCode,
-                error_message = string.IsNullOrEmpty(errorMessage)
-                    ? "transaction execution failed."
-                    : errorMessage,
-                captured_at = DateTime.UtcNow.ToString("o"),
-                data = new SsotDispatchResultData
-                {
-                    failed_step_index = failedStepIndex,
-                    failed_step_id = failedStepId,
-                    failed_tool_name = failedToolName,
-                    rollback_applied = rollbackApplied,
-                    failed_error_code = failedErrorCode,
-                    failed_error_message = failedErrorMessage,
-                    resolved_ref_count = resolvedRefCount,
-                    executed_step_count = executedStepCount
-                }
-            };
+            return _failureContextBuilder.BuildTransactionFailure(
+                ExecuteUnityTransactionRequestDto.ToolName,
+                errorCode,
+                errorMessage,
+                failedStepIndex,
+                failedStepId,
+                failedToolName,
+                failedErrorCode,
+                failedErrorMessage,
+                nestedContextData,
+                rollbackApplied,
+                rollbackPolicy,
+                rollbackReason,
+                suppressedErrorCount,
+                resolvedRefCount,
+                executedStepCount,
+                requiresContextRefresh);
         }
     }
 }
-

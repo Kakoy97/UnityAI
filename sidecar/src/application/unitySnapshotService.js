@@ -3,7 +3,9 @@
 const MCP_READ_TOKEN_HARD_MAX_AGE_MS = 3 * 60 * 1000;
 const MCP_READ_TOKEN_CACHE_LIMIT = 512;
 const MCP_UNKNOWN_SCENE_REVISION = "scene_rev_unknown";
-const { OCC_STALE_SNAPSHOT_SUGGESTION } = require("./turnPolicies");
+const {
+  OCC_STALE_SNAPSHOT_SUGGESTION,
+} = require("./errorFeedback/errorFeedbackTemplateRegistry");
 
 function normalizeRequestId(value) {
   if (!value || typeof value !== "string") {

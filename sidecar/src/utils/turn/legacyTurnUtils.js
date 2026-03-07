@@ -2,7 +2,6 @@
 
 const { normalizeSnapshotComponents } = require("./snapshotComponents");
 const { normalizeLease } = require("./leaseUtils");
-const OCC_STALE_SNAPSHOT_SUGGESTION = "请先调用读工具获取最新 token，并仅重试一次写操作。";
 
 // Helper functions - defined in dependency order
 
@@ -1070,16 +1069,6 @@ function sanitizeMcpErrorMessage(value, options) {
   };
 }
 
-function normalizeErrorSuggestionByCode(errorCode, suggestion) {
-  const code = normalizeErrorCode(errorCode, "E_INTERNAL");
-  const text =
-    typeof suggestion === "string" && suggestion.trim() ? suggestion.trim() : "";
-  if (code === "E_STALE_SNAPSHOT") {
-    return OCC_STALE_SNAPSHOT_SUGGESTION;
-  }
-  return text;
-}
-
 function looksLikeActionHandlerNotFoundMessage(message) {
   const text =
     typeof message === "string" && message.trim()
@@ -1260,28 +1249,6 @@ function normalizeMcpStreamEventType(value, statusHint) {
   return isTerminalMcpStatus(statusHint) ? "job.completed" : "job.progress";
 }
 
-function mapMcpErrorFeedback(errorCode, errorMessage) {
-  const code = normalizeErrorCode(errorCode, "E_INTERNAL");
-  const message =
-    typeof errorMessage === "string" ? errorMessage.trim().toLowerCase() : "";
-  if (code === "E_STALE_SNAPSHOT") {
-    return {
-      recoverable: true,
-      suggestion: OCC_STALE_SNAPSHOT_SUGGESTION,
-    };
-  }
-  if (message.includes("timeout")) {
-    return {
-      recoverable: true,
-      suggestion: "Request timed out. Retry once after Unity state recovers.",
-    };
-  }
-  return {
-    recoverable: true,
-    suggestion: "Inspect error_code/error_message and retry with corrected input.",
-  };
-}
-
 function mapTurnStateToMcpStatus(turnState) {
   const state = typeof turnState === "string" ? turnState : "";
   if (state === "completed") {
@@ -1348,7 +1315,6 @@ module.exports = {
   buildHierarchyTruncatedReason,
   normalizeErrorCode,
   sanitizeMcpErrorMessage,
-  normalizeErrorSuggestionByCode,
   normalizeUnityActionFailureCode,
   normalizeApprovalMode,
   normalizeUnityQueryErrorCode,
@@ -1358,7 +1324,6 @@ module.exports = {
   normalizeMcpJobStatus,
   sameJson,
   normalizeMcpStreamEventType,
-  mapMcpErrorFeedback,
   mapTurnStateToMcpStatus,
   isTerminalMcpStatus,
   createMcpJobId,

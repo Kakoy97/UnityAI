@@ -4,32 +4,17 @@ function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-const FIXED_ERROR_SUGGESTION_BY_CODE = Object.freeze({
-  E_STALE_SNAPSHOT: "请先调用读工具获取最新 token，并仅重试一次写操作。",
-});
+// R20/V3: suggestion templates are governed by errorFeedbackTemplateRegistry + SSOT contract.
+// Validators no longer carry suggestion text to avoid multi-source drift.
+const FIXED_ERROR_SUGGESTION_BY_CODE = Object.freeze({});
 
 function enforceFixedErrorSuggestion(errorCode, suggestion) {
-  const code = isNonEmptyString(errorCode)
-    ? String(errorCode).trim().toUpperCase()
-    : "";
-  const expected = FIXED_ERROR_SUGGESTION_BY_CODE[code];
+  void errorCode;
   const normalizedSuggestion = isNonEmptyString(suggestion)
     ? String(suggestion).trim()
     : "";
-  if (!expected) {
-    return {
-      suggestion: normalizedSuggestion,
-      enforced: false,
-    };
-  }
-  if (normalizedSuggestion !== expected) {
-    return {
-      suggestion: expected,
-      enforced: true,
-    };
-  }
   return {
-    suggestion: expected,
+    suggestion: normalizedSuggestion,
     enforced: false,
   };
 }

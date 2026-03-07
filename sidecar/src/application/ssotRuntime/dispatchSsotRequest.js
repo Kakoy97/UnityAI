@@ -4,6 +4,9 @@ const { SSOT_QUERY_TYPES } = require("./queryTypes");
 const { getValidatorRegistrySingleton } = require("./validatorRegistry");
 const { getSsotTokenRegistrySingleton } = require("./ssotTokenRegistry");
 const { getSsotRevisionStateSingleton } = require("./ssotRevisionState");
+const {
+  resolveTokenIssuanceDecision,
+} = require("./tokenIssuancePolicy");
 
 function isObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -11,6 +14,10 @@ function isObject(value) {
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeToolKind(value) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
 function buildSsotQueryPayload(toolName, payload) {
@@ -29,36 +36,24 @@ function buildSsotQueryPayload(toolName, payload) {
 
 function maybeIssueReadTokenFromResponse(options = {}) {
   const opts = isObject(options) ? options : {};
-  const result = isObject(opts.result) ? opts.result : null;
-  if (!result || result.ok !== true || !isObject(result.data)) {
+  let validatorRegistry = opts.validatorRegistry || null;
+  if (!validatorRegistry) {
+    try {
+      validatorRegistry = getValidatorRegistrySingleton();
+    } catch {
+      validatorRegistry = null;
+    }
+  }
+  const decision = resolveTokenIssuanceDecision({
+    toolName: opts.toolName,
+    result: opts.result,
+    validatorRegistry,
+  });
+  const result = decision.result;
+  if (!decision.should_issue) {
     return result;
   }
-
-  const toolName = normalizeString(opts.toolName);
-  if (!toolName) {
-    return result;
-  }
-
-  let validatorRegistry = null;
-  try {
-    validatorRegistry =
-      opts.validatorRegistry || getValidatorRegistrySingleton();
-  } catch {
-    return result;
-  }
-  const toolMetadata =
-    validatorRegistry && typeof validatorRegistry.getToolMetadata === "function"
-      ? validatorRegistry.getToolMetadata(toolName)
-      : null;
-  if (!toolMetadata || toolMetadata.kind !== "read") {
-    return result;
-  }
-
-  const data = result.data;
-  const sceneRevision = normalizeString(data.scene_revision);
-  if (!sceneRevision) {
-    return result;
-  }
+  const data = isObject(result && result.data) ? result.data : {};
 
   let tokenRegistry = null;
   try {
@@ -68,14 +63,15 @@ function maybeIssueReadTokenFromResponse(options = {}) {
   }
 
   const issued = tokenRegistry.issueToken({
-    source_tool_name: toolName,
-    scene_revision: sceneRevision,
-    scope_kind: normalizeString(data.scope_kind) || "scene",
-    object_id: normalizeString(data.target_object_id),
-    path:
-      normalizeString(data.target_path) ||
-      normalizeString(data.path) ||
-      normalizeString(data.scope_path),
+    source_tool_name: normalizeString(opts.toolName),
+    scene_revision: decision.scene_revision,
+    scope_kind:
+      decision.scope_kind ||
+      (normalizeToolKind(decision.tool_kind) === "write"
+        ? "write_result"
+        : "scene"),
+    object_id: decision.object_id,
+    path: decision.path,
   });
   if (!issued || issued.ok !== true) {
     return result;

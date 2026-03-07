@@ -129,7 +129,6 @@ Examples: `/session/start`, `/turn/send`, `/turn/status`, `/turn/cancel`, and ot
 - `error_stack_sanitized_total`
 - `error_path_sanitized_total`
 - `error_message_truncated_total`
-- `error_fixed_suggestion_enforced_total`
 - `error_feedback_by_code`
 
 ### Frozen stream event fields (additive changes only)

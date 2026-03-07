@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityAI.Editor.Codex.Generated.Ssot;
+using UnityAI.Editor.Codex.Infrastructure.Ssot.Anchors;
 
 namespace UnityAI.Editor.Codex.Infrastructure.Ssot
 {
@@ -214,14 +216,36 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot
         public string failed_step_id;
         public string failed_tool_name;
         public bool rollback_applied;
+        public string rollback_policy;
+        public string rollback_reason;
         public string failed_error_code;
         public string failed_error_message;
+        public string nested_error_code;
+        public string nested_error_message;
+        public string nested_context_json;
+        public string ambiguity_kind;
+        public int suppressed_error_count;
+        public string scene_revision_at_failure;
+        public string error_context_issued_at;
+        public string error_context_version;
+        public bool requires_context_refresh;
         public int resolved_ref_count;
         public int executed_step_count;
+        public int existing_candidates_count;
+        public string existing_candidate_path;
+        public string applied_policy;
+        public bool pre_check_existing;
+        public int resolved_candidates_count;
+        public string path_candidate_path;
+        public string path_candidate_object_id;
+        public string object_id_candidate_path;
+        public string object_id_candidate_object_id;
     }
 
     public sealed class SsotRequestDispatcher
     {
+        private static readonly AnchorResolutionService AnchorResolutionService =
+            new AnchorResolutionService();
         private readonly IReadOnlyDictionary<string, ISsotDispatchBinding> _bindings;
 
         public SsotRequestDispatcher()
@@ -296,6 +320,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot
                     normalizedToolName);
             }
 
+            EnrichAnchorConflictDiagnostics(response, requestDto);
             return response;
         }
 
@@ -318,19 +343,35 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot
 
         internal static SsotDispatchResponse Success(string toolName, SsotDispatchResultData data)
         {
+            var normalizedToolName = Normalize(toolName);
+            var resultData = data ?? new SsotDispatchResultData();
+            if (string.IsNullOrEmpty(Normalize(resultData.scene_revision)))
+            {
+                resultData.scene_revision = "ssot_rev_" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+            }
+
             return new SsotDispatchResponse
             {
                 ok = true,
                 success = true,
-                tool_name = Normalize(toolName),
+                tool_name = normalizedToolName,
                 error_code = string.Empty,
                 error_message = string.Empty,
                 captured_at = DateTime.UtcNow.ToString("o"),
-                data = data
+                data = resultData
             };
         }
 
         internal static SsotDispatchResponse Failure(string errorCode, string errorMessage, string toolName)
+        {
+            return Failure(errorCode, errorMessage, toolName, null);
+        }
+
+        internal static SsotDispatchResponse Failure(
+            string errorCode,
+            string errorMessage,
+            string toolName,
+            SsotDispatchResultData data)
         {
             return new SsotDispatchResponse
             {
@@ -340,7 +381,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot
                 error_code = NormalizeErrorCode(errorCode),
                 error_message = NormalizeErrorMessage(errorMessage),
                 captured_at = DateTime.UtcNow.ToString("o"),
-                data = null
+                data = data
             };
         }
 
@@ -370,6 +411,94 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot
             return string.IsNullOrEmpty(normalized)
                 ? "SSOT request execution failed."
                 : normalized;
+        }
+
+        private static void EnrichAnchorConflictDiagnostics(
+            SsotDispatchResponse response,
+            object requestDto)
+        {
+            if (response == null || response.ok)
+            {
+                return;
+            }
+
+            var errorCode = Normalize(response.error_code).ToUpperInvariant();
+            if (!string.Equals(errorCode, "E_TARGET_ANCHOR_CONFLICT", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            string targetPath;
+            string targetObjectId;
+            if (!TryReadRequestAnchor(requestDto, out targetPath, out targetObjectId))
+            {
+                return;
+            }
+
+            var data = response.data ?? new SsotDispatchResultData();
+            var resolution = AnchorResolutionService.ResolveTargetFromAnchor(targetPath, targetObjectId);
+            if (resolution != null)
+            {
+                if (string.IsNullOrEmpty(Normalize(data.ambiguity_kind)))
+                {
+                    data.ambiguity_kind = Normalize(resolution.AmbiguityKind);
+                }
+
+                data.resolved_candidates_count = resolution.ResolvedCandidatesCount;
+                data.path_candidate_path = Normalize(resolution.PathCandidatePath);
+                data.path_candidate_object_id = Normalize(resolution.PathCandidateObjectId);
+                data.object_id_candidate_path = Normalize(resolution.ObjectIdCandidatePath);
+                data.object_id_candidate_object_id = Normalize(resolution.ObjectIdCandidateObjectId);
+            }
+
+            if (string.IsNullOrEmpty(Normalize(data.target_path)))
+            {
+                data.target_path = targetPath;
+            }
+
+            if (string.IsNullOrEmpty(Normalize(data.target_object_id)))
+            {
+                data.target_object_id = targetObjectId;
+            }
+
+            response.data = data;
+        }
+
+        private static bool TryReadRequestAnchor(
+            object requestDto,
+            out string targetPath,
+            out string targetObjectId)
+        {
+            targetPath = ReadStringMember(requestDto, "target_path");
+            targetObjectId = ReadStringMember(requestDto, "target_object_id");
+            return !string.IsNullOrEmpty(targetPath) && !string.IsNullOrEmpty(targetObjectId);
+        }
+
+        private static string ReadStringMember(object source, string memberName)
+        {
+            if (source == null || string.IsNullOrEmpty(memberName))
+            {
+                return string.Empty;
+            }
+
+            var sourceType = source.GetType();
+            var field = sourceType.GetField(memberName, BindingFlags.Public | BindingFlags.Instance);
+            if (field != null && field.FieldType == typeof(string))
+            {
+                var fieldValue = field.GetValue(source) as string;
+                return Normalize(fieldValue);
+            }
+
+            var property = sourceType.GetProperty(memberName, BindingFlags.Public | BindingFlags.Instance);
+            if (property != null &&
+                property.PropertyType == typeof(string) &&
+                property.CanRead)
+            {
+                var value = property.GetValue(source, null) as string;
+                return Normalize(value);
+            }
+
+            return string.Empty;
         }
     }
 }

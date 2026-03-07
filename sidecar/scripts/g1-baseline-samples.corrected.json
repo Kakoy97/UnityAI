@@ -1,0 +1,4768 @@
+{
+  "schema_version": "g1_baseline_sample_runs.v1",
+  "timestamp": "2026-03-07T08:33:38.619Z",
+  "git_commit": "648d6cf",
+  "samples": [
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-001",
+      "seed": "seed-simple-1",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 80
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 95,
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ]
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-002",
+      "seed": "seed-simple-2",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 81
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 96
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-003",
+      "seed": "seed-simple-3",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 82
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 97
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-004",
+      "seed": "seed-simple-4",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 83
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 98
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-005",
+      "seed": "seed-simple-5",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 84
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 99
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-006",
+      "seed": "seed-simple-6",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 85
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 100
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-007",
+      "seed": "seed-simple-7",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 86
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 101
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-008",
+      "seed": "seed-simple-8",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 87
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 102,
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-009",
+      "seed": "seed-simple-9",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 88
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 103
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-010",
+      "seed": "seed-simple-10",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 89
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 104
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-011",
+      "seed": "seed-simple-11",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 90
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 105
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-012",
+      "seed": "seed-simple-12",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 91
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 106
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-013",
+      "seed": "seed-simple-13",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 92
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 107
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-014",
+      "seed": "seed-simple-14",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 93
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 108
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-015",
+      "seed": "seed-simple-15",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 94
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 109,
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ]
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-016",
+      "seed": "seed-simple-16",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 95
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 110
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-017",
+      "seed": "seed-simple-17",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 96
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 111
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-018",
+      "seed": "seed-simple-18",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 97
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 112
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-019",
+      "seed": "seed-simple-19",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 98
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 113
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-020",
+      "seed": "seed-simple-20",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 99
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 114
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-001",
+      "seed": "seed-medium-1",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 35
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 90
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 150,
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "execute_unity_transaction",
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ]
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-002",
+      "seed": "seed-medium-2",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 36
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 91
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 151
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 56
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-003",
+      "seed": "seed-medium-3",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 37
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 92
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 152
+        },
+        {
+          "tool_name": "preflight_validate_write_payload",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 44
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-004",
+      "seed": "seed-medium-4",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 38
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 93
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 153
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-005",
+      "seed": "seed-medium-5",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 39
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 94
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 154
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 59
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-006",
+      "seed": "seed-medium-6",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 40
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 95
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 155
+        },
+        {
+          "tool_name": "preflight_validate_write_payload",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 47
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-007",
+      "seed": "seed-medium-7",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 41
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 96
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 156,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "execute_unity_transaction",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-008",
+      "seed": "seed-medium-8",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 42
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 97
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 157
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 62
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-009",
+      "seed": "seed-medium-9",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 43
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 98
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 158
+        },
+        {
+          "tool_name": "preflight_validate_write_payload",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 50
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-010",
+      "seed": "seed-medium-10",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 44
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 99
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 159
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-011",
+      "seed": "seed-medium-11",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 45
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 100
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 160
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 65
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-012",
+      "seed": "seed-medium-12",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 46
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 101
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 161
+        },
+        {
+          "tool_name": "preflight_validate_write_payload",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 53
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-013",
+      "seed": "seed-medium-13",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 47
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 102
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 162,
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "execute_unity_transaction",
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ]
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-014",
+      "seed": "seed-medium-14",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 48
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 103
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 163
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 68
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-015",
+      "seed": "seed-medium-15",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 49
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 104
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 164
+        },
+        {
+          "tool_name": "preflight_validate_write_payload",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 56
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-016",
+      "seed": "seed-medium-16",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 50
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 105
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 165
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-017",
+      "seed": "seed-medium-17",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 51
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 106
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 166
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 71
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-018",
+      "seed": "seed-medium-18",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 52
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 107
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 167
+        },
+        {
+          "tool_name": "preflight_validate_write_payload",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 59
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-019",
+      "seed": "seed-medium-19",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 35
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 108
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 168,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "execute_unity_transaction",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-020",
+      "seed": "seed-medium-20",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 36
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 109
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 169
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 74
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-001",
+      "seed": "seed-complex-1",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 40
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 220,
+          "error_code": "E_TARGET_NOT_FOUND"
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 70
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "execute_unity_transaction",
+          "error_code": "E_TARGET_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-002",
+      "seed": "seed-complex-2",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 41
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 221
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 71
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-003",
+      "seed": "seed-complex-3",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 42
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 222
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 72
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-004",
+      "seed": "seed-complex-4",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 43
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 223
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 73
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-005",
+      "seed": "seed-complex-5",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 44
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 224
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 74
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-006",
+      "seed": "seed-complex-6",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 45
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 225
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 75
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-007",
+      "seed": "seed-complex-7",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 46
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 226
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 76
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-008",
+      "seed": "seed-complex-8",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 47
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 227
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 77
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-009",
+      "seed": "seed-complex-9",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 48
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 228
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 78
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-010",
+      "seed": "seed-complex-10",
+      "first_write_success": true,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 49
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 229
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "error",
+          "latency_ms": 79,
+          "error_code": "E_PRECONDITION_FAILED"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "save_scene",
+          "error_code": "E_PRECONDITION_FAILED"
+        }
+      ]
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-011",
+      "seed": "seed-complex-11",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 50
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 230
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 80
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-012",
+      "seed": "seed-complex-12",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 51
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 231,
+          "error_code": "E_TARGET_NOT_FOUND"
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 81
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "execute_unity_transaction",
+          "error_code": "E_TARGET_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-013",
+      "seed": "seed-complex-13",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 52
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 232
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 82
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-014",
+      "seed": "seed-complex-14",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 53
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 233
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 83
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-015",
+      "seed": "seed-complex-15",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 54
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 234
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 84
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-016",
+      "seed": "seed-complex-16",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 40
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 235
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 85
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-017",
+      "seed": "seed-complex-17",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 41
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 236
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 86
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-018",
+      "seed": "seed-complex-18",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 42
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 237
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 87
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-019",
+      "seed": "seed-complex-19",
+      "first_write_success": true,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 43
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 238
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "error",
+          "latency_ms": 88,
+          "error_code": "E_PRECONDITION_FAILED"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "save_scene",
+          "error_code": "E_PRECONDITION_FAILED"
+        }
+      ]
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-020",
+      "seed": "seed-complex-20",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 44
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 239
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 89
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-001",
+      "seed": "seed-error-1",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 85
+        },
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 75,
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-002",
+      "seed": "seed-error-2",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 86
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 76,
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-003",
+      "seed": "seed-error-3",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 87
+        },
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 77,
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-004",
+      "seed": "seed-error-4",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 88
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 78,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-005",
+      "seed": "seed-error-5",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 89
+        },
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 79,
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-006",
+      "seed": "seed-error-6",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 90
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 80,
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-007",
+      "seed": "seed-error-7",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 91
+        },
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 81,
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-008",
+      "seed": "seed-error-8",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 92
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 82,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-009",
+      "seed": "seed-error-9",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 93
+        },
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 83,
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-010",
+      "seed": "seed-error-10",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 94
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 84,
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-011",
+      "seed": "seed-error-11",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 95
+        },
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 85,
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-012",
+      "seed": "seed-error-12",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 96
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 86,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-013",
+      "seed": "seed-error-13",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 97
+        },
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 87,
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-014",
+      "seed": "seed-error-14",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 98
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 88,
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-015",
+      "seed": "seed-error-15",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 99
+        },
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 89,
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-016",
+      "seed": "seed-error-16",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 100
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 90,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-017",
+      "seed": "seed-error-17",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 101
+        },
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 91,
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-018",
+      "seed": "seed-error-18",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 102
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 92,
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_PROPERTY_TYPE_MISMATCH"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-019",
+      "seed": "seed-error-19",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 103
+        },
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 93,
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID"
+        }
+      ]
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-020",
+      "seed": "seed-error-20",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 104
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 94,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-001",
+      "seed": "seed-boundary-1",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 60
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 100
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 260,
+          "error_code": "E_TARGET_NOT_FOUND"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "execute_unity_transaction",
+          "error_code": "E_TARGET_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-002",
+      "seed": "seed-boundary-2",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 61
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 101
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 261
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-003",
+      "seed": "seed-boundary-3",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 62
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 102
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 262
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-004",
+      "seed": "seed-boundary-4",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 63
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 103
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 263
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-005",
+      "seed": "seed-boundary-5",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 64
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 104
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 264
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-006",
+      "seed": "seed-boundary-6",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 65
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 105
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 265
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-007",
+      "seed": "seed-boundary-7",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 66
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 106
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 266
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-008",
+      "seed": "seed-boundary-8",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 67
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 107
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 267
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-009",
+      "seed": "seed-boundary-9",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 68
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 108
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 268
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-010",
+      "seed": "seed-boundary-10",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 69
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 109
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 269
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-011",
+      "seed": "seed-boundary-11",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 70
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 110
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 270,
+          "error_code": "E_TARGET_NOT_FOUND"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "execute_unity_transaction",
+          "error_code": "E_TARGET_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-012",
+      "seed": "seed-boundary-12",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 71
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 111
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 271
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-013",
+      "seed": "seed-boundary-13",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 72
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 112
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 272
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-014",
+      "seed": "seed-boundary-14",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 73
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 113
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 273
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-015",
+      "seed": "seed-boundary-15",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 74
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 114
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 274
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-016",
+      "seed": "seed-boundary-16",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 75
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 115
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 275
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-017",
+      "seed": "seed-boundary-17",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 76
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 116
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 276
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-018",
+      "seed": "seed-boundary-18",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 77
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 117
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 277
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-019",
+      "seed": "seed-boundary-19",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 78
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 118
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 278
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-020",
+      "seed": "seed-boundary-20",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 79
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 119
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 279
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-001",
+      "seed": "seed-coverage-a-1",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 38
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 92
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 110,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 84
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "error",
+          "latency_ms": 66,
+          "error_code": "E_PRECONDITION_FAILED"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "create_object",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        },
+        {
+          "tool_name": "save_scene",
+          "error_code": "E_PRECONDITION_FAILED"
+        }
+      ]
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-002",
+      "seed": "seed-coverage-a-2",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 39
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 93
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 111
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 85
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 67
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-003",
+      "seed": "seed-coverage-a-3",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 40
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 94
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 112
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 86
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 68
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-004",
+      "seed": "seed-coverage-a-4",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 41
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 95
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 113
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 87
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 69
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-005",
+      "seed": "seed-coverage-a-5",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 42
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 96
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 114
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 88
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 70
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-006",
+      "seed": "seed-coverage-a-6",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 43
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 97
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 115
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 89
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 71
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-007",
+      "seed": "seed-coverage-a-7",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 44
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 98
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 116
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 90
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 72
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-008",
+      "seed": "seed-coverage-a-8",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 45
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 99
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 117
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 91
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 73
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-009",
+      "seed": "seed-coverage-a-9",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 46
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 100
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 118
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 92
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 74
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-010",
+      "seed": "seed-coverage-a-10",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 47
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 101
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 119,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 93
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 75
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "create_object",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-011",
+      "seed": "seed-coverage-a-11",
+      "first_write_success": true,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 48
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 102
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 120
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 94,
+          "error_code": "E_TARGET_NOT_FOUND"
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 76
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_ui_image_color",
+          "error_code": "E_TARGET_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-012",
+      "seed": "seed-coverage-a-12",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 49
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 103
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 121
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 95
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 77
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-013",
+      "seed": "seed-coverage-a-13",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 38
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 104
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 122
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 96
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 78
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-014",
+      "seed": "seed-coverage-a-14",
+      "first_write_success": true,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 39
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 105
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 123
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 97
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "error",
+          "latency_ms": 79,
+          "error_code": "E_PRECONDITION_FAILED"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "save_scene",
+          "error_code": "E_PRECONDITION_FAILED"
+        }
+      ]
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-015",
+      "seed": "seed-coverage-a-15",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 40
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 106
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 124
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 98
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 80
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-016",
+      "seed": "seed-coverage-a-16",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 41
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 107
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 125
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 99
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 81
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-017",
+      "seed": "seed-coverage-a-17",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 42
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 108
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 126
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 100
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 82
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-018",
+      "seed": "seed-coverage-a-18",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 43
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 109
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 127
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 101
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 83
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-019",
+      "seed": "seed-coverage-a-19",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 44
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 110
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 128,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 102
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 66
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "create_object",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_a",
+      "scenario_type": "medium",
+      "sample_id": "coverage-a-020",
+      "seed": "seed-coverage-a-20",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 45
+        },
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 111
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 129
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 103
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 67
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-001",
+      "seed": "seed-coverage-b-1",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 40
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 118,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 102
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 86
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 64
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 58
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "create_object",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-002",
+      "seed": "seed-coverage-b-2",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 41
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 119
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 103
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 87
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 65
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 59
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-003",
+      "seed": "seed-coverage-b-3",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 42
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 120
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 104
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 88
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 66
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 60
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-004",
+      "seed": "seed-coverage-b-4",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 43
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 121
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 105
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 89
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 67
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 61
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-005",
+      "seed": "seed-coverage-b-5",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 44
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 122
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 106
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 90
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 68
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 62
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-006",
+      "seed": "seed-coverage-b-6",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 45
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 123
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 107
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 91
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 69
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 63
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-007",
+      "seed": "seed-coverage-b-7",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 46
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 124
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 108
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 92
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 70
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 64
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-008",
+      "seed": "seed-coverage-b-8",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 47
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 125
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 109
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 93
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 71
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 65
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-009",
+      "seed": "seed-coverage-b-9",
+      "first_write_success": true,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 48
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 126
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 110,
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 94
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 72
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 66
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-010",
+      "seed": "seed-coverage-b-10",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 49
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 127
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 111
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 95
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 73
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 67
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-011",
+      "seed": "seed-coverage-b-11",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 50
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 128
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 112
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 96
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 74
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 68
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-012",
+      "seed": "seed-coverage-b-12",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 51
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 129,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 113
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 97
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 75
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 69
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "create_object",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-013",
+      "seed": "seed-coverage-b-13",
+      "first_write_success": true,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 52
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 130
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 114
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 98,
+          "error_code": "E_COMPONENT_NOT_FOUND"
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 76
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 70
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_ui_image_color",
+          "error_code": "E_COMPONENT_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-014",
+      "seed": "seed-coverage-b-14",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 53
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 131
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 115
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 99
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 77
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 71
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-015",
+      "seed": "seed-coverage-b-15",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 40
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 132
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 116
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 100
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 78
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 72
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-016",
+      "seed": "seed-coverage-b-16",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 41
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 133
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 117
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 101
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 79
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 73
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-017",
+      "seed": "seed-coverage-b-17",
+      "first_write_success": true,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 42
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 134
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 118,
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 102
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 64
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 74
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_component_properties",
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-018",
+      "seed": "seed-coverage-b-18",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 43
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 135
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 119
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 103
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 65
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 75
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-019",
+      "seed": "seed-coverage-b-19",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 44
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 136
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 120
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 104
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 66
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 58
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "direct_ui_create_color_save_b",
+      "scenario_type": "complex",
+      "sample_id": "coverage-b-020",
+      "seed": "seed-coverage-b-20",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 45
+        },
+        {
+          "tool_name": "create_object",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 137
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 121
+        },
+        {
+          "tool_name": "set_ui_image_color",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 105
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 67
+        },
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 59
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

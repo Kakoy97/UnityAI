@@ -18,6 +18,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries
     public static class UnityQueryTypes
     {
         public const string SsotRequest = "ssot.request";
+        public const string UnityTestRun = "unity.test.run";
     }
 
     public sealed class UnityQueryHandlerResult

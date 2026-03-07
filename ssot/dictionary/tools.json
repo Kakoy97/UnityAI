@@ -142,6 +142,125 @@
           "uniqueItems": true
         }
       }
+    },
+    "error_context_contract": {
+      "error_context_version": "2.0",
+      "transaction_failure": {
+        "required_fields": [
+          "failed_step_id",
+          "failed_tool_name",
+          "failed_error_code",
+          "failed_error_message",
+          "nested_error_code",
+          "nested_error_message"
+        ]
+      },
+      "anchor_conflict": {
+        "required_fields": [
+          "ambiguity_kind",
+          "resolved_candidates_count",
+          "path_candidate_path",
+          "path_candidate_object_id",
+          "object_id_candidate_path",
+          "object_id_candidate_object_id"
+        ]
+      }
+    },
+    "recovery_action_contract": {
+      "dependency_validation": {
+        "check_cycles": true,
+        "max_depth": 10,
+        "on_cycle_detected": "fail_fast"
+      },
+      "context_validity": {
+        "ttl_seconds": 300,
+        "context_snapshot": true,
+        "requires_context_refresh_field": "requires_context_refresh"
+      },
+      "fallback_strategy": {
+        "allowed": [
+          "try_simpler_fix",
+          "return_manual_instructions",
+          "escalate_to_human"
+        ],
+        "default": "return_manual_instructions"
+      }
+    },
+    "ambiguity_resolution_policy_contract": {
+      "anchor_conflict": {
+        "resolution_mode": "explicit_target_only",
+        "required_actions": [
+          "get_hierarchy_subtree"
+        ]
+      },
+      "name_collision": {
+        "allowed_policies": [
+          "fail",
+          "suffix",
+          "reuse"
+        ],
+        "default_policy": "fail"
+      }
+    },
+    "transaction_write_family": {
+      "rollback_policy": {
+        "on_step_failure": "rollback_all",
+        "allowed_values": [
+          "rollback_all",
+          "rollback_none",
+          "rollback_partial"
+        ]
+      }
+    },
+    "anchor_write_family": {
+      "conflict_error_code": "E_TARGET_ANCHOR_CONFLICT",
+      "requires_ambiguity_kind": true
+    },
+    "create_family": {
+      "pre_check_policy": {
+        "check_existing": true,
+        "on_conflict": "fail",
+        "return_candidates": true,
+        "policy_field": "name_collision_policy"
+      }
+    },
+    "error_feedback_contract": {
+      "catalog_version": "v1",
+      "defaults": {
+        "fallback_suggestion": "Inspect error_code/error_message, adjust task payload, then retry if safe.",
+        "timeout_suggestion": "Retry once after backoff. If timeout persists, reduce task scope or inspect sidecar logs."
+      },
+      "anchor_error_codes": [
+        "E_ACTION_SCHEMA_INVALID",
+        "E_TARGET_ANCHOR_CONFLICT",
+        "E_TARGET_CONFLICT"
+      ],
+      "error_templates": {
+        "E_STALE_SNAPSHOT": {
+          "recoverable": true,
+          "suggestion": "请先调用读工具获取最新 token，并仅重试一次写操作。"
+        },
+        "E_ACTION_SCHEMA_INVALID": {
+          "recoverable": true,
+          "suggestion": "请先调用读工具获取目标 object_id 与 path，再重试写操作。"
+        },
+        "E_TARGET_ANCHOR_CONFLICT": {
+          "recoverable": true,
+          "suggestion": "请先调用读工具获取目标 object_id 与 path，再重试写操作。"
+        },
+        "E_TARGET_CONFLICT": {
+          "recoverable": true,
+          "suggestion": "请先调用读工具获取目标 object_id 与 path，再重试写操作。"
+        }
+      }
+    },
+    "g1_priority_freeze": {
+      "schema_version": "g1_tool_priority_freeze.v1",
+      "generated_at": "2026-03-07T08:34:01.918Z",
+      "source_git_commit": "648d6cf",
+      "p0_total": 5,
+      "p1_total": 4,
+      "p2_total": 53
     }
   },
   "compiler": {
@@ -220,7 +339,84 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0,
+      "usage_notes": "RectTransform geometry only. For color/text/component writes, use dedicated tools. Prefer get_ui_tree before bulk layout adjustments.",
+      "examples_positive": [
+        {
+          "scenario": "move_and_resize_button",
+          "example_revision": "g1-r1",
+          "context_tags": [
+            "layout",
+            "rect_transform"
+          ],
+          "request": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "anchored_x": 100,
+            "anchored_y": 100,
+            "width": 160,
+            "height": 48
+          }
+        }
+      ],
+      "examples_negative": [
+        {
+          "error_code": "E_SCHEMA_INVALID",
+          "fix_hint": "height and width must be numbers >= 0.",
+          "wrong_payload_fragment": {
+            "width": -20
+          },
+          "category": "range_error"
+        },
+        {
+          "error_code": "E_TARGET_NOT_FOUND",
+          "fix_hint": "Use valid RectTransform target anchor from ui tree.",
+          "wrong_payload_fragment": {
+            "target_path": "Scene/Canvas/UnknownButton"
+          },
+          "category": "invalid_anchor"
+        }
+      ],
+      "common_error_fixes": {
+        "E_TARGET_NOT_FOUND": {
+          "suggested_action": "get_ui_tree",
+          "fix_hint": "Resolve valid UI node path and retry modify_ui_layout.",
+          "context_required": [
+            "before_write"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_ui_tree"
+            },
+            {
+              "step": 2,
+              "tool": "modify_ui_layout"
+            }
+          ],
+          "auto_fixable": true
+        }
+      },
+      "related_tools": [
+        "get_ui_tree",
+        "preflight_validate_write_payload"
+      ],
+      "tool_combinations": [
+        {
+          "scenario": "layout_validate_then_write",
+          "tools": [
+            "get_ui_tree",
+            "modify_ui_layout"
+          ],
+          "order": [
+            "read",
+            "write"
+          ]
+        }
+      ]
     },
     {
       "name": "set_component_properties",
@@ -292,7 +488,107 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P0",
+      "must_configure": true,
+      "priority_score": 0.197216,
+      "usage_notes": "property_path must use Unity serialized path (SerializedProperty.propertyPath). For uncertain path or component field, query get_serialized_property_tree first. component_type should use assembly-qualified type name.",
+      "property_path_rules": {
+        "format": "SerializedProperty.propertyPath",
+        "prefix": "m_",
+        "nested_separator": ".",
+        "discovery_tool": "get_serialized_property_tree",
+        "note": "Unknown property path must be queried before write."
+      },
+      "high_frequency_properties": {
+        "UnityEngine.UI.HorizontalLayoutGroup, UnityEngine.UI": {
+          "m_Spacing": {
+            "type": "number",
+            "common_mistake": "spacing"
+          }
+        },
+        "UnityEngine.UI.Image, UnityEngine.UI": {
+          "m_Color.a": {
+            "type": "number",
+            "common_mistake": "color.alpha"
+          }
+        }
+      },
+      "examples_positive": [
+        {
+          "scenario": "layout_spacing_set",
+          "example_revision": "g1-r1",
+          "context_tags": [
+            "serialized_path",
+            "layout"
+          ],
+          "request": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/ImageContainer",
+            "component_type": "UnityEngine.UI.HorizontalLayoutGroup, UnityEngine.UI",
+            "property_path": "m_Spacing",
+            "value_kind": "number",
+            "value_number": 100
+          }
+        }
+      ],
+      "examples_negative": [
+        {
+          "error_code": "E_PROPERTY_NOT_FOUND",
+          "fix_hint": "Use m_Spacing, not spacing.",
+          "wrong_payload_fragment": {
+            "component_type": "UnityEngine.UI.HorizontalLayoutGroup",
+            "property_path": "spacing"
+          },
+          "category": "property_path_format"
+        },
+        {
+          "error_code": "E_SCHEMA_INVALID",
+          "fix_hint": "Provide value field matching value_kind.",
+          "wrong_payload_fragment": {
+            "value_kind": "number",
+            "value_string": "100"
+          },
+          "category": "value_kind_mismatch"
+        }
+      ],
+      "common_error_fixes": {
+        "E_PROPERTY_NOT_FOUND": {
+          "suggested_action": "get_serialized_property_tree",
+          "fix_hint": "Query component serialized tree and use returned path.",
+          "context_required": [
+            "during_transaction"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_serialized_property_tree"
+            },
+            {
+              "step": 2,
+              "tool": "set_component_properties"
+            }
+          ],
+          "auto_fixable": true
+        }
+      },
+      "related_tools": [
+        "get_serialized_property_tree",
+        "preflight_validate_write_payload"
+      ],
+      "tool_combinations": [
+        {
+          "scenario": "serialized_path_discovery_then_set",
+          "tools": [
+            "get_serialized_property_tree",
+            "set_component_properties"
+          ],
+          "order": [
+            "read",
+            "write"
+          ]
+        }
+      ]
     },
     {
       "name": "add_component",
@@ -338,7 +634,80 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0,
+      "usage_notes": "Attach one component to explicit target object. Use assembly-qualified component_type whenever possible to avoid resolution ambiguity.",
+      "examples_positive": [
+        {
+          "scenario": "attach_layout_component",
+          "example_revision": "g1-r1",
+          "context_tags": [
+            "component_attach"
+          ],
+          "request": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/ImageContainer",
+            "component_type": "UnityEngine.UI.HorizontalLayoutGroup, UnityEngine.UI"
+          }
+        }
+      ],
+      "examples_negative": [
+        {
+          "error_code": "E_COMPONENT_NOT_FOUND",
+          "fix_hint": "Use full component type with assembly.",
+          "wrong_payload_fragment": {
+            "component_type": "UnityEngine.UI.HorizontalLayoutGroup"
+          },
+          "category": "component_type_format"
+        },
+        {
+          "error_code": "E_TARGET_NOT_FOUND",
+          "fix_hint": "Resolve target object id/path from current hierarchy first.",
+          "wrong_payload_fragment": {
+            "target_object_id": "stale_id"
+          },
+          "category": "invalid_anchor"
+        }
+      ],
+      "common_error_fixes": {
+        "E_COMPONENT_NOT_FOUND": {
+          "suggested_action": "get_write_contract_bundle",
+          "fix_hint": "Use known component_type examples from contract bundle.",
+          "context_required": [
+            "before_write"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_write_contract_bundle"
+            },
+            {
+              "step": 2,
+              "tool": "add_component"
+            }
+          ],
+          "auto_fixable": false
+        }
+      },
+      "related_tools": [
+        "get_gameobject_components",
+        "preflight_validate_write_payload"
+      ],
+      "tool_combinations": [
+        {
+          "scenario": "attach_then_set_property",
+          "tools": [
+            "add_component",
+            "set_component_properties"
+          ],
+          "order": [
+            "write",
+            "write"
+          ]
+        }
+      ]
     },
     {
       "name": "remove_component",
@@ -384,7 +753,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "replace_component",
@@ -436,7 +808,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "create_object",
@@ -481,6 +856,14 @@
           },
           "set_active": {
             "type": "boolean"
+          },
+          "name_collision_policy": {
+            "type": "string",
+            "enum": [
+              "fail",
+              "suffix",
+              "reuse"
+            ]
           }
         }
       },
@@ -499,7 +882,104 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P1",
+      "must_configure": false,
+      "priority_score": 0.094136,
+      "usage_notes": "Create object only under explicit parent anchor. For multi-step workflows prefer execute_unity_transaction and reference returned target_object_id/target_path via save_as aliases.",
+      "examples_positive": [
+        {
+          "scenario": "single_object_create",
+          "example_revision": "g1-r1",
+          "context_tags": [
+            "create",
+            "ui"
+          ],
+          "request": {
+            "parent_object_id": "mock_canvas_object_id",
+            "parent_path": "Scene/Canvas",
+            "new_object_name": "DemoImage",
+            "object_kind": "ui_panel",
+            "set_active": true
+          }
+        }
+      ],
+      "examples_negative": [
+        {
+          "error_code": "E_TARGET_NOT_FOUND",
+          "fix_hint": "Resolve parent anchor from latest scene snapshot before create.",
+          "wrong_payload_fragment": {
+            "parent_object_id": "unknown_parent_id",
+            "parent_path": "Scene/Canvas/Unknown"
+          },
+          "category": "invalid_anchor"
+        },
+        {
+          "error_code": "E_SCHEMA_INVALID",
+          "fix_hint": "object_kind must be one of enum values.",
+          "wrong_payload_fragment": {
+            "object_kind": "image"
+          },
+          "category": "enum_mismatch"
+        }
+      ],
+      "common_error_fixes": {
+        "E_TARGET_NOT_FOUND": {
+          "suggested_action": "get_scene_snapshot_for_write",
+          "fix_hint": "Refresh parent anchor then retry create_object.",
+          "context_required": [
+            "before_write"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_scene_snapshot_for_write"
+            },
+            {
+              "step": 2,
+              "tool": "create_object"
+            }
+          ],
+          "auto_fixable": true
+        },
+        "E_NAME_COLLISION_DETECTED": {
+          "suggested_action": "get_write_contract_bundle",
+          "suggested_tool": "get_write_contract_bundle",
+          "fix_hint": "Name collision detected. Choose name_collision_policy suffix/reuse (or rename object) and retry create_object.",
+          "context_required": [
+            "before_write"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_write_contract_bundle"
+            },
+            {
+              "step": 2,
+              "tool": "create_object"
+            }
+          ],
+          "auto_fixable": false
+        }
+      },
+      "related_tools": [
+        "get_scene_snapshot_for_write",
+        "execute_unity_transaction",
+        "set_component_properties"
+      ],
+      "tool_combinations": [
+        {
+          "scenario": "create_then_configure",
+          "tools": [
+            "create_object",
+            "set_component_properties"
+          ],
+          "order": [
+            "write",
+            "write"
+          ]
+        }
+      ]
     },
     {
       "name": "instantiate_prefab",
@@ -553,7 +1033,10 @@
       "transaction": {
         "enabled": false,
         "undo_safe": false
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "delete_object",
@@ -593,7 +1076,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "rename_object",
@@ -639,7 +1125,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_active",
@@ -684,7 +1173,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_parent",
@@ -736,7 +1228,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_sibling_index",
@@ -782,7 +1277,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_local_position",
@@ -837,7 +1335,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_local_rotation",
@@ -892,7 +1393,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_local_scale",
@@ -947,7 +1451,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_world_position",
@@ -1002,7 +1509,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_world_rotation",
@@ -1057,7 +1567,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "reset_transform",
@@ -1097,7 +1610,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_rect_anchored_position",
@@ -1147,7 +1663,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_rect_size_delta",
@@ -1197,7 +1716,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_rect_pivot",
@@ -1251,7 +1773,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_rect_anchors",
@@ -1319,7 +1844,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_canvas_group_alpha",
@@ -1366,7 +1894,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_layout_element",
@@ -1447,7 +1978,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_ui_image_color",
@@ -1515,7 +2049,87 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P1",
+      "must_configure": false,
+      "priority_score": 0.066864,
+      "usage_notes": "Use for Image RGBA only. Channel values must be in [0,1]. For multiple image updates, prefer execute_unity_transaction to reduce round trips.",
+      "examples_positive": [
+        {
+          "scenario": "set_image_color",
+          "example_revision": "g1-r1",
+          "context_tags": [
+            "ui",
+            "color"
+          ],
+          "request": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Image",
+            "r": 0.2,
+            "g": 0.6,
+            "b": 1,
+            "a": 1
+          }
+        }
+      ],
+      "examples_negative": [
+        {
+          "error_code": "E_SCHEMA_INVALID",
+          "fix_hint": "RGBA values must be numeric and within [0,1].",
+          "wrong_payload_fragment": {
+            "r": 255,
+            "g": 120,
+            "b": 0,
+            "a": 1
+          },
+          "category": "range_error"
+        },
+        {
+          "error_code": "E_TARGET_NOT_FOUND",
+          "fix_hint": "Use current target_object_id/target_path from scene snapshot or transaction alias.",
+          "wrong_payload_fragment": {
+            "target_object_id": "stale_id"
+          },
+          "category": "stale_anchor"
+        }
+      ],
+      "common_error_fixes": {
+        "E_TARGET_NOT_FOUND": {
+          "suggested_action": "get_scene_snapshot_for_write",
+          "fix_hint": "Refresh target anchor and retry set_ui_image_color.",
+          "context_required": [
+            "after_write"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_scene_snapshot_for_write"
+            },
+            {
+              "step": 2,
+              "tool": "set_ui_image_color"
+            }
+          ],
+          "auto_fixable": true
+        }
+      },
+      "related_tools": [
+        "preflight_validate_write_payload",
+        "execute_unity_transaction"
+      ],
+      "tool_combinations": [
+        {
+          "scenario": "create_and_color_image",
+          "tools": [
+            "create_object",
+            "set_ui_image_color"
+          ],
+          "order": [
+            "write",
+            "write"
+          ]
+        }
+      ]
     },
     {
       "name": "set_ui_image_raycast_target",
@@ -1560,7 +2174,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_ui_text_content",
@@ -1605,7 +2222,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_ui_text_color",
@@ -1673,7 +2293,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_ui_text_font_size",
@@ -1719,7 +2342,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "execute_unity_transaction",
@@ -1826,7 +2452,289 @@
       "transaction": {
         "enabled": false,
         "undo_safe": false
-      }
+      },
+      "tool_priority": "P0",
+      "must_configure": true,
+      "priority_score": 0.14575,
+      "usage_notes": "Use this as the default multi-write entry. Keep steps write-only, define save_as for producer steps, and reference outputs with {\"$ref\":\"alias.field\"}. Always start with a fresh read token from get_scene_snapshot_for_write before transaction submit.",
+      "examples_positive": [
+        {
+          "scenario": "batch_ui_create",
+          "example_revision": "g1-r1",
+          "context_tags": [
+            "transaction",
+            "ui",
+            "batch"
+          ],
+          "request": {
+            "transaction_id": "txn_batch_ui_001",
+            "steps": [
+              {
+                "step_id": "create_container",
+                "tool_name": "create_object",
+                "payload": {
+                  "parent_object_id": "mock_canvas_object_id",
+                  "parent_path": "Scene/Canvas",
+                  "new_object_name": "ImageContainer",
+                  "object_kind": "ui_panel",
+                  "set_active": true
+                },
+                "save_as": "container"
+              },
+              {
+                "step_id": "add_layout",
+                "tool_name": "add_component",
+                "payload": {
+                  "target_object_id": {
+                    "$ref": "container.target_object_id"
+                  },
+                  "target_path": {
+                    "$ref": "container.target_path"
+                  },
+                  "component_type": "UnityEngine.UI.HorizontalLayoutGroup, UnityEngine.UI"
+                },
+                "depends_on": [
+                  "create_container"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "examples_negative": [
+        {
+          "error_code": "E_TRANSACTION_REF_PATH_INVALID",
+          "fix_hint": "Use alias.field format in $ref, e.g. button.target_object_id.",
+          "wrong_payload_fragment": {
+            "steps": [
+              {
+                "payload": {
+                  "target_object_id": {
+                    "$ref": "container.object_id"
+                  }
+                }
+              }
+            ]
+          },
+          "category": "ref_format"
+        },
+        {
+          "error_code": "E_TRANSACTION_PLAN_INVALID",
+          "fix_hint": "Each step must contain step_id, tool_name and payload object.",
+          "wrong_payload_fragment": {
+            "steps": [
+              {
+                "tool_name": "create_object"
+              }
+            ]
+          },
+          "category": "step_shape"
+        }
+      ],
+      "common_error_fixes": {
+        "E_SCENE_REVISION_DRIFT": {
+          "suggested_action": "get_scene_snapshot_for_write",
+          "fix_hint": "Refresh read token from latest scene snapshot before retry.",
+          "context_required": [
+            "scene_revision_changed"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_scene_snapshot_for_write"
+            },
+            {
+              "step": 2,
+              "tool": "execute_unity_transaction"
+            }
+          ],
+          "auto_fixable": true
+        },
+        "E_TRANSACTION_REF_PATH_INVALID": {
+          "suggested_action": "get_write_contract_bundle",
+          "fix_hint": "Use alias.field refs and whitelist fields only.",
+          "context_required": [
+            "during_transaction"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_write_contract_bundle"
+            }
+          ],
+          "auto_fixable": false
+        },
+        "E_TRANSACTION_STEP_FAILED": {
+          "suggested_action": "get_write_contract_bundle",
+          "suggested_tool": "get_write_contract_bundle",
+          "fix_hint": "Inspect nested_error_code and apply routed recovery steps before retrying transaction.",
+          "context_required": [
+            "during_transaction"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_write_contract_bundle"
+            },
+            {
+              "step": 2,
+              "tool": "execute_unity_transaction"
+            }
+          ],
+          "auto_fixable": false,
+          "nested_error_routes": {
+            "E_SCENE_REVISION_DRIFT": {
+              "suggested_action": "get_scene_snapshot_for_write",
+              "suggested_tool": "get_scene_snapshot_for_write",
+              "fix_hint": "Nested step hit scene revision drift. Refresh read token and replay transaction once.",
+              "context_required": [
+                "scene_revision_changed"
+              ],
+              "fix_steps": [
+                {
+                  "step": 1,
+                  "tool": "get_scene_snapshot_for_write"
+                },
+                {
+                  "step": 2,
+                  "tool": "execute_unity_transaction"
+                }
+              ],
+              "auto_fixable": true
+            },
+            "E_TARGET_ANCHOR_CONFLICT": {
+              "suggested_action": "get_hierarchy_subtree",
+              "suggested_tool": "get_hierarchy_subtree",
+              "fix_hint": "Nested step anchor mismatch detected. Inspect both anchor candidates, choose one object, and replay transaction with matched target_path/target_object_id.",
+              "context_required": [
+                "during_transaction"
+              ],
+              "fix_steps": [
+                {
+                  "step": 1,
+                  "step_id": "inspect_path_anchor_candidate",
+                  "tool": "get_hierarchy_subtree",
+                  "idempotent": true,
+                  "context_bindings": [
+                    "path_candidate_path",
+                    "path_candidate_object_id"
+                  ]
+                },
+                {
+                  "step": 2,
+                  "step_id": "inspect_object_id_anchor_candidate",
+                  "tool": "get_hierarchy_subtree",
+                  "depends_on": [
+                    1
+                  ],
+                  "idempotent": true,
+                  "context_bindings": [
+                    "object_id_candidate_path",
+                    "object_id_candidate_object_id"
+                  ]
+                },
+                {
+                  "step": 3,
+                  "step_id": "retry_with_matched_anchor",
+                  "tool": "execute_unity_transaction",
+                  "depends_on": [
+                    2
+                  ]
+                }
+              ],
+              "auto_fixable": false
+            },
+            "E_COMPONENT_TYPE_INVALID": {
+              "suggested_action": "get_write_contract_bundle",
+              "suggested_tool": "get_write_contract_bundle",
+              "fix_hint": "Nested step component_type is invalid. Use assembly-qualified component type from contract examples and retry transaction.",
+              "context_required": [
+                "during_transaction"
+              ],
+              "fix_steps": [
+                {
+                  "step": 1,
+                  "tool": "get_write_contract_bundle"
+                },
+                {
+                  "step": 2,
+                  "tool": "execute_unity_transaction"
+                }
+              ],
+              "auto_fixable": false
+            },
+            "E_PROPERTY_NOT_FOUND": {
+              "suggested_action": "get_serialized_property_tree",
+              "suggested_tool": "get_serialized_property_tree",
+              "fix_hint": "Nested step property_path is invalid. Query serialized property tree and retry transaction with exact property path.",
+              "context_required": [
+                "during_transaction"
+              ],
+              "fix_steps": [
+                {
+                  "step": 1,
+                  "tool": "get_serialized_property_tree"
+                },
+                {
+                  "step": 2,
+                  "tool": "execute_unity_transaction"
+                }
+              ],
+              "auto_fixable": false
+            },
+            "E_TRANSACTION_REF_PATH_INVALID": {
+              "suggested_action": "get_write_contract_bundle",
+              "suggested_tool": "get_write_contract_bundle",
+              "fix_hint": "Nested step alias refs must use alias.field and allowed fields only.",
+              "context_required": [
+                "during_transaction"
+              ],
+              "fix_steps": [
+                {
+                  "step": 1,
+                  "tool": "get_write_contract_bundle"
+                },
+                {
+                  "step": 2,
+                  "tool": "execute_unity_transaction"
+                }
+              ],
+              "auto_fixable": false
+            }
+          }
+        }
+      },
+      "related_tools": [
+        "get_scene_snapshot_for_write",
+        "get_write_contract_bundle",
+        "preflight_validate_write_payload",
+        "save_scene"
+      ],
+      "tool_combinations": [
+        {
+          "scenario": "batch_ui_create",
+          "tools": [
+            "get_scene_snapshot_for_write",
+            "execute_unity_transaction",
+            "save_scene"
+          ],
+          "order": [
+            "read",
+            "write",
+            "save"
+          ],
+          "failure_handling": {
+            "after_write_failure": {
+              "required_action": "get_scene_snapshot_for_write",
+              "reason": "scene_revision changed after write attempt"
+            },
+            "after_save_failure": {
+              "retry_policy": "once",
+              "note": "Retry save_scene once with same payload."
+            }
+          }
+        }
+      ]
     },
     {
       "name": "duplicate_object",
@@ -1871,7 +2779,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "get_scene_snapshot_for_write",
@@ -1897,6 +2808,75 @@
             "scope_path": "Scene/Canvas"
           }
         }
+      ],
+      "tool_priority": "P1",
+      "must_configure": false,
+      "priority_score": 0.097363,
+      "usage_notes": "Use as the default write pre-read. Always refresh read token after write revisions before next write or save. Scope path when possible to reduce payload size.",
+      "examples_positive": [
+        {
+          "scenario": "prepare_write_token",
+          "example_revision": "g1-r1",
+          "context_tags": [
+            "token",
+            "snapshot"
+          ],
+          "request": {
+            "scope_path": "Scene/Canvas"
+          }
+        }
+      ],
+      "examples_negative": [
+        {
+          "error_code": "E_SCENE_REVISION_DRIFT",
+          "fix_hint": "Do not reuse stale token after successful write.",
+          "wrong_payload_fragment": {
+            "note": "skip get_scene_snapshot_for_write before second write"
+          },
+          "category": "token_lifecycle"
+        },
+        {
+          "error_code": "E_TARGET_NOT_FOUND",
+          "fix_hint": "Use valid scope_path under loaded scene.",
+          "wrong_payload_fragment": {
+            "scope_path": "Scene/UnknownRoot"
+          },
+          "category": "invalid_scope"
+        }
+      ],
+      "common_error_fixes": {
+        "E_SCENE_REVISION_DRIFT": {
+          "suggested_action": "get_scene_snapshot_for_write",
+          "fix_hint": "Refresh read token candidate then retry write call.",
+          "context_required": [
+            "scene_revision_changed"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_scene_snapshot_for_write"
+            }
+          ],
+          "auto_fixable": true
+        }
+      },
+      "related_tools": [
+        "get_write_contract_bundle"
+      ],
+      "tool_combinations": [
+        {
+          "scenario": "read_write_save_cycle",
+          "tools": [
+            "get_scene_snapshot_for_write",
+            "execute_unity_transaction",
+            "save_scene"
+          ],
+          "order": [
+            "read",
+            "write",
+            "save"
+          ]
+        }
       ]
     },
     {
@@ -1917,7 +2897,10 @@
           "name": "read_current_selection_snapshot",
           "request_business_only": {}
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "get_gameobject_components",
@@ -1953,7 +2936,10 @@
             "target_path": "Scene/Canvas/Button"
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "get_hierarchy_subtree",
@@ -2007,7 +2993,10 @@
             "char_budget": 12000
           }
         }
-      ]
+      ],
+      "tool_priority": "P1",
+      "must_configure": false,
+      "priority_score": 0.057201
     },
     {
       "name": "get_scene_roots",
@@ -2042,7 +3031,10 @@
             "include_inactive": true
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "list_assets_in_folder",
@@ -2086,7 +3078,10 @@
             "limit": 100
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "find_objects_by_component",
@@ -2135,7 +3130,10 @@
             "limit": 100
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "query_prefab_info",
@@ -2192,7 +3190,10 @@
             "include_missing_scripts": true
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "get_ui_tree",
@@ -2297,7 +3298,10 @@
             "char_budget": 20000
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "get_ui_overlay_report",
@@ -2360,7 +3364,10 @@
             "timeout_ms": 3000
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "hit_test_ui_at_viewport_point",
@@ -2447,7 +3454,10 @@
             "max_results": 8
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "validate_ui_layout",
@@ -2537,7 +3547,10 @@
             "include_repair_plan": true
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "get_serialized_property_tree",
@@ -2628,7 +3641,10 @@
             "include_value_summary": true
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "capture_scene_screenshot",
@@ -2717,7 +3733,10 @@
             "include_ui": true
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "get_action_catalog",
@@ -2774,7 +3793,10 @@
             "limit": 10
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "get_action_schema",
@@ -2812,7 +3834,10 @@
             "action_type": "set_ui_text_content"
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "get_tool_schema",
@@ -2842,7 +3867,10 @@
             "tool_name": "modify_ui_layout"
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "get_write_contract_bundle",
@@ -2878,6 +3906,43 @@
           },
           "include_canonical_examples": {
             "type": "boolean"
+          },
+          "include_related": {
+            "type": "boolean"
+          },
+          "include_enhanced": {
+            "type": "boolean"
+          },
+          "include_legacy": {
+            "type": "boolean"
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "scenario": {
+                "type": "string",
+                "minLength": 1
+              },
+              "previous_tool": {
+                "type": "string",
+                "minLength": 1
+              },
+              "error_context": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "error_code": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "failed_property_path": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -2889,10 +3954,110 @@
             "action_type": "rename_object",
             "budget_chars": 3600,
             "include_error_fix_map": true,
-            "include_canonical_examples": true
+            "include_canonical_examples": true,
+            "include_related": true,
+            "include_enhanced": true,
+            "include_legacy": true,
+            "context": {
+              "scenario": "batch_ui_create",
+              "previous_tool": "execute_unity_transaction",
+              "error_context": {
+                "error_code": "E_SCENE_REVISION_DRIFT"
+              }
+            }
           }
         }
-      ]
+      ],
+      "tool_priority": "P0",
+      "must_configure": true,
+      "priority_score": 0.121704,
+      "usage_notes": "Use this as the first contract discovery call for write planning. Provide tool_name and include_enhanced=true to get minimal_valid_payload_template, common mistakes, and fix guidance in one roundtrip.",
+      "related_tools": [
+        "get_tool_schema",
+        "preflight_validate_write_payload"
+      ],
+      "examples_positive": [
+        {
+          "scenario": "write_contract_bootstrap",
+          "example_revision": "g1-r2",
+          "context_tags": [
+            "contract_bundle",
+            "planning",
+            "write"
+          ],
+          "request": {
+            "tool_name": "execute_unity_transaction",
+            "budget_chars": 6000,
+            "include_error_fix_map": true,
+            "include_canonical_examples": true,
+            "include_related": true,
+            "include_enhanced": true,
+            "include_legacy": false,
+            "context": {
+              "scenario": "batch_ui_create",
+              "previous_tool": "get_scene_snapshot_for_write",
+              "error_context": {
+                "error_code": "E_SCENE_REVISION_DRIFT"
+              }
+            }
+          }
+        }
+      ],
+      "examples_negative": [
+        {
+          "error_code": "E_SSOT_WRITE_TOOL_REQUIRED",
+          "fix_hint": "tool_name must point to a write tool when requesting write contract bundle.",
+          "wrong_payload_fragment": {
+            "tool_name": "get_scene_roots",
+            "include_enhanced": true
+          },
+          "category": "tool_kind_mismatch"
+        },
+        {
+          "error_code": "E_CONTRACT_BUDGET_TOO_SMALL",
+          "fix_hint": "Increase budget_chars to include minimal_valid_payload_template and fix guidance.",
+          "wrong_payload_fragment": {
+            "tool_name": "set_component_properties",
+            "budget_chars": 120,
+            "include_enhanced": true
+          },
+          "category": "budget_too_small"
+        }
+      ],
+      "common_error_fixes": {
+        "E_SSOT_WRITE_TOOL_REQUIRED": {
+          "suggested_action": "get_tool_schema",
+          "fix_hint": "Choose a write tool first, then call get_write_contract_bundle with that tool_name.",
+          "context_required": [
+            "before_write"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_tool_schema"
+            },
+            {
+              "step": 2,
+              "tool": "get_write_contract_bundle"
+            }
+          ],
+          "auto_fixable": true
+        },
+        "E_CONTRACT_BUDGET_TOO_SMALL": {
+          "suggested_action": "get_write_contract_bundle",
+          "fix_hint": "Retry with a larger budget_chars (recommended >= 3000 for enhanced fields).",
+          "context_required": [
+            "before_write"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_write_contract_bundle"
+            }
+          ],
+          "auto_fixable": true
+        }
+      }
     },
     {
       "name": "preflight_validate_write_payload",
@@ -2939,7 +4104,10 @@
             }
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0.007302
     },
     {
       "name": "setup_cursor_mcp",
@@ -2979,7 +4147,10 @@
             "dry_run": true
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "verify_mcp_setup",
@@ -3011,7 +4182,71 @@
             "mode": "auto"
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
+    },
+    {
+      "name": "run_unity_tests",
+      "kind": "read",
+      "mixins": [
+        "read_envelope"
+      ],
+      "lifecycle": "experimental",
+      "description": "Run Unity Test Runner in batchmode and return structured summary for all/editmode/playmode scopes. Use this for CI-style deterministic execution and machine-readable failure diagnostics.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "editmode",
+              "playmode"
+            ],
+            "case_insensitive": true
+          },
+          "test_filter": {
+            "type": "string",
+            "minLength": 1
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 7200
+          },
+          "unity_editor_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "project_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "name": "run_unity_tests_all",
+          "request_business_only": {
+            "scope": "all",
+            "timeout_seconds": 900
+          }
+        },
+        {
+          "name": "run_unity_tests_editmode_filtered",
+          "request_business_only": {
+            "scope": "editmode",
+            "test_filter": "UnityAI.Editor.Codex.Tests.EditMode.SsotRequestQueryHandlerTests",
+            "timeout_seconds": 600
+          }
+        }
+      ],
+      "tool_priority": "P1",
+      "must_configure": false,
+      "priority_score": 0.081
     },
     {
       "name": "get_unity_task_status",
@@ -3041,7 +4276,10 @@
             "job_id": "job_mock_123"
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "cancel_unity_task",
@@ -3071,7 +4309,10 @@
             "job_id": "job_mock_123"
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "submit_unity_task",
@@ -3194,7 +4435,10 @@
       "transaction": {
         "enabled": false,
         "undo_safe": false
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "apply_script_actions",
@@ -3282,7 +4526,10 @@
       "transaction": {
         "enabled": false,
         "undo_safe": false
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "apply_visual_actions",
@@ -3450,7 +4697,10 @@
       "transaction": {
         "enabled": false,
         "undo_safe": false
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_ui_properties",
@@ -3632,7 +4882,10 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "set_serialized_property",
@@ -3716,7 +4969,100 @@
       "transaction": {
         "enabled": true,
         "undo_safe": true
-      }
+      },
+      "tool_priority": "P0",
+      "must_configure": true,
+      "priority_score": 0.10308,
+      "usage_notes": "Use only when dedicated high-level write tools are not suitable. property_path must match SerializedProperty.propertyPath and value_kind must match concrete value field.",
+      "property_path_rules": {
+        "format": "SerializedProperty.propertyPath",
+        "prefix": "m_",
+        "nested_separator": ".",
+        "discovery_tool": "get_serialized_property_tree",
+        "note": "Read property tree before write when path uncertain."
+      },
+      "high_frequency_properties": {
+        "UnityEngine.RectTransform, UnityEngine.CoreModule": {
+          "m_AnchoredPosition.x": {
+            "type": "float",
+            "common_mistake": "anchored_x"
+          }
+        }
+      },
+      "examples_positive": [
+        {
+          "scenario": "set_rect_anchored_x",
+          "example_revision": "g1-r1",
+          "context_tags": [
+            "serialized_write"
+          ],
+          "request": {
+            "target_object_id": "mock_target_object_id",
+            "target_path": "Scene/Canvas/Button",
+            "component_type": "UnityEngine.RectTransform, UnityEngine.CoreModule",
+            "component_index": 0,
+            "property_path": "m_AnchoredPosition.x",
+            "value_kind": "float",
+            "float_value": 120
+          }
+        }
+      ],
+      "examples_negative": [
+        {
+          "error_code": "E_PROPERTY_TYPE_MISMATCH",
+          "fix_hint": "Match value_kind and payload value field.",
+          "wrong_payload_fragment": {
+            "value_kind": "float",
+            "int_value": 120
+          },
+          "category": "value_kind_mismatch"
+        },
+        {
+          "error_code": "E_PROPERTY_NOT_FOUND",
+          "fix_hint": "Use property path from serialized tree.",
+          "wrong_payload_fragment": {
+            "property_path": "anchoredPosition.x"
+          },
+          "category": "property_path_format"
+        }
+      ],
+      "common_error_fixes": {
+        "E_PROPERTY_NOT_FOUND": {
+          "suggested_action": "get_serialized_property_tree",
+          "fix_hint": "Resolve exact property path first.",
+          "context_required": [
+            "before_write"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "get_serialized_property_tree"
+            },
+            {
+              "step": 2,
+              "tool": "set_serialized_property"
+            }
+          ],
+          "auto_fixable": true
+        }
+      },
+      "related_tools": [
+        "get_serialized_property_tree",
+        "preflight_validate_write_payload"
+      ],
+      "tool_combinations": [
+        {
+          "scenario": "discover_then_serialized_write",
+          "tools": [
+            "get_serialized_property_tree",
+            "set_serialized_property"
+          ],
+          "order": [
+            "read",
+            "write"
+          ]
+        }
+      ]
     },
     {
       "name": "hit_test_ui_at_screen_point",
@@ -3778,7 +5124,10 @@
             "reference_height": 720
           }
         }
-      ]
+      ],
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     },
     {
       "name": "save_scene",
@@ -3817,7 +5166,81 @@
       "transaction": {
         "enabled": false,
         "undo_safe": false
-      }
+      },
+      "tool_priority": "P0",
+      "must_configure": true,
+      "priority_score": 0.109386,
+      "usage_notes": "Save scene after successful write batch. If prior write changed scene_revision, refresh token before follow-up writes. Keep save_scene outside transaction steps.",
+      "examples_positive": [
+        {
+          "scenario": "persist_scene_after_write",
+          "example_revision": "g1-r1",
+          "context_tags": [
+            "save",
+            "persistence"
+          ],
+          "request": {
+            "scene_path": "Assets/Scenes/SampleScene.unity"
+          }
+        }
+      ],
+      "examples_negative": [
+        {
+          "error_code": "E_PRECONDITION_FAILED",
+          "fix_hint": "Use valid project-relative .unity path when save_as_new is true.",
+          "wrong_payload_fragment": {
+            "scene_path": "C:/tmp/test.unity",
+            "save_as_new": true
+          },
+          "category": "path_invalid"
+        },
+        {
+          "error_code": "E_SCENE_REVISION_DRIFT",
+          "fix_hint": "Refresh token before additional writes after save.",
+          "wrong_payload_fragment": {
+            "note": "continue write with old token after save_scene"
+          },
+          "category": "token_lifecycle"
+        }
+      ],
+      "common_error_fixes": {
+        "E_PRECONDITION_FAILED": {
+          "suggested_action": "save_scene",
+          "fix_hint": "Correct scene_path and retry once.",
+          "context_required": [
+            "after_write"
+          ],
+          "fix_steps": [
+            {
+              "step": 1,
+              "tool": "save_scene"
+            }
+          ],
+          "auto_fixable": false
+        }
+      },
+      "related_tools": [
+        "get_scene_snapshot_for_write"
+      ],
+      "tool_combinations": [
+        {
+          "scenario": "write_then_save",
+          "tools": [
+            "execute_unity_transaction",
+            "save_scene"
+          ],
+          "order": [
+            "write",
+            "save"
+          ],
+          "failure_handling": {
+            "after_save_failure": {
+              "retry_policy": "once",
+              "note": "If save still fails, return blocking error and stop."
+            }
+          }
+        }
+      ]
     },
     {
       "name": "save_prefab",
@@ -3874,7 +5297,10 @@
       "transaction": {
         "enabled": false,
         "undo_safe": false
-      }
+      },
+      "tool_priority": "P2",
+      "must_configure": false,
+      "priority_score": 0
     }
   ]
 }

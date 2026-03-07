@@ -12,6 +12,9 @@ const {
 const {
   validateSsotWriteToken,
 } = require("../../src/application/ssotRuntime/ssotWriteTokenGuard");
+const {
+  OCC_STALE_SNAPSHOT_SUGGESTION,
+} = require("../../src/application/errorFeedback/errorFeedbackTemplateRegistry");
 
 test("ssot write token guard fails when latest scene revision baseline is unavailable", () => {
   const registry = new SsotTokenRegistry({
@@ -31,6 +34,7 @@ test("ssot write token guard fails when latest scene revision baseline is unavai
   });
   assert.equal(result.ok, false);
   assert.equal(result.error_code, "E_SCENE_REVISION_DRIFT");
+  assert.equal(result.suggestion, OCC_STALE_SNAPSHOT_SUGGESTION);
 });
 
 test("ssot write token guard validates token against revision state baseline", () => {
@@ -65,4 +69,3 @@ test("ssot write token guard validates token against revision state baseline", (
   assert.equal(driftResult.ok, false);
   assert.equal(driftResult.error_code, "E_SCENE_REVISION_DRIFT");
 });
-

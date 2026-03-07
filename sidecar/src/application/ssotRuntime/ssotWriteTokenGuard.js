@@ -1,7 +1,9 @@
 "use strict";
 
-const { SSOT_TOKEN_RETRY_SUGGESTION } = require("./tokenContract");
 const { getSsotTokenRegistrySingleton } = require("./ssotTokenRegistry");
+const {
+  OCC_STALE_SNAPSHOT_SUGGESTION,
+} = require("../errorFeedback/errorFeedbackTemplateRegistry");
 
 function normalizeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -46,7 +48,7 @@ function validateSsotWriteToken(options = {}) {
     message:
       normalizeString(validation.message) ||
       "based_on_read_token validation failed.",
-    suggestion: SSOT_TOKEN_RETRY_SUGGESTION,
+    suggestion: OCC_STALE_SNAPSHOT_SUGGESTION,
     retry_policy: {
       allow_auto_retry: true,
       max_attempts: 1,

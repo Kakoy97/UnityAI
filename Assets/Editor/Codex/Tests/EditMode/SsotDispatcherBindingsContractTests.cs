@@ -21,6 +21,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "preflight_validate_write_payload",
                 "setup_cursor_mcp",
                 "verify_mcp_setup",
+                "run_unity_tests",
                 "get_unity_task_status",
                 "cancel_unity_task",
                 "submit_unity_task",
@@ -59,30 +60,35 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             foreach (var pair in bindings)
             {
                 var toolName = pair.Key;
+                var normalizedToolName = string.IsNullOrEmpty(toolName) ? string.Empty : toolName.Trim();
                 var bindingTypeName = pair.Value.GetType().Name;
 
-                if (UnsupportedToolNames.Contains(toolName))
+                if (UnsupportedToolNames.Contains(normalizedToolName) ||
+                    string.Equals(
+                        normalizedToolName,
+                        RunUnityTestsRequestDto.ToolName,
+                        StringComparison.Ordinal))
                 {
                     Assert.AreEqual(
                         "UnsupportedDispatchBinding",
                         bindingTypeName,
-                        "Unsupported strategy drift for tool: " + toolName);
+                        "Unsupported strategy drift for tool: " + normalizedToolName);
                     continue;
                 }
 
-                if (DeprecatedToolNames.Contains(toolName))
+                if (DeprecatedToolNames.Contains(normalizedToolName))
                 {
                     StringAssert.StartsWith(
                         "DeprecatedDispatchBinding",
                         bindingTypeName,
-                        "Deprecated strategy drift for tool: " + toolName);
+                        "Deprecated strategy drift for tool: " + normalizedToolName);
                     continue;
                 }
 
                 StringAssert.StartsWith(
                     "ExecutorDispatchBinding",
                     bindingTypeName,
-                    "Executor strategy drift for tool: " + toolName);
+                    "Executor strategy drift for tool: " + normalizedToolName);
             }
         }
 

@@ -1,14 +1,9 @@
 "use strict";
 
+const { LOCAL_STATIC_TOOL_NAMES } = require("../../shared/localStaticToolNames");
+
 const UNSUPPORTED_TOOL_NAMES = new Set([
   "instantiate_prefab",
-  "get_action_catalog",
-  "get_action_schema",
-  "get_tool_schema",
-  "get_write_contract_bundle",
-  "preflight_validate_write_payload",
-  "setup_cursor_mcp",
-  "verify_mcp_setup",
   "get_unity_task_status",
   "cancel_unity_task",
   "submit_unity_task",
@@ -82,7 +77,7 @@ function emitToolBinding(toolName) {
     return emitDeprecatedBinding(toolName, DEPRECATED_TOOL_CONFIG[toolName]);
   }
 
-  if (UNSUPPORTED_TOOL_NAMES.has(toolName)) {
+  if (UNSUPPORTED_TOOL_NAMES.has(toolName) || LOCAL_STATIC_TOOL_NAMES.has(toolName)) {
     return emitUnsupportedBinding(toolName);
   }
 

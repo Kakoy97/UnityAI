@@ -395,6 +395,7 @@ test("L1 closure: sidecar command manifest keeps transport + dispatch contracts"
     "preflight_validate_write_payload",
     "setup_cursor_mcp",
     "verify_mcp_setup",
+    "run_unity_tests",
   ]);
   for (const [name, command] of byName.entries()) {
     const expectedMode = localStaticNames.has(name) ? "local_static" : "ssot_query";

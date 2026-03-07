@@ -2,7 +2,6 @@ using System;
 using UnityAI.Editor.Codex.Generated.Ssot;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
 {
@@ -18,15 +17,10 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     SetComponentPropertiesRequestDto.ToolName);
             }
 
-            var targetPath = Normalize(request.target_path);
-            var targetObjectId = Normalize(request.target_object_id);
-            var componentType = Normalize(request.component_type);
-            var propertyPath = Normalize(request.property_path);
-            var valueKind = Normalize(request.value_kind).ToLowerInvariant();
-
-            if (string.IsNullOrEmpty(targetPath) ||
-                string.IsNullOrEmpty(targetObjectId) ||
-                string.IsNullOrEmpty(componentType) ||
+            var componentType = SsotExecutorCommon.Normalize(request.component_type);
+            var propertyPath = SsotExecutorCommon.Normalize(request.property_path);
+            var valueKind = SsotExecutorCommon.Normalize(request.value_kind).ToLowerInvariant();
+            if (string.IsNullOrEmpty(componentType) ||
                 string.IsNullOrEmpty(propertyPath) ||
                 string.IsNullOrEmpty(valueKind))
             {
@@ -45,27 +39,22 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                     SetComponentPropertiesRequestDto.ToolName);
             }
 
-            var targetByPath = FindGameObjectByScenePath(targetPath);
-            var targetByObjectId = FindGameObjectByObjectId(targetObjectId);
-            if (targetByPath == null && targetByObjectId == null)
+            GameObject target;
+            string errorCode;
+            string errorMessage;
+            if (!SsotExecutorCommon.TryResolveTargetFromAnchor(
+                    request.target_path,
+                    request.target_object_id,
+                    out target,
+                    out errorCode,
+                    out errorMessage))
             {
                 return SsotRequestDispatcher.Failure(
-                    "E_TARGET_NOT_FOUND",
-                    "Target object not found for set_component_properties.",
+                    errorCode,
+                    errorMessage,
                     SetComponentPropertiesRequestDto.ToolName);
             }
 
-            if (targetByPath != null &&
-                targetByObjectId != null &&
-                !ReferenceEquals(targetByPath, targetByObjectId))
-            {
-                return SsotRequestDispatcher.Failure(
-                    "E_TARGET_ANCHOR_CONFLICT",
-                    "target_path and target_object_id resolve to different objects.",
-                    SetComponentPropertiesRequestDto.ToolName);
-            }
-
-            var target = targetByPath ?? targetByObjectId;
             var component = ResolveComponent(target, componentType);
             if (component == null)
             {
@@ -102,8 +91,8 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                 SetComponentPropertiesRequestDto.ToolName,
                 new SsotDispatchResultData
                 {
-                    target_object_id = BuildObjectId(target),
-                    target_path = BuildScenePath(target),
+                    target_object_id = SsotExecutorCommon.BuildObjectId(target),
+                    target_path = SsotExecutorCommon.BuildScenePath(target),
                     component_type = component.GetType().AssemblyQualifiedName,
                     property_path = property.propertyPath,
                     value_kind = valueKind,
@@ -180,7 +169,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                 return null;
             }
 
-            var normalizedType = Normalize(componentType);
+            var normalizedType = SsotExecutorCommon.Normalize(componentType);
             if (string.IsNullOrEmpty(normalizedType))
             {
                 return null;
@@ -205,11 +194,11 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
                 }
 
                 if (string.Equals(
-                        Normalize(componentTypeInstance.AssemblyQualifiedName),
+                        SsotExecutorCommon.Normalize(componentTypeInstance.AssemblyQualifiedName),
                         normalizedType,
                         StringComparison.Ordinal) ||
                     string.Equals(
-                        Normalize(componentTypeInstance.FullName),
+                        SsotExecutorCommon.Normalize(componentTypeInstance.FullName),
                         normalizedType,
                         StringComparison.Ordinal))
                 {
@@ -223,141 +212,6 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
         private static bool IsFinite(double value)
         {
             return !double.IsNaN(value) && !double.IsInfinity(value);
-        }
-
-        private static string Normalize(string value)
-        {
-            return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
-        }
-
-        private static string BuildObjectId(GameObject gameObject)
-        {
-            if (gameObject == null)
-            {
-                return string.Empty;
-            }
-
-            try
-            {
-                var globalId = GlobalObjectId.GetGlobalObjectIdSlow(gameObject);
-                return globalId.ToString();
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
-        private static string BuildScenePath(GameObject target)
-        {
-            if (target == null)
-            {
-                return string.Empty;
-            }
-
-            var transform = target.transform;
-            var path = transform.name;
-            while (transform.parent != null)
-            {
-                transform = transform.parent;
-                path = transform.name + "/" + path;
-            }
-
-            return "Scene/" + path;
-        }
-
-        private static GameObject FindGameObjectByObjectId(string objectId)
-        {
-            var normalized = Normalize(objectId);
-            if (string.IsNullOrEmpty(normalized))
-            {
-                return null;
-            }
-
-            GlobalObjectId parsed;
-            if (!GlobalObjectId.TryParse(normalized, out parsed))
-            {
-                return null;
-            }
-
-            return GlobalObjectId.GlobalObjectIdentifierToObjectSlow(parsed) as GameObject;
-        }
-
-        private static GameObject FindGameObjectByScenePath(string scenePath)
-        {
-            var normalized = Normalize(scenePath).Replace('\\', '/');
-            if (normalized.StartsWith("Scene/", StringComparison.Ordinal))
-            {
-                normalized = normalized.Substring("Scene/".Length);
-            }
-
-            if (string.IsNullOrEmpty(normalized))
-            {
-                return null;
-            }
-
-            var segments = normalized.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-            if (segments == null || segments.Length == 0)
-            {
-                return null;
-            }
-
-            for (var sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex += 1)
-            {
-                var scene = SceneManager.GetSceneAt(sceneIndex);
-                if (!scene.IsValid() || !scene.isLoaded)
-                {
-                    continue;
-                }
-
-                var roots = scene.GetRootGameObjects();
-                for (var i = 0; i < roots.Length; i += 1)
-                {
-                    var root = roots[i];
-                    if (root == null || !string.Equals(root.name, segments[0], StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    var found = FindChildByPathSegments(root.transform, segments, 1);
-                    if (found != null)
-                    {
-                        return found.gameObject;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        private static Transform FindChildByPathSegments(Transform current, string[] segments, int index)
-        {
-            if (current == null || segments == null)
-            {
-                return null;
-            }
-
-            if (index >= segments.Length)
-            {
-                return current;
-            }
-
-            for (var i = 0; i < current.childCount; i += 1)
-            {
-                var child = current.GetChild(i);
-                if (child == null || !string.Equals(child.name, segments[index], StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                var found = FindChildByPathSegments(child, segments, index + 1);
-                if (found != null)
-                {
-                    return found;
-                }
-            }
-
-            return null;
         }
     }
 }

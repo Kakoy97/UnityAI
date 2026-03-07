@@ -1,0 +1,129 @@
+{
+  "schema_version": "g1_baseline_sample_runs.v1",
+  "timestamp": "2026-03-07T00:00:00.000Z",
+  "git_commit": "replace-with-commit-hash",
+  "samples": [
+    {
+      "scenario_name": "single_object_modify",
+      "scenario_type": "simple",
+      "sample_id": "simple-001",
+      "seed": "seed-simple-001",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_write_contract_bundle",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 95
+        },
+        {
+          "tool_name": "set_component_properties",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 120
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "batch_ui_create",
+      "scenario_type": "medium",
+      "sample_id": "medium-001",
+      "seed": "seed-medium-001",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "get_scene_snapshot_for_write",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 42
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 205,
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "execute_unity_transaction",
+          "error_code": "E_SCENE_REVISION_DRIFT"
+        }
+      ]
+    },
+    {
+      "scenario_name": "transaction_create_save",
+      "scenario_type": "complex",
+      "sample_id": "complex-001",
+      "seed": "seed-complex-001",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 260
+        },
+        {
+          "tool_name": "save_scene",
+          "kind": "save",
+          "status": "ok",
+          "latency_ms": 70
+        }
+      ],
+      "errors": []
+    },
+    {
+      "scenario_name": "fault_injection",
+      "scenario_type": "error",
+      "sample_id": "error-001",
+      "seed": "seed-error-001",
+      "first_write_success": false,
+      "blind_retry_count": 1,
+      "tool_calls": [
+        {
+          "tool_name": "set_serialized_property",
+          "kind": "write",
+          "status": "error",
+          "latency_ms": 88,
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ],
+      "errors": [
+        {
+          "tool_name": "set_serialized_property",
+          "error_code": "E_PROPERTY_NOT_FOUND"
+        }
+      ]
+    },
+    {
+      "scenario_name": "large_batch_boundary",
+      "scenario_type": "boundary",
+      "sample_id": "boundary-001",
+      "seed": "seed-boundary-001",
+      "first_write_success": true,
+      "blind_retry_count": 0,
+      "tool_calls": [
+        {
+          "tool_name": "get_hierarchy_subtree",
+          "kind": "query",
+          "status": "ok",
+          "latency_ms": 65
+        },
+        {
+          "tool_name": "execute_unity_transaction",
+          "kind": "write",
+          "status": "ok",
+          "latency_ms": 310
+        }
+      ],
+      "errors": []
+    }
+  ]
+}
+

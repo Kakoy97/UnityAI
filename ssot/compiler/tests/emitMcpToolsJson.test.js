@@ -85,6 +85,111 @@ test("emitMcpToolsJson applies fallback defaults for missing optional tool field
   assert.equal(tool.kind, "write");
   assert.deepEqual(tool.inputSchema, { type: "object", properties: {} });
   assert.deepEqual(tool.examples, []);
+  assert.deepEqual(emitted.global_contracts, {});
+});
+
+test("emitMcpToolsJson projects v2 global contracts from _definitions", () => {
+  const emitted = emitMcpToolsJson({
+    version: 1,
+    _definitions: {
+      error_context_contract: {
+        error_context_version: "2.0",
+      },
+      recovery_action_contract: {
+        dependency_validation: {
+          check_cycles: true,
+          max_depth: 10,
+          on_cycle_detected: "fail_fast",
+        },
+      },
+      ambiguity_resolution_policy_contract: {
+        anchor_conflict: {
+          resolution_mode: "explicit_target_only",
+        },
+      },
+      transaction_write_family: {
+        rollback_policy: {
+          on_step_failure: "rollback_all",
+        },
+      },
+      anchor_write_family: {
+        conflict_error_code: "E_TARGET_ANCHOR_CONFLICT",
+      },
+      create_family: {
+        pre_check_policy: {
+          check_existing: true,
+          on_conflict: "fail",
+          return_candidates: true,
+        },
+      },
+      error_feedback_contract: {
+        catalog_version: "v1",
+        defaults: {
+          fallback_suggestion:
+            "Inspect error_code/error_message, adjust task payload, then retry if safe.",
+          timeout_suggestion:
+            "Retry once after backoff. If timeout persists, reduce task scope or inspect sidecar logs.",
+        },
+        anchor_error_codes: [
+          "E_ACTION_SCHEMA_INVALID",
+          "E_TARGET_ANCHOR_CONFLICT",
+          "E_TARGET_CONFLICT",
+        ],
+        error_templates: {
+          E_STALE_SNAPSHOT: {
+            recoverable: true,
+            suggestion: "请先调用读工具获取最新 token，并仅重试一次写操作。",
+          },
+          E_ACTION_SCHEMA_INVALID: {
+            recoverable: true,
+            suggestion: "请先调用读工具获取目标 object_id 与 path，再重试写操作。",
+          },
+          E_TARGET_ANCHOR_CONFLICT: {
+            recoverable: true,
+            suggestion: "请先调用读工具获取目标 object_id 与 path，再重试写操作。",
+          },
+          E_TARGET_CONFLICT: {
+            recoverable: true,
+            suggestion: "请先调用读工具获取目标 object_id 与 path，再重试写操作。",
+          },
+        },
+      },
+      mixins: {
+        write_envelope: {
+          input: {
+            type: "object",
+          },
+        },
+      },
+    },
+    tools: [
+      {
+        name: "create_object",
+        kind: "write",
+        input: {
+          type: "object",
+          properties: {},
+        },
+      },
+    ],
+  });
+
+  assert.equal(
+    emitted.global_contracts.error_context_contract.error_context_version,
+    "2.0"
+  );
+  assert.equal(
+    emitted.global_contracts.transaction_write_family.rollback_policy.on_step_failure,
+    "rollback_all"
+  );
+  assert.equal(
+    emitted.global_contracts.error_feedback_contract.catalog_version,
+    "v1"
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(emitted.global_contracts, "mixins"),
+    false
+  );
 });
 
 test("emitMcpToolsJson emits self-contained $defs closure for _definitions refs", () => {
@@ -168,6 +273,90 @@ test("emitMcpToolsJson emits self-contained $defs closure for _definitions refs"
   assert.equal(
     Object.prototype.hasOwnProperty.call(schema.$defs, "removed_tool_names"),
     false
+  );
+});
+
+test("emitMcpToolsJson projects g1 contract metadata fields", () => {
+  const emitted = emitMcpToolsJson({
+    version: 1,
+    tools: [
+      {
+        name: "set_component_properties",
+        lifecycle: "stable",
+        kind: "write",
+        description: "Set one explicit component property",
+        input: {
+          type: "object",
+          properties: {},
+        },
+        tool_priority: "P0",
+        must_configure: true,
+        priority_score: 0.33,
+        usage_notes: "Use m_ serialized paths for Unity properties.",
+        examples_positive: [
+          {
+            scenario: "batch_ui_create",
+            example_revision: "g1-r1",
+            context_tags: ["ui", "property"],
+            request: {
+              component_type: "UnityEngine.UI.Image, UnityEngine.UI",
+              property_path: "m_Color.a",
+              value_kind: "number",
+              value_number: 0.5,
+            },
+          },
+        ],
+        examples_negative: [
+          {
+            error_code: "E_PROPERTY_NOT_FOUND",
+            fix_hint: "spacing is invalid; use m_Spacing",
+            wrong_payload_fragment: {
+              property_path: "spacing",
+            },
+          },
+        ],
+        common_error_fixes: {
+          E_PROPERTY_NOT_FOUND: {
+            suggested_action: "get_serialized_property_tree",
+            fix_hint: "Query serialized property tree first.",
+          },
+        },
+        related_tools: ["get_serialized_property_tree"],
+        tool_combinations: [
+          {
+            scenario: "set_layout_spacing",
+            tools: ["get_serialized_property_tree", "set_component_properties"],
+          },
+        ],
+        property_path_rules: {
+          format: "SerializedProperty.propertyPath",
+          prefix: "m_",
+          discovery_tool: "get_serialized_property_tree",
+        },
+        high_frequency_properties: {
+          "UnityEngine.UI.HorizontalLayoutGroup, UnityEngine.UI": {
+            m_Spacing: {
+              type: "number",
+              common_mistake: "spacing",
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  const tool = emitted.tools[0];
+  assert.equal(tool.tool_priority, "P0");
+  assert.equal(tool.must_configure, true);
+  assert.equal(tool.priority_score, 0.33);
+  assert.equal(tool.usage_notes.length > 0, true);
+  assert.equal(tool.examples_positive.length, 1);
+  assert.equal(tool.examples_negative.length, 1);
+  assert.equal(tool.related_tools[0], "get_serialized_property_tree");
+  assert.equal(tool.property_path_rules.discovery_tool, "get_serialized_property_tree");
+  assert.equal(
+    tool.high_frequency_properties["UnityEngine.UI.HorizontalLayoutGroup, UnityEngine.UI"].m_Spacing.type,
+    "number"
   );
 });
 

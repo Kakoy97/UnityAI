@@ -525,7 +525,16 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
             Assert.AreEqual("step_move", response.data.failed_step_id);
             Assert.AreEqual("set_rect_anchored_position", response.data.failed_tool_name);
             Assert.AreEqual("E_SSOT_SCHEMA_INVALID", response.data.failed_error_code);
+            Assert.AreEqual("E_SSOT_SCHEMA_INVALID", response.data.nested_error_code);
+            Assert.AreEqual("target_object_id is required", response.data.nested_error_message);
             Assert.IsTrue(response.data.rollback_applied);
+            Assert.AreEqual("rollback_all", response.data.rollback_policy);
+            Assert.AreEqual("nested_step_failed", response.data.rollback_reason);
+            Assert.AreEqual("2.0", response.data.error_context_version);
+            Assert.IsFalse(string.IsNullOrEmpty(response.data.error_context_issued_at));
+            Assert.IsFalse(string.IsNullOrEmpty(response.data.scene_revision_at_failure));
+            Assert.AreEqual(0, response.data.suppressed_error_count);
+            Assert.IsFalse(response.data.requires_context_refresh);
             Assert.AreEqual(1, response.data.executed_step_count);
             Assert.AreEqual(2, callCount);
         }

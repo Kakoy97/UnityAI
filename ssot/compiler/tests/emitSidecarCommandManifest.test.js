@@ -41,3 +41,22 @@ test("emitSidecarCommandManifest emits transaction policy for each command", () 
     undo_safe: false,
   });
 });
+
+test("emitSidecarCommandManifest marks run_unity_tests as local_static", () => {
+  const manifest = emitSidecarCommandManifest({
+    version: 1,
+    tools: [
+      {
+        name: "run_unity_tests",
+        kind: "read",
+        lifecycle: "experimental",
+      },
+    ],
+  });
+
+  assert.equal(manifest.commands.length, 1);
+  assert.equal(manifest.commands[0].name, "run_unity_tests");
+  assert.equal(manifest.commands[0].dispatch_mode, "local_static");
+  assert.equal(manifest.commands[0].http.method, "POST");
+  assert.equal(manifest.commands[0].http.path, "/mcp/run_unity_tests");
+});

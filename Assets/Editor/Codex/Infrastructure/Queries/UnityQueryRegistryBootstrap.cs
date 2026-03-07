@@ -27,6 +27,7 @@ namespace UnityAI.Editor.Codex.Infrastructure.Queries
         {
             var registry = new UnityQueryRegistry();
             registry.Register(new SsotRequestQueryHandler());
+            registry.Register(new RunUnityTestsQueryHandler());
             return registry;
         }
     }

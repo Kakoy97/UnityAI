@@ -26,6 +26,7 @@ const LOCAL_STATIC_TOOL_METHODS = Object.freeze({
   preflight_validate_write_payload: "preflightValidateWritePayloadForMcp",
   setup_cursor_mcp: "setupCursorMcpForMcp",
   verify_mcp_setup: "verifyMcpSetupForMcp",
+  run_unity_tests: "runUnityTestsForMcp",
 });
 
 let ssotToolCatalogCache = null;

@@ -90,6 +90,91 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 Assert.AreEqual(240f, childRect.anchoredPosition.y, 0.001f);
                 Assert.AreEqual(220f, childRect.rect.width, 0.001f);
                 Assert.AreEqual(88f, childRect.rect.height, 0.001f);
+                Assert.IsFalse(string.IsNullOrEmpty(resultData.scene_revision));
+            }
+            finally
+            {
+                if (root != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(root);
+                }
+            }
+        }
+
+        [Test]
+        public void Handler_ModifyUiLayout_ReturnsAnchorConflict_WhenPathAndObjectIdMismatch()
+        {
+            var rootName = "SsotAnchorConflictRoot_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var pathNodeName = "PathNode_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var idNodeName = "IdNode_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            GameObject root = null;
+
+            try
+            {
+                root = new GameObject(rootName, typeof(RectTransform));
+                var pathNode = new GameObject(pathNodeName, typeof(RectTransform));
+                var idNode = new GameObject(idNodeName, typeof(RectTransform));
+                pathNode.transform.SetParent(root.transform, false);
+                idNode.transform.SetParent(root.transform, false);
+
+                var pathObjectPath = "Scene/" + rootName + "/" + pathNodeName;
+                var pathObjectId = GlobalObjectId.GetGlobalObjectIdSlow(pathNode).ToString();
+                var idObjectPath = "Scene/" + rootName + "/" + idNodeName;
+                var idObjectId = GlobalObjectId.GetGlobalObjectIdSlow(idNode).ToString();
+
+                Assert.AreNotEqual(pathObjectPath, idObjectPath);
+                Assert.AreNotEqual(pathObjectId, idObjectId);
+
+                var request = new ModifyUiLayoutRequestDto
+                {
+                    execution_mode = "execute",
+                    thread_id = "t_ssot_anchor_conflict_test",
+                    idempotency_key = "idem_ssot_anchor_conflict_test",
+                    based_on_read_token = "token_ssot_anchor_conflict_test",
+                    write_anchor_object_id = pathObjectId,
+                    write_anchor_path = pathObjectPath,
+                    target_object_id = idObjectId,
+                    target_path = pathObjectPath,
+                    anchored_x = 10d,
+                    anchored_y = 20d,
+                    width = 30d,
+                    height = 40d
+                };
+                var envelope = new SsotToolEnvelopeDto
+                {
+                    tool_name = ModifyUiLayoutRequestDto.ToolName,
+                    payload_json = JsonUtility.ToJson(request)
+                };
+                var pulledQuery = new UnityPulledQuery
+                {
+                    query_type = UnityQueryTypes.SsotRequest,
+                    request_id = "req_ssot_modify_ui_layout_anchor_conflict_test",
+                    query_payload_json = JsonUtility.ToJson(envelope)
+                };
+
+                var handler = new SsotRequestQueryHandler();
+                var result = handler.ExecuteAsync(pulledQuery, BuildExecutionContext())
+                    .GetAwaiter()
+                    .GetResult();
+
+                Assert.NotNull(result);
+                var payload = result.Payload as SsotDispatchResponse;
+                Assert.NotNull(payload);
+                Assert.IsFalse(payload.ok);
+                Assert.AreEqual("E_TARGET_ANCHOR_CONFLICT", payload.error_code);
+                Assert.NotNull(payload.data);
+                Assert.AreEqual("path_object_id_mismatch", payload.data.ambiguity_kind);
+                Assert.AreEqual(
+                    2,
+                    payload.data.resolved_candidates_count,
+                    "diag path_candidate_path=" + payload.data.path_candidate_path +
+                    ", path_candidate_object_id=" + payload.data.path_candidate_object_id +
+                    ", object_id_candidate_path=" + payload.data.object_id_candidate_path +
+                    ", object_id_candidate_object_id=" + payload.data.object_id_candidate_object_id);
+                Assert.AreEqual(pathObjectPath, payload.data.path_candidate_path);
+                Assert.AreEqual(pathObjectId, payload.data.path_candidate_object_id);
+                Assert.AreEqual(idObjectPath, payload.data.object_id_candidate_path);
+                Assert.AreEqual(idObjectId, payload.data.object_id_candidate_object_id);
             }
             finally
             {
@@ -178,6 +263,221 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 Assert.AreEqual("set_component_properties", payload.tool_name);
                 Assert.AreEqual("number", payload.data.value_kind);
                 Assert.AreEqual(42d, payload.data.value_number, 0.001d);
+            }
+            finally
+            {
+                if (root != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(root);
+                }
+            }
+        }
+
+        [Test]
+        public void Handler_CreateObject_ReturnsNameCollisionDetected_WhenSiblingNameExists()
+        {
+            var rootName = "SsotCreateRoot_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var childName = "SsotCreateNode_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            GameObject root = null;
+
+            try
+            {
+                root = new GameObject(rootName);
+                var existing = new GameObject(childName);
+                existing.transform.SetParent(root.transform, false);
+
+                var parentPath = "Scene/" + rootName;
+                var parentObjectId = GlobalObjectId.GetGlobalObjectIdSlow(root).ToString();
+                var request = new CreateObjectRequestDto
+                {
+                    execution_mode = "execute",
+                    thread_id = "t_ssot_create_collision_test",
+                    idempotency_key = "idem_ssot_create_collision_test",
+                    based_on_read_token = "token_ssot_create_collision_test",
+                    write_anchor_object_id = parentObjectId,
+                    write_anchor_path = parentPath,
+                    parent_object_id = parentObjectId,
+                    parent_path = parentPath,
+                    new_object_name = childName,
+                    object_kind = "empty",
+                    set_active = true
+                };
+                var envelope = new SsotToolEnvelopeDto
+                {
+                    tool_name = CreateObjectRequestDto.ToolName,
+                    payload_json = JsonUtility.ToJson(request)
+                };
+                var pulledQuery = new UnityPulledQuery
+                {
+                    query_type = UnityQueryTypes.SsotRequest,
+                    request_id = "req_ssot_create_object_name_collision_test",
+                    query_payload_json = JsonUtility.ToJson(envelope)
+                };
+
+                var handler = new SsotRequestQueryHandler();
+                var result = handler.ExecuteAsync(pulledQuery, BuildExecutionContext())
+                    .GetAwaiter()
+                    .GetResult();
+
+                Assert.NotNull(result);
+                var payload = result.Payload as SsotDispatchResponse;
+                Assert.NotNull(payload);
+                Assert.IsFalse(payload.ok);
+                Assert.AreEqual("E_NAME_COLLISION_DETECTED", payload.error_code);
+
+                var duplicateCount = 0;
+                for (var i = 0; i < root.transform.childCount; i += 1)
+                {
+                    var child = root.transform.GetChild(i);
+                    if (child != null && string.Equals(child.name, childName, StringComparison.Ordinal))
+                    {
+                        duplicateCount += 1;
+                    }
+                }
+
+                Assert.AreEqual(1, duplicateCount);
+            }
+            finally
+            {
+                if (root != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(root);
+                }
+            }
+        }
+
+        [Test]
+        public void Handler_CreateObject_AppliesSuffixPolicy_WhenSiblingNameExists()
+        {
+            var rootName = "SsotCreateSuffixRoot_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var childName = "SsotCreateSuffixNode_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            GameObject root = null;
+
+            try
+            {
+                root = new GameObject(rootName);
+                var existing = new GameObject(childName);
+                existing.transform.SetParent(root.transform, false);
+
+                var parentPath = "Scene/" + rootName;
+                var parentObjectId = GlobalObjectId.GetGlobalObjectIdSlow(root).ToString();
+                var request = new CreateObjectRequestDto
+                {
+                    execution_mode = "execute",
+                    thread_id = "t_ssot_create_suffix_test",
+                    idempotency_key = "idem_ssot_create_suffix_test",
+                    based_on_read_token = "token_ssot_create_suffix_test",
+                    write_anchor_object_id = parentObjectId,
+                    write_anchor_path = parentPath,
+                    parent_object_id = parentObjectId,
+                    parent_path = parentPath,
+                    new_object_name = childName,
+                    object_kind = "empty",
+                    set_active = true,
+                    name_collision_policy = "suffix"
+                };
+                var envelope = new SsotToolEnvelopeDto
+                {
+                    tool_name = CreateObjectRequestDto.ToolName,
+                    payload_json = JsonUtility.ToJson(request)
+                };
+                var pulledQuery = new UnityPulledQuery
+                {
+                    query_type = UnityQueryTypes.SsotRequest,
+                    request_id = "req_ssot_create_object_name_collision_suffix_test",
+                    query_payload_json = JsonUtility.ToJson(envelope)
+                };
+
+                var handler = new SsotRequestQueryHandler();
+                var result = handler.ExecuteAsync(pulledQuery, BuildExecutionContext())
+                    .GetAwaiter()
+                    .GetResult();
+
+                Assert.NotNull(result);
+                var payload = result.Payload as SsotDispatchResponse;
+                Assert.NotNull(payload);
+                Assert.IsTrue(payload.ok);
+                Assert.NotNull(payload.data);
+                Assert.AreEqual("suffix", payload.data.applied_policy);
+                Assert.IsTrue(
+                    string.Equals(payload.data.target_object_name, childName + "_1", StringComparison.Ordinal));
+            }
+            finally
+            {
+                if (root != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(root);
+                }
+            }
+        }
+
+        [Test]
+        public void Handler_CreateObject_ReusesExistingObject_WhenReusePolicyApplied()
+        {
+            var rootName = "SsotCreateReuseRoot_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var childName = "SsotCreateReuseNode_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            GameObject root = null;
+
+            try
+            {
+                root = new GameObject(rootName);
+                var existing = new GameObject(childName);
+                existing.transform.SetParent(root.transform, false);
+                var existingObjectId = GlobalObjectId.GetGlobalObjectIdSlow(existing).ToString();
+
+                var parentPath = "Scene/" + rootName;
+                var parentObjectId = GlobalObjectId.GetGlobalObjectIdSlow(root).ToString();
+                var request = new CreateObjectRequestDto
+                {
+                    execution_mode = "execute",
+                    thread_id = "t_ssot_create_reuse_test",
+                    idempotency_key = "idem_ssot_create_reuse_test",
+                    based_on_read_token = "token_ssot_create_reuse_test",
+                    write_anchor_object_id = parentObjectId,
+                    write_anchor_path = parentPath,
+                    parent_object_id = parentObjectId,
+                    parent_path = parentPath,
+                    new_object_name = childName,
+                    object_kind = "empty",
+                    set_active = true,
+                    name_collision_policy = "reuse"
+                };
+                var envelope = new SsotToolEnvelopeDto
+                {
+                    tool_name = CreateObjectRequestDto.ToolName,
+                    payload_json = JsonUtility.ToJson(request)
+                };
+                var pulledQuery = new UnityPulledQuery
+                {
+                    query_type = UnityQueryTypes.SsotRequest,
+                    request_id = "req_ssot_create_object_name_collision_reuse_test",
+                    query_payload_json = JsonUtility.ToJson(envelope)
+                };
+
+                var handler = new SsotRequestQueryHandler();
+                var result = handler.ExecuteAsync(pulledQuery, BuildExecutionContext())
+                    .GetAwaiter()
+                    .GetResult();
+
+                Assert.NotNull(result);
+                var payload = result.Payload as SsotDispatchResponse;
+                Assert.NotNull(payload);
+                Assert.IsTrue(payload.ok);
+                Assert.NotNull(payload.data);
+                Assert.AreEqual("reuse", payload.data.applied_policy);
+                Assert.AreEqual(existingObjectId, payload.data.target_object_id);
+
+                var duplicateCount = 0;
+                for (var i = 0; i < root.transform.childCount; i += 1)
+                {
+                    var child = root.transform.GetChild(i);
+                    if (child != null && string.Equals(child.name, childName, StringComparison.Ordinal))
+                    {
+                        duplicateCount += 1;
+                    }
+                }
+
+                Assert.AreEqual(1, duplicateCount);
             }
             finally
             {
@@ -719,5 +1019,6 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 new UnityRagReadService(),
                 action => Task.FromResult(action == null ? null : action()));
         }
+
     }
 }

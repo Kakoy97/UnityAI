@@ -782,6 +782,21 @@
       }
     },
     {
+      "name": "run_unity_tests",
+      "kind": "read",
+      "lifecycle": "experimental",
+      "dispatch_mode": "local_static",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/run_unity_tests",
+        "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
+      }
+    },
+    {
       "name": "get_unity_task_status",
       "kind": "read",
       "lifecycle": "stable",

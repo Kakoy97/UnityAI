@@ -23,6 +23,7 @@ const {
   normalizeRequestId,
   buildValidationErrorResponse: buildValidationErrorResponseHelper,
 } = require("./turnServiceWriteSupport");
+const { UnityTestRunnerService } = require("./unityTestRunnerService");
 const {
   createCaptureCompositeRuntime,
 } = require("./captureCompositeRuntime");
@@ -51,6 +52,13 @@ const {
   verifyCursorMcpSetup,
 } = require("./cursorMcpSetupService");
 const { withMcpErrorFeedback } = require("./errorFeedback/mcpErrorFeedback");
+const {
+  normalizeSsotErrorCodeForMcp,
+} = require("./errorFeedback/ssotErrorCodeCanon");
+const {
+  normalizeFailureContext,
+  projectFailureDataFromContext,
+} = require("./errorFeedback/failureContextNormalizer");
 
 const SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
 
@@ -67,6 +75,32 @@ function mapSetupCursorMcpErrorToStatusCode(errorCode) {
   }
   if (code === "E_CURSOR_MCP_SERVER_NOT_FOUND") {
     return 500;
+  }
+  return 500;
+}
+
+function mapRunUnityTestsErrorToStatusCode(errorCode) {
+  const code =
+    typeof errorCode === "string" && errorCode.trim()
+      ? errorCode.trim().toUpperCase()
+      : "";
+  if (
+    code === "E_SCHEMA_INVALID" ||
+    code === "E_SSOT_SCHEMA_INVALID"
+  ) {
+    return 400;
+  }
+  if (code === "E_UNITY_TEST_QUERY_UNAVAILABLE") {
+    return 502;
+  }
+  if (code === "E_UNITY_TEST_EDITOR_BUSY") {
+    return 409;
+  }
+  if (code === "E_UNITY_TEST_TIMEOUT") {
+    return 504;
+  }
+  if (code === "E_UNITY_TEST_RUN_FAILED") {
+    return 502;
   }
   return 500;
 }
@@ -125,6 +159,10 @@ class TurnService {
     });
     this.ssotRevisionState = getSsotRevisionStateSingleton({
       nowIso: this.nowIso,
+    });
+    this.unityTestRunnerService = new UnityTestRunnerService({
+      nowIso: this.nowIso,
+      enqueueAndWaitForUnityQuery: this.enqueueAndWaitForUnityQuery.bind(this),
     });
   }
 
@@ -403,17 +441,71 @@ class TurnService {
     return getWriteContractBundleView(body);
   }
 
+  async runUnityTestsForMcp(body) {
+    const payload =
+      body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    try {
+      const result = await this.unityTestRunnerService.runUnityTests(payload);
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          data: result,
+          captured_at:
+            typeof this.nowIso === "function"
+              ? this.nowIso()
+              : new Date().toISOString(),
+        },
+      };
+    } catch (error) {
+      const errorCode =
+        error && typeof error.errorCode === "string" && error.errorCode.trim()
+          ? error.errorCode.trim()
+          : "E_UNITY_TEST_RUN_FAILED";
+      const message =
+        error && typeof error.message === "string" && error.message.trim()
+          ? error.message.trim()
+          : "run_unity_tests execution failed";
+      const context =
+        error &&
+        error.context &&
+        typeof error.context === "object" &&
+        !Array.isArray(error.context)
+          ? error.context
+          : {};
+      return {
+        statusCode: mapRunUnityTestsErrorToStatusCode(errorCode),
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: errorCode,
+          message,
+          tool_name: "run_unity_tests",
+          context: {
+            stage: "during_dispatch",
+            previous_operation: "run_unity_tests",
+            ...context,
+          },
+        }),
+      };
+    }
+  }
+
   async dispatchSsotToolForMcp(toolName, body) {
     const normalizedToolName =
       typeof toolName === "string" && toolName.trim() ? toolName.trim() : "";
     if (!normalizedToolName) {
       return {
         statusCode: 400,
-        body: {
+        body: withMcpErrorFeedback({
           status: "failed",
           error_code: "E_SSOT_ROUTE_FAILED",
           message: "SSOT tool name is required",
-        },
+          tool_name: normalizedToolName,
+          context: {
+            stage: "before_dispatch",
+            previous_operation: "validate_tool_name",
+          },
+        }),
       };
     }
 
@@ -429,14 +521,22 @@ class TurnService {
         payload.based_on_read_token
       );
       if (!tokenValidation.ok) {
+        const isRevisionDrift = tokenValidation.error_code === "E_SCENE_REVISION_DRIFT";
         return {
           statusCode: tokenValidation.statusCode,
-          body: {
+          body: withMcpErrorFeedback({
             status: "failed",
             error_code: tokenValidation.error_code,
             message: tokenValidation.message,
             suggestion: tokenValidation.suggestion,
-          },
+            retry_policy: tokenValidation.retry_policy,
+            tool_name: normalizedToolName,
+            context: {
+              stage: "before_write",
+              previous_operation: "validate_write_token",
+              scene_revision_changed: isRevisionDrift,
+            },
+          }),
         };
       }
     }
@@ -445,14 +545,21 @@ class TurnService {
       if (!policyGuardResult.ok) {
         return {
           statusCode: 409,
-          body: {
+          body: withMcpErrorFeedback({
             status: "failed",
             error_code: policyGuardResult.error_code,
             message: policyGuardResult.message,
-            failed_step_index: policyGuardResult.failed_step_index,
-            failed_step_id: policyGuardResult.failed_step_id,
-            failed_tool_name: policyGuardResult.failed_tool_name,
-          },
+            tool_name: normalizedToolName,
+            data: {
+              failed_step_index: policyGuardResult.failed_step_index,
+              failed_step_id: policyGuardResult.failed_step_id,
+              failed_tool_name: policyGuardResult.failed_tool_name,
+            },
+            context: {
+              stage: "during_transaction",
+              previous_operation: "guard_execute_unity_transaction_steps",
+            },
+          }),
         };
       }
     }
@@ -473,20 +580,26 @@ class TurnService {
       if (!unityResponse || typeof unityResponse !== "object") {
         return {
           statusCode: 502,
-          body: {
+          body: withMcpErrorFeedback({
             status: "failed",
             error_code: "E_SSOT_ROUTE_FAILED",
             message: "Unity SSOT query response is invalid",
-          },
+            tool_name: normalizedToolName,
+            context: {
+              stage: "during_dispatch",
+              previous_operation: "dispatch_ssot_request",
+            },
+          }),
         };
       }
 
-      if (unityResponse.ok !== true) {
-        const errorCode =
+        if (unityResponse.ok !== true) {
+        const rawErrorCode =
           typeof unityResponse.error_code === "string" &&
           unityResponse.error_code.trim()
             ? unityResponse.error_code.trim()
             : "E_SSOT_ROUTE_FAILED";
+        const errorCode = normalizeSsotErrorCodeForMcp(rawErrorCode);
         const errorMessage =
           typeof unityResponse.error_message === "string" &&
           unityResponse.error_message.trim()
@@ -495,13 +608,86 @@ class TurnService {
                 unityResponse.message.trim()
               ? unityResponse.message.trim()
               : "Unity SSOT query failed";
+        const responseContext =
+          unityResponse.context && typeof unityResponse.context === "object"
+            ? unityResponse.context
+            : {};
+        const responseDataSource =
+          unityResponse.data &&
+          typeof unityResponse.data === "object" &&
+          !Array.isArray(unityResponse.data)
+            ? unityResponse.data
+            : {};
+        const failureContext = normalizeFailureContext({
+          errorCode,
+          context: {
+            ...(unityResponse && typeof unityResponse === "object"
+              ? unityResponse
+              : {}),
+            ...responseContext,
+          },
+          data: responseDataSource,
+          nowMs: Date.now(),
+        });
+        const responseData = projectFailureDataFromContext(failureContext.context);
+        const l3Context =
+          failureContext.context.l3_context &&
+          typeof failureContext.context.l3_context === "object"
+            ? failureContext.context.l3_context
+            : {
+                old_revision:
+                  typeof unityResponse.old_revision === "string"
+                    ? unityResponse.old_revision
+                    : "",
+                new_revision:
+                  typeof unityResponse.new_revision === "string"
+                    ? unityResponse.new_revision
+                    : "",
+                failed_property_path:
+                  typeof unityResponse.failed_property_path === "string"
+                    ? unityResponse.failed_property_path
+                    : "",
+                failed_component_type:
+                  typeof unityResponse.failed_component_type === "string"
+                    ? unityResponse.failed_component_type
+                    : "",
+              };
         return {
           statusCode: 409,
-          body: {
+          body: withMcpErrorFeedback({
             status: "failed",
             error_code: errorCode,
             message: errorMessage,
-          },
+            tool_name: normalizedToolName,
+            data: responseData,
+            context: {
+              stage:
+                typeof failureContext.context.stage === "string" &&
+                failureContext.context.stage.trim()
+                  ? failureContext.context.stage.trim()
+                  : "during_dispatch",
+              previous_operation:
+                typeof failureContext.context.previous_operation === "string" &&
+                failureContext.context.previous_operation.trim()
+                  ? failureContext.context.previous_operation.trim()
+                  : "dispatch_ssot_request",
+              scene_revision_changed:
+                typeof failureContext.context.scene_revision_changed === "boolean"
+                  ? failureContext.context.scene_revision_changed
+                  : null,
+              error_context_issued_at:
+                typeof failureContext.context.error_context_issued_at === "string"
+                  ? failureContext.context.error_context_issued_at
+                  : "",
+              error_context_version:
+                typeof failureContext.context.error_context_version === "string"
+                  ? failureContext.context.error_context_version
+                  : "",
+              requires_context_refresh:
+                failureContext.requires_context_refresh === true,
+              l3_context: l3Context,
+            },
+          }),
         };
       }
 
@@ -519,23 +705,75 @@ class TurnService {
         },
       };
     } catch (error) {
-      const errorCode =
+      const rawErrorCode =
         error &&
         typeof error === "object" &&
         typeof error.error_code === "string" &&
         error.error_code.trim()
           ? error.error_code.trim()
           : "E_SSOT_ROUTE_FAILED";
+      const errorCode = normalizeSsotErrorCodeForMcp(rawErrorCode);
+      const errorContext =
+        error &&
+        typeof error === "object" &&
+        error.context &&
+        typeof error.context === "object"
+          ? error.context
+          : {
+              stage:
+                toolMetadata && toolMetadata.kind === "write"
+                  ? "during_write_dispatch"
+                  : "during_dispatch",
+              previous_operation: "dispatch_ssot_request",
+            };
+      const failureContext = normalizeFailureContext({
+        errorCode,
+        context: {
+          ...(error && typeof error === "object" ? error : {}),
+          ...errorContext,
+        },
+        data:
+          error &&
+          typeof error === "object" &&
+          error.data &&
+          typeof error.data === "object" &&
+          !Array.isArray(error.data)
+            ? error.data
+            : {},
+        nowMs: Date.now(),
+      });
       return {
         statusCode: 409,
-        body: {
+        body: withMcpErrorFeedback({
           status: "failed",
-            error_code: errorCode,
-            message:
-              error && typeof error.message === "string" && error.message.trim()
-                ? error.message.trim()
-                : "Unity SSOT dispatch failed",
-        },
+          error_code: errorCode,
+          message:
+            error && typeof error.message === "string" && error.message.trim()
+              ? error.message.trim()
+              : "Unity SSOT dispatch failed",
+          tool_name: normalizedToolName,
+          data: projectFailureDataFromContext(failureContext.context),
+          context: {
+            ...errorContext,
+            stage:
+              typeof failureContext.context.stage === "string" &&
+              failureContext.context.stage.trim()
+                ? failureContext.context.stage.trim()
+                : typeof errorContext.stage === "string" && errorContext.stage.trim()
+                  ? errorContext.stage.trim()
+                  : "during_dispatch",
+            previous_operation:
+              typeof failureContext.context.previous_operation === "string" &&
+              failureContext.context.previous_operation.trim()
+                ? failureContext.context.previous_operation.trim()
+                : typeof errorContext.previous_operation === "string" &&
+                    errorContext.previous_operation.trim()
+                  ? errorContext.previous_operation.trim()
+                  : "dispatch_ssot_request",
+            requires_context_refresh:
+              failureContext.requires_context_refresh === true,
+          },
+        }),
       };
     }
   }

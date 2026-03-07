@@ -115,6 +115,7 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
         public string new_object_name;
         public string object_kind;
         public bool set_active;
+        public string name_collision_policy;
     }
 
     [Serializable]
@@ -855,6 +856,21 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
     }
 
     [Serializable]
+    public sealed class GetWriteContractBundleRequestDtoContextDtoErrorContextDto
+    {
+        public string error_code;
+        public string failed_property_path;
+    }
+
+    [Serializable]
+    public sealed class GetWriteContractBundleRequestDtoContextDto
+    {
+        public string scenario;
+        public string previous_tool;
+        public GetWriteContractBundleRequestDtoContextDtoErrorContextDto error_context;
+    }
+
+    [Serializable]
     public sealed class GetWriteContractBundleRequestDto
     {
         public const string ToolName = "get_write_contract_bundle";
@@ -867,6 +883,10 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
         public int budget_chars;
         public bool include_error_fix_map;
         public bool include_canonical_examples;
+        public bool include_related;
+        public bool include_enhanced;
+        public bool include_legacy;
+        public GetWriteContractBundleRequestDtoContextDto context;
     }
 
     [Serializable]
@@ -900,6 +920,20 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
 
         public string thread_id;
         public string mode;
+    }
+
+    [Serializable]
+    public sealed class RunUnityTestsRequestDto
+    {
+        public const string ToolName = "run_unity_tests";
+        public static readonly string[] RequiredFields = new string[0];
+
+        public string thread_id;
+        public string scope;
+        public string test_filter;
+        public int timeout_seconds;
+        public string unity_editor_path;
+        public string project_path;
     }
 
     [Serializable]
@@ -1092,5 +1126,14 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
         public string target_path;
         public string prefab_path;
         public bool save_as_new;
+    }
+
+    public static class SsotCreateFamilyContract
+    {
+        public const bool PreCheckEnabled = true;
+        public const bool ReturnCandidates = true;
+        public const string DefaultOnConflict = "fail";
+        public const string PolicyField = "name_collision_policy";
+        public static readonly string[] AllowedOnConflictPolicies = new[] { "fail", "suffix", "reuse" };
     }
 }

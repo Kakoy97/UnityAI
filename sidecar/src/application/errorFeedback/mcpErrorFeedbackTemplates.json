@@ -1,0 +1,278 @@
+{
+  "E_SCHEMA_INVALID": {
+    "recoverable": true,
+    "suggestion": "Fix request schema and resubmit. Ensure required fields are non-empty strings; use get_tool_schema when unsure about tool payload shape."
+  },
+  "E_SSOT_SCHEMA_INVALID": {
+    "recoverable": true,
+    "suggestion": "Fix SSOT payload fields using get_tool_schema/get_write_contract_bundle, then retry."
+  },
+  "E_SSOT_DESERIALIZE_FAILED": {
+    "recoverable": true,
+    "suggestion": "Payload JSON cannot be deserialized by SSOT DTO. Check field types and required keys from get_tool_schema."
+  },
+  "E_SSOT_TOOL_UNSUPPORTED": {
+    "recoverable": true,
+    "suggestion": "Tool is not supported by current SSOT runtime. Refresh tools/list and use an active tool name."
+  },
+  "E_SSOT_ROUTE_FAILED": {
+    "recoverable": true,
+    "suggestion": "SSOT route dispatch failed. Re-check Unity connection and retry with a validated payload from get_write_contract_bundle/get_tool_schema."
+  },
+  "E_SSOT_EXECUTION_FAILED": {
+    "recoverable": true,
+    "suggestion": "SSOT execution failed in Unity runtime. Inspect error_message, adjust payload, and retry once if safe."
+  },
+  "E_TRANSACTION_CONTEXT_INVALID": {
+    "recoverable": true,
+    "suggestion": "Transaction context is invalid. Ensure execution_mode/idempotency_key/based_on_read_token/write_anchor_* are present."
+  },
+  "E_INTERNAL": {
+    "recoverable": false,
+    "suggestion": "Internal sidecar/runtime error. Check sidecar and Unity logs, then retry after runtime state is healthy."
+  },
+  "E_CONTEXT_DEPTH_VIOLATION": {
+    "recoverable": true,
+    "suggestion": "Set context.selection_tree.max_depth to 2 and retry submit_unity_task."
+  },
+  "E_READ_REQUIRED": {
+    "recoverable": true,
+    "suggestion": "Call get_current_selection (or get_gameobject_components) first and submit with based_on_read_token."
+  },
+  "E_PRECONDITION_FAILED": {
+    "recoverable": true,
+    "suggestion": "Refresh Unity state, adjust preconditions (object/component/compile_idle), then retry the write tool."
+  },
+  "E_SELECTION_UNAVAILABLE": {
+    "recoverable": true,
+    "suggestion": "Ensure Unity editor is connected and has pushed a recent selection snapshot, then retry MCP read tools."
+  },
+  "E_UNITY_NOT_CONNECTED": {
+    "recoverable": true,
+    "suggestion": "Wait until Unity connection state is ready (runtime ping + capability report), then retry write tools."
+  },
+  "E_CONTRACT_VERSION_MISMATCH": {
+    "recoverable": true,
+    "suggestion": "Refresh capability contracts (get_write_contract_bundle or get_action_schema/get_action_catalog), then retry write payload with latest catalog_version when Unity state is ready."
+  },
+  "E_SCREENSHOT_VIEW_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "Switch to an available Scene/Game view in Unity Editor, then retry capture_scene_screenshot."
+  },
+  "E_SCREENSHOT_CAPTURE_FAILED": {
+    "recoverable": true,
+    "suggestion": "Screenshot capture failed. Check Unity editor state and retry; lower resolution if needed."
+  },
+  "E_CAPTURE_MODE_DISABLED": {
+    "recoverable": true,
+    "suggestion": "capture_scene_screenshot currently keeps render_output as baseline. If you need composite, enable CAPTURE_COMPOSITE_ENABLED + UNITY_CAPTURE_COMPOSITE_ENABLED; otherwise retry with render_output after get_ui_overlay_report."
+  },
+  "E_COMPOSITE_BUSY": {
+    "recoverable": true,
+    "suggestion": "Another composite capture is running. Wait for it to finish, then retry capture_scene_screenshot(capture_mode=composite)."
+  },
+  "E_COMPOSITE_PLAYMODE_REQUIRED": {
+    "recoverable": true,
+    "suggestion": "Composite capture currently requires Unity Play Mode. Enter Play Mode or fallback to capture_mode=render_output."
+  },
+  "E_COMPOSITE_CAPTURE_RESTRICTED": {
+    "recoverable": true,
+    "suggestion": "Composite EditMode capture was restricted by safety guard. Retry with capture_mode=render_output and inspect get_ui_overlay_report."
+  },
+  "E_UI_OVERLAY_REPORT_SOURCE_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "Overlay UI source was not found. Ensure target Canvas exists and retry get_ui_overlay_report."
+  },
+  "E_UI_OVERLAY_REPORT_QUERY_FAILED": {
+    "recoverable": true,
+    "suggestion": "Overlay report query failed. Check Unity editor state and retry get_ui_overlay_report with lower max_nodes/budgets if needed."
+  },
+  "E_UI_TREE_SOURCE_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "UI root/source was not found. Ensure target Canvas/UIDocument exists, then retry get_ui_tree."
+  },
+  "E_UI_TREE_QUERY_FAILED": {
+    "recoverable": true,
+    "suggestion": "UI tree query failed. Check Unity editor state and retry get_ui_tree with lower depth/budget if needed."
+  },
+  "E_UI_HIT_TEST_SOURCE_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "UI hit test source is unavailable. Ensure Game view + EventSystem + GraphicRaycaster are active, then retry hit_test_ui_at_viewport_point."
+  },
+  "E_UI_HIT_TEST_QUERY_FAILED": {
+    "recoverable": true,
+    "suggestion": "UI hit test failed. Verify viewport point and resolution mapping, then retry hit_test_ui_at_viewport_point."
+  },
+  "E_UI_COORD_MAPPING_INVALID": {
+    "recoverable": true,
+    "suggestion": "Coordinate mapping is invalid. Check coord_space/coord_origin and ensure x/y are in valid range, then retry hit_test_ui_at_viewport_point."
+  },
+  "E_UI_RUNTIME_RESOLUTION_UNAVAILABLE": {
+    "recoverable": true,
+    "suggestion": "Runtime resolution is unavailable. Provide resolution explicitly or ensure scope points to an active Canvas, then retry."
+  },
+  "E_UI_LAYOUT_VALIDATION_FAILED": {
+    "recoverable": true,
+    "suggestion": "UI layout validation failed. Reduce scope or issue budgets, then retry validate_ui_layout."
+  },
+  "E_UI_LAYOUT_SCOPE_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "UI layout scope root was not found. Verify scope.root_path and retry validate_ui_layout."
+  },
+  "E_UI_LAYOUT_PARTIAL": {
+    "recoverable": true,
+    "suggestion": "Layout validation returned partial results due to budget. Increase time_budget_ms/max_issues or narrow scope and retry."
+  },
+  "E_COMMAND_DISABLED": {
+    "recoverable": true,
+    "suggestion": "This command is currently disabled. Use tools/list for current availability and prefer get_ui_overlay_report + get_ui_tree + capture_scene_screenshot(render_output)."
+  },
+  "E_TARGET_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "Use get_current_selection to confirm target_path, then call get_gameobject_components again."
+  },
+  "E_COMPONENT_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "Target component is missing. Query component list first, then retry with a valid component_type/assembly-qualified name."
+  },
+  "E_COMPONENT_TYPE_INVALID": {
+    "recoverable": true,
+    "suggestion": "Component type format is invalid. Use assembly-qualified type name and verify with get_gameobject_components/get_tool_schema."
+  },
+  "E_COMPONENT_ADD_FAILED": {
+    "recoverable": true,
+    "suggestion": "Component add failed due to Unity constraint. Check target object type and component compatibility, then retry once."
+  },
+  "E_OBJECT_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "Target object no longer exists. Refresh anchors via read tool and retry with latest object_id/path."
+  },
+  "E_INVALID_PARENT": {
+    "recoverable": true,
+    "suggestion": "Parent anchor is invalid. Re-read hierarchy and ensure parent_object_id/parent_path are consistent before retry."
+  },
+  "E_SCENE_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "Scene path is invalid or unavailable. Confirm scene path from scene roots and retry."
+  },
+  "E_SCENE_NOT_LOADED": {
+    "recoverable": true,
+    "suggestion": "Scene is not loaded in editor. Load/open the target scene first, then retry write/save operation."
+  },
+  "E_SCENE_SAVE_FAILED": {
+    "recoverable": true,
+    "suggestion": "Scene save failed. Check scene write permissions and unsaved asset conflicts, then retry save_scene."
+  },
+  "E_JOB_CONFLICT": {
+    "recoverable": true,
+    "suggestion": "写请求提交后必须轮询 get_unity_task_status，直到状态进入 succeeded/failed/cancelled；accepted/queued 仅表示已受理。 Use running_job_id to track the running task, then retry after terminal."
+  },
+  "E_TOO_MANY_ACTIVE_TURNS": {
+    "recoverable": true,
+    "suggestion": "写请求提交后必须轮询 get_unity_task_status，直到状态进入 succeeded/failed/cancelled；accepted/queued 仅表示已受理。 Wait for the active turn to become terminal, or cancel it before submitting another job."
+  },
+  "E_FILE_PATH_FORBIDDEN": {
+    "recoverable": true,
+    "suggestion": "Write files only under Assets/Scripts/AIGenerated and retry with a safe path."
+  },
+  "E_FILE_SIZE_EXCEEDED": {
+    "recoverable": true,
+    "suggestion": "Reduce file content size below the configured sidecar maxFileBytes limit and retry."
+  },
+  "E_FILE_EXISTS_BLOCKED": {
+    "recoverable": true,
+    "suggestion": "Use overwrite_if_exists=true or choose a new file path before retrying."
+  },
+  "E_ACTION_COMPONENT_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "Query available components on target, then retry with a valid component name/type."
+  },
+  "E_ACTION_HANDLER_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "Call tools/list (or get_action_schema) to confirm supported action_type, then retry with a registered handler."
+  },
+  "E_ACTION_DESERIALIZE_FAILED": {
+    "recoverable": true,
+    "suggestion": "Fix action_data to match the handler DTO schema. Use get_action_schema for exact field names/types before retry."
+  },
+  "E_ACTION_PAYLOAD_INVALID": {
+    "recoverable": true,
+    "suggestion": "Action payload shape is invalid. Refresh schema via get_action_schema and resubmit with valid action_data + anchors."
+  },
+  "E_ACTION_RESULT_MISSING_ERROR_CODE": {
+    "recoverable": true,
+    "suggestion": "Unity action failed without explicit error_code. Check Unity-side handler error mapping and retry after logs are fixed."
+  },
+  "E_ACTION_CAPABILITY_MISMATCH": {
+    "recoverable": true,
+    "suggestion": "Requested action is not in current Unity capability set. Refresh tools/list and retry with a supported action_type."
+  },
+  "E_ACTION_DATA_STRINGIFIED_NOT_ALLOWED": {
+    "recoverable": true,
+    "suggestion": "Do not send stringified action_data fields. Send action_data as a JSON object and retry."
+  },
+  "E_ACTION_PROPERTY_WRITE_RESTRICTED": {
+    "recoverable": true,
+    "suggestion": "Target property is write-restricted in set_serialized_property (for example ManagedReference/AnimationCurve). Use get_serialized_property_tree to inspect writable fields, then retry with supported paths."
+  },
+  "E_COMPOSITE_PAYLOAD_INVALID": {
+    "recoverable": true,
+    "suggestion": "Fix composite action_data/steps schema (step_id, anchors, bind_outputs) and retry. Use get_action_schema when unsure."
+  },
+  "E_COMPOSITE_ALIAS_INVALID": {
+    "recoverable": true,
+    "suggestion": "Alias name or anchor_ref usage is invalid. Use lower_snake_case aliases and keep *_anchor with *_anchor_ref mutually exclusive."
+  },
+  "E_COMPOSITE_ALIAS_DUPLICATED": {
+    "recoverable": true,
+    "suggestion": "Each alias can be bound only once in a transaction. Rename duplicated aliases and retry."
+  },
+  "E_COMPOSITE_ALIAS_FORWARD_REF": {
+    "recoverable": true,
+    "suggestion": "Alias references must point to outputs of previous steps only. Reorder steps or remove forward refs."
+  },
+  "E_COMPOSITE_ALIAS_NOT_FOUND": {
+    "recoverable": true,
+    "suggestion": "Alias was not found at execution time. Ensure bind_outputs succeeded before referencing target_anchor_ref/parent_anchor_ref."
+  },
+  "E_COMPOSITE_ALIAS_INLINE_REF_UNSUPPORTED": {
+    "recoverable": true,
+    "suggestion": "Inline alias interpolation in action_data is not supported in v1. Split into separate steps or wait for AliasResolver upgrade."
+  },
+  "E_COMPOSITE_BUDGET_EXCEEDED": {
+    "recoverable": true,
+    "suggestion": "Composite budget exceeded limits. Reduce step count/max_step_ms or split the task into smaller transactions."
+  },
+  "E_COMPOSITE_STEP_FAILED": {
+    "recoverable": true,
+    "suggestion": "A composite step failed and transaction rolled back. Fix the failing step payload and retry the whole transaction."
+  },
+  "E_COMPOSITE_ROLLBACK_INCOMPLETE": {
+    "recoverable": false,
+    "suggestion": "Rollback integrity failed and write circuit is closed. Inspect Unity logs and recover editor state before retrying."
+  },
+  "WAITING_FOR_UNITY_REBOOT": {
+    "recoverable": true,
+    "suggestion": "Wait for unity.runtime.ping recovery, then retry the pending visual action."
+  },
+  "E_WAITING_FOR_UNITY_REBOOT": {
+    "recoverable": true,
+    "suggestion": "Wait for unity.runtime.ping recovery, then retry the pending visual action."
+  },
+  "E_JOB_HEARTBEAT_TIMEOUT": {
+    "recoverable": true,
+    "suggestion": "Heartbeat lease expired. Re-check job status, refresh context, and resubmit with a new idempotency_key if needed."
+  },
+  "E_JOB_MAX_RUNTIME_EXCEEDED": {
+    "recoverable": true,
+    "suggestion": "Job exceeded max runtime. Split the task into smaller actions and resubmit."
+  },
+  "E_WAITING_FOR_UNITY_REBOOT_TIMEOUT": {
+    "recoverable": true,
+    "suggestion": "Unity reboot recovery timed out. Confirm editor compile health, then resubmit and poll get_unity_task_status until terminal."
+  },
+  "E_JOB_NOT_FOUND": {
+    "recoverable": false,
+    "suggestion": "Verify job_id and thread scope before polling or cancelling."
+  }
+}

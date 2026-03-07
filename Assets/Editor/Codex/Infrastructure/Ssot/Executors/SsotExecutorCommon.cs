@@ -2,12 +2,15 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using UnityAI.Editor.Codex.Infrastructure.Ssot.Anchors;
 
 namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
 {
     internal static class SsotExecutorCommon
     {
+        private static readonly AnchorResolutionService AnchorResolutionService =
+            new AnchorResolutionService();
+
         internal static string Normalize(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
@@ -103,130 +106,26 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot.Executors
             target = null;
             errorCode = string.Empty;
             errorMessage = string.Empty;
-
-            var normalizedPath = Normalize(targetPath);
-            var normalizedObjectId = Normalize(targetObjectId);
-            if (string.IsNullOrEmpty(normalizedPath) || string.IsNullOrEmpty(normalizedObjectId))
+            var resolution = AnchorResolutionService.ResolveTargetFromAnchor(targetPath, targetObjectId);
+            if (resolution == null || !resolution.IsSuccess || resolution.Target == null)
             {
-                errorCode = "E_SSOT_SCHEMA_INVALID";
-                errorMessage = "target_path and target_object_id are required.";
+                errorCode = Normalize(resolution == null ? string.Empty : resolution.ErrorCode);
+                errorMessage = Normalize(resolution == null ? string.Empty : resolution.ErrorMessage);
+                if (string.IsNullOrEmpty(errorCode))
+                {
+                    errorCode = "E_TARGET_NOT_FOUND";
+                }
+
+                if (string.IsNullOrEmpty(errorMessage))
+                {
+                    errorMessage = "Target object not found.";
+                }
+
                 return false;
             }
 
-            var targetByPath = FindGameObjectByScenePath(normalizedPath);
-            var targetByObjectId = FindGameObjectByObjectId(normalizedObjectId);
-            if (targetByPath == null && targetByObjectId == null)
-            {
-                errorCode = "E_TARGET_NOT_FOUND";
-                errorMessage = "Target object not found.";
-                return false;
-            }
-
-            if (targetByPath != null &&
-                targetByObjectId != null &&
-                !ReferenceEquals(targetByPath, targetByObjectId))
-            {
-                errorCode = "E_TARGET_ANCHOR_CONFLICT";
-                errorMessage = "target_path and target_object_id resolve to different objects.";
-                return false;
-            }
-
-            target = targetByPath ?? targetByObjectId;
-            return target != null;
-        }
-
-        internal static GameObject FindGameObjectByObjectId(string objectId)
-        {
-            var normalized = Normalize(objectId);
-            if (string.IsNullOrEmpty(normalized))
-            {
-                return null;
-            }
-
-            GlobalObjectId parsed;
-            if (!GlobalObjectId.TryParse(normalized, out parsed))
-            {
-                return null;
-            }
-
-            return GlobalObjectId.GlobalObjectIdentifierToObjectSlow(parsed) as GameObject;
-        }
-
-        internal static GameObject FindGameObjectByScenePath(string scenePath)
-        {
-            var normalized = Normalize(scenePath).Replace('\\', '/');
-            if (normalized.StartsWith("Scene/", StringComparison.Ordinal))
-            {
-                normalized = normalized.Substring("Scene/".Length);
-            }
-
-            if (string.IsNullOrEmpty(normalized))
-            {
-                return null;
-            }
-
-            var segments = normalized.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
-            if (segments == null || segments.Length == 0)
-            {
-                return null;
-            }
-
-            for (var sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex += 1)
-            {
-                var scene = SceneManager.GetSceneAt(sceneIndex);
-                if (!scene.IsValid() || !scene.isLoaded)
-                {
-                    continue;
-                }
-
-                var roots = scene.GetRootGameObjects();
-                for (var i = 0; i < roots.Length; i += 1)
-                {
-                    var root = roots[i];
-                    if (root == null || !string.Equals(root.name, segments[0], StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    var found = FindChildByPathSegments(root.transform, segments, 1);
-                    if (found != null)
-                    {
-                        return found.gameObject;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        internal static Transform FindChildByPathSegments(Transform current, string[] segments, int index)
-        {
-            if (current == null || segments == null)
-            {
-                return null;
-            }
-
-            if (index >= segments.Length)
-            {
-                return current;
-            }
-
-            for (var i = 0; i < current.childCount; i += 1)
-            {
-                var child = current.GetChild(i);
-                if (child == null || !string.Equals(child.name, segments[index], StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                var found = FindChildByPathSegments(child, segments, index + 1);
-                if (found != null)
-                {
-                    return found;
-                }
-            }
-
-            return null;
+            target = resolution.Target;
+            return true;
         }
     }
 }

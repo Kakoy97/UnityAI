@@ -3,6 +3,7 @@
 const {
   getStaticToolCatalogSingleton,
 } = require("./staticToolCatalog");
+const { buildWriteContractBundleView } = require("./contractAdvisor");
 
 function buildDeprecatedResponse(toolName) {
   return {
@@ -42,35 +43,6 @@ function getToolRecord(catalog, toolName) {
     return null;
   }
   return catalog.byName.get(toolName) || null;
-}
-
-function buildFallbackTemplate(toolRecord) {
-  const template = {};
-  const required = Array.isArray(toolRecord && toolRecord.required)
-    ? toolRecord.required
-    : [];
-  for (const field of required) {
-    template[field] = `__${field}__`;
-  }
-  return template;
-}
-
-function pickMinimalTemplateFromExamples(toolRecord) {
-  const examples = Array.isArray(toolRecord && toolRecord.examples)
-    ? toolRecord.examples
-    : [];
-  for (const entry of examples) {
-    if (
-      entry &&
-      typeof entry === "object" &&
-      entry.request &&
-      typeof entry.request === "object" &&
-      !Array.isArray(entry.request)
-    ) {
-      return JSON.parse(JSON.stringify(entry.request));
-    }
-  }
-  return buildFallbackTemplate(toolRecord);
 }
 
 function getActionCatalogView() {
@@ -134,68 +106,7 @@ function getToolSchemaView(requestBody) {
 }
 
 function getWriteContractBundleView(requestBody) {
-  const payload =
-    requestBody && typeof requestBody === "object" ? requestBody : {};
-  const toolName =
-    typeof payload.tool_name === "string" && payload.tool_name.trim()
-      ? payload.tool_name.trim()
-      : "modify_ui_layout";
-  const requestedActionType =
-    typeof payload.action_type === "string" && payload.action_type.trim()
-      ? payload.action_type.trim()
-      : "";
-
-  const load = loadCatalogSafe();
-  if (!load.ok) {
-    return load;
-  }
-  const record = getToolRecord(load.catalog, toolName);
-  if (!record) {
-    return {
-      statusCode: 404,
-      body: {
-        ok: false,
-        error_code: "E_TOOL_SCHEMA_NOT_FOUND",
-        message: `Tool schema not found for '${toolName}'`,
-        guidance:
-          "The requested tool is not part of current SSOT static tool catalog. Use tools/list to inspect available tools.",
-      },
-    };
-  }
-  if (String(record.kind).toLowerCase() !== "write") {
-    return {
-      statusCode: 400,
-      body: {
-        ok: false,
-        error_code: "E_SSOT_WRITE_TOOL_REQUIRED",
-        message:
-          "get_write_contract_bundle only supports SSOT write tools in static mode",
-      },
-    };
-  }
-
-  return {
-    statusCode: 200,
-    body: {
-      ok: true,
-      tool_name: record.name,
-      action_type: requestedActionType || null,
-      schema_source: "ssot_static_artifact",
-      write_envelope_contract: {
-        mode: "static",
-        required_fields: record.required,
-        guidance:
-          "Use the required fields exactly as documented. No dynamic action schema expansion is provided in SSOT static mode.",
-      },
-      minimal_valid_payload_template: pickMinimalTemplateFromExamples(record),
-      schema_ref: {
-        tool: "get_tool_schema",
-        mode: "ssot_static_artifact",
-      },
-      message:
-        "Dynamic contract synthesis is deprecated. Returning static SSOT contract view from compiled artifacts.",
-    },
-  };
+  return buildWriteContractBundleView(requestBody);
 }
 
 module.exports = {

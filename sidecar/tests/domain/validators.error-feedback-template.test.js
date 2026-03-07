@@ -8,17 +8,18 @@ const {
   FIXED_ERROR_SUGGESTION_BY_CODE,
 } = require("../../src/domain/validators");
 
-test("enforceFixedErrorSuggestion hard-fixes stale snapshot suggestion", () => {
+test("enforceFixedErrorSuggestion is passthrough when no fixed map is configured", () => {
   const outcome = enforceFixedErrorSuggestion(
     "E_STALE_SNAPSHOT",
     "custom stale suggestion"
   );
 
-  assert.equal(outcome.suggestion, FIXED_ERROR_SUGGESTION_BY_CODE.E_STALE_SNAPSHOT);
-  assert.equal(outcome.enforced, true);
+  assert.deepEqual(FIXED_ERROR_SUGGESTION_BY_CODE, {});
+  assert.equal(outcome.suggestion, "custom stale suggestion");
+  assert.equal(outcome.enforced, false);
 });
 
-test("enforceFixedErrorSuggestion keeps non-fixed error suggestions", () => {
+test("enforceFixedErrorSuggestion trims suggestion text", () => {
   const outcome = enforceFixedErrorSuggestion(
     "E_INTERNAL",
     "  keep this suggestion  "

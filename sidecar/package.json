@@ -23,6 +23,8 @@
     "metrics:v1-polish:report": "node scripts/generate-v1-polish-primitive-report.js",
     "metrics:v1-polish:report:ci": "node scripts/generate-v1-polish-primitive-report.js --ci --top 20 --min-count 2",
     "metrics:r20:governance": "node scripts/generate-r20-ux-governance-baseline.js",
+    "metrics:g1:baseline": "node scripts/generate-g1-baseline-report.js",
+    "metrics:g1:priority": "node scripts/generate-g1-tool-priority-freeze.js",
     "metrics:step8": "node scripts/step8-quality-gate.js --skip-matrix",
     "mcp:server": "node src/mcp/mcpServer.js",
     "mcp:setup-cursor": "node scripts/setup-cursor-mcp.js",

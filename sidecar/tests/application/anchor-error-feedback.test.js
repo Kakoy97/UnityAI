@@ -11,10 +11,24 @@ const {
 const {
   ANCHOR_RETRY_SUGGESTION,
   OCC_STALE_SNAPSHOT_SUGGESTION,
-} = require("../../src/application/turnPolicies");
+  getErrorFeedbackContractSnapshot,
+} = require("../../src/application/errorFeedback/errorFeedbackTemplateRegistry");
 
 test.beforeEach(() => {
   resetMcpErrorFeedbackMetrics();
+});
+
+test("error feedback template registry is contract-backed", () => {
+  const snapshot = getErrorFeedbackContractSnapshot();
+  assert.equal(
+    Array.isArray(snapshot.anchor_error_codes),
+    true
+  );
+  assert.equal(
+    snapshot.anchor_error_codes.includes("E_TARGET_ANCHOR_CONFLICT"),
+    true
+  );
+  assert.equal(snapshot.template_count > 0, true);
 });
 
 test("anchor schema errors return unified suggestion and recoverable=true", () => {
@@ -39,6 +53,41 @@ test("anchor conflict errors return unified suggestion and recoverable=true", ()
   assert.equal(outcome.recoverable, true);
   assert.equal(outcome.suggestion, ANCHOR_RETRY_SUGGESTION);
   assert.equal(outcome.status, "rejected");
+});
+
+test("anchor conflict feedback exposes deterministic candidate diagnostics", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_TARGET_ANCHOR_CONFLICT",
+    message: "target_path and target_object_id resolve to different objects",
+    tool_name: "modify_ui_layout",
+    data: {
+      ambiguity_kind: "path_object_id_mismatch",
+      resolved_candidates_count: 2,
+      path_candidate_path: "Scene/Canvas/ImageContainerA",
+      path_candidate_object_id: "GlobalObjectId_V1-2-aaa-0",
+      object_id_candidate_path: "Scene/Canvas/ImageContainerB",
+      object_id_candidate_object_id: "GlobalObjectId_V1-2-bbb-0",
+    },
+    context: {
+      stage: "during_dispatch",
+    },
+  });
+
+  assert.equal(outcome.error_code, "E_TARGET_ANCHOR_CONFLICT");
+  assert.equal(outcome.suggested_action, "get_hierarchy_subtree");
+  assert.equal(outcome.ambiguity_kind, "path_object_id_mismatch");
+  assert.equal(outcome.resolved_candidates_count, 2);
+  assert.equal(Array.isArray(outcome.fix_steps), true);
+  assert.equal(outcome.fix_steps.length >= 3, true);
+  assert.equal(outcome.fix_steps[0].tool, "get_hierarchy_subtree");
+  assert.equal(outcome.fix_steps[2].tool, "modify_ui_layout");
+  assert.equal(Array.isArray(outcome.anchor_conflict_candidates), true);
+  assert.equal(outcome.anchor_conflict_candidates.length, 2);
+  assert.equal(outcome.anchor_conflict_candidates[0].source, "path_anchor");
+  assert.equal(
+    outcome.anchor_conflict_candidates[1].source,
+    "object_id_anchor"
+  );
 });
 
 test("E_STALE_SNAPSHOT suggestion is fixed and exact", () => {
@@ -113,6 +162,20 @@ test("auto-cancel errors use standardized feedback and hide stack payloads", () 
   }
 });
 
+test("unknown timeout errors use template-registry fallback (no legacy map override)", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_UNKNOWN_TIMEOUT",
+    error_message: "request timeout while calling unity bridge",
+  });
+
+  assert.equal(outcome.error_code, "E_UNKNOWN_TIMEOUT");
+  assert.equal(outcome.recoverable, false);
+  assert.equal(
+    String(outcome.suggestion || "").toLowerCase().includes("timeout"),
+    true
+  );
+});
+
 test("error message sanitizer strips multiline stack frames and absolute paths", () => {
   const outcome = withMcpErrorFeedback({
     error_code: "E_INTERNAL",
@@ -156,6 +219,68 @@ test("R20-UX-GOV-04 async conflict feedback enforces polling to terminal", () =>
   );
   assert.equal(
     String(outcome.suggestion || "").includes("succeeded/failed/cancelled"),
+    true
+  );
+});
+
+test("structured guidance includes actionable fields for scene revision drift", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_SCENE_REVISION_DRIFT",
+    message: "scene revision drift",
+    tool_name: "execute_unity_transaction",
+    context: {
+      stage: "after_write",
+      previous_operation: "create_object",
+      scene_revision_changed: true,
+    },
+  });
+
+  assert.equal(outcome.error_code, "E_SCENE_REVISION_DRIFT");
+  assert.equal(outcome.suggested_action, "get_scene_snapshot_for_write");
+  assert.equal(outcome.suggested_tool, "get_scene_snapshot_for_write");
+  assert.equal(
+    String(outcome.fix_hint || "").includes("Refresh read token"),
+    true
+  );
+  assert.equal(
+    String(outcome.contextual_hint || "").includes("Write advanced scene revision"),
+    true
+  );
+  assert.equal(outcome.context_missing, false);
+  assert.deepEqual(outcome.missing_fields, []);
+});
+
+test("structured guidance downgrades when required context is missing", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_SCENE_REVISION_DRIFT",
+    message: "scene revision drift",
+    context: {
+      stage: "after_write",
+    },
+  });
+
+  assert.equal(outcome.error_code, "E_SCENE_REVISION_DRIFT");
+  assert.equal(outcome.suggested_action, "get_scene_snapshot_for_write");
+  assert.equal(outcome.context_missing, true);
+  assert.equal(
+    Array.isArray(outcome.missing_fields) &&
+      outcome.missing_fields.includes("scene_revision_changed"),
+    true
+  );
+  assert.equal(String(outcome.warning || "").length > 0, true);
+});
+
+test("transaction ref path invalid exposes contract-guided fix action", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_TRANSACTION_REF_PATH_INVALID",
+    message: "transaction alias path is not allowed",
+  });
+
+  assert.equal(outcome.error_code, "E_TRANSACTION_REF_PATH_INVALID");
+  assert.equal(outcome.suggested_action, "get_write_contract_bundle");
+  assert.equal(outcome.suggested_tool, "get_write_contract_bundle");
+  assert.equal(
+    String(outcome.fix_hint || "").includes("alias.field"),
     true
   );
 });

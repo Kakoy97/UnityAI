@@ -128,3 +128,47 @@ test("emitDtosCs keeps non-transaction open-shape objects as string", () => {
   assert.match(output, /public string payload;/);
   assert.doesNotMatch(output, /public Dictionary<string, object> payload;/);
 });
+
+test("emitDtosCs emits create-family global contract constants from definitions", () => {
+  const output = emitDtosCs({
+    version: 1,
+    _definitions: {
+      create_family: {
+        pre_check_policy: {
+          check_existing: true,
+          on_conflict: "suffix",
+          return_candidates: true,
+          policy_field: "name_collision_policy",
+        },
+      },
+      ambiguity_resolution_policy_contract: {
+        name_collision: {
+          allowed_policies: ["fail", "suffix", "reuse"],
+          default_policy: "fail",
+        },
+      },
+    },
+    tools: [
+      {
+        name: "create_object",
+        input: {
+          type: "object",
+          properties: {
+            new_object_name: { type: "string" },
+            name_collision_policy: {
+              type: "string",
+              enum: ["fail", "suffix", "reuse"],
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  assert.match(output, /public static class SsotCreateFamilyContract/);
+  assert.match(output, /public const bool PreCheckEnabled = true;/);
+  assert.match(output, /public const string DefaultOnConflict = "suffix";/);
+  assert.match(output, /public const string PolicyField = "name_collision_policy";/);
+  assert.match(output, /public static readonly string\[\] AllowedOnConflictPolicies = new\[] \{ "fail", "suffix", "reuse" \};/);
+  assert.match(output, /public string name_collision_policy;/);
+});
