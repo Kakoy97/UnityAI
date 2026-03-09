@@ -857,6 +857,97 @@ function validatePropertyPathRules(value, label) {
   }
 }
 
+function validateUxContractAutofillPolicyEntry(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  assertNonEmptyString(value.field, `${label}.field`);
+  assertEnum(
+    value.strategy,
+    [
+      "default_if_missing",
+      "generate_if_missing",
+      "copy_if_missing",
+      "copy_from_context_if_missing",
+    ],
+    `${label}.strategy`
+  );
+  if (value.strategy === "default_if_missing") {
+    if (!Object.prototype.hasOwnProperty.call(value, "value")) {
+      throw new Error(`${label}.value is required for default_if_missing`);
+    }
+  }
+  if (value.strategy === "copy_if_missing") {
+    assertNonEmptyString(value.source_field, `${label}.source_field`);
+  }
+  if (value.strategy === "copy_from_context_if_missing") {
+    assertStringArray(value.context_priority, `${label}.context_priority`);
+    if (value.context_priority.length <= 0) {
+      throw new Error(
+        `${label}.context_priority must be non-empty for copy_from_context_if_missing`
+      );
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "conditions")) {
+    if (!isPlainObject(value.conditions)) {
+      throw new Error(`${label}.conditions must be an object`);
+    }
+    if (Object.prototype.hasOwnProperty.call(value.conditions, "block_type_in")) {
+      assertStringArray(value.conditions.block_type_in, `${label}.conditions.block_type_in`);
+      if (value.conditions.block_type_in.length <= 0) {
+        throw new Error(`${label}.conditions.block_type_in must be non-empty`);
+      }
+    }
+  }
+}
+
+function validateUxContract(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  assertNonEmptyString(value.domain, `${label}.domain`);
+  assertStringArray(value.block_type_enum, `${label}.block_type_enum`);
+  if (value.block_type_enum.length <= 0) {
+    throw new Error(`${label}.block_type_enum must be non-empty`);
+  }
+  assertStringArray(
+    value.required_business_fields,
+    `${label}.required_business_fields`
+  );
+  assertStringArray(value.system_fields, `${label}.system_fields`);
+  assertStringArray(value.auto_filled_fields, `${label}.auto_filled_fields`);
+  if (
+    !Object.prototype.hasOwnProperty.call(value, "minimal_valid_template") ||
+    !isPlainObject(value.minimal_valid_template)
+  ) {
+    throw new Error(`${label}.minimal_valid_template must be an object`);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "common_aliases")) {
+    if (!isPlainObject(value.common_aliases)) {
+      throw new Error(`${label}.common_aliases must be an object`);
+    }
+    for (const [canonicalField, aliases] of Object.entries(value.common_aliases)) {
+      assertNonEmptyString(canonicalField, `${label}.common_aliases.<canonical_field>`);
+      assertStringArray(aliases, `${label}.common_aliases.${canonicalField}`);
+      if (aliases.length <= 0) {
+        throw new Error(`${label}.common_aliases.${canonicalField} must be non-empty`);
+      }
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "autofill_policy")) {
+    if (!isPlainObject(value.autofill_policy)) {
+      throw new Error(`${label}.autofill_policy must be an object`);
+    }
+    for (const [policyName, policy] of Object.entries(value.autofill_policy)) {
+      assertNonEmptyString(policyName, `${label}.autofill_policy.<policy_name>`);
+      validateUxContractAutofillPolicyEntry(
+        policy,
+        `${label}.autofill_policy.${policyName}`
+      );
+    }
+  }
+}
+
 function detectRelatedToolCycles(graph) {
   const stateByNode = new Map();
   const stack = [];
@@ -1061,6 +1152,12 @@ function validateDictionaryShape(dictionary) {
       validatePropertyPathRules(
         tool.property_path_rules,
         `tools[${index}](${tool.name.trim()}).property_path_rules`
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(tool, "ux_contract")) {
+      validateUxContract(
+        tool.ux_contract,
+        `tools[${index}](${tool.name.trim()}).ux_contract`
       );
     }
     if (

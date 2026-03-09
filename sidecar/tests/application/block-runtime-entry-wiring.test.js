@@ -12,6 +12,7 @@ function createService({
   blockBypassRouter,
   blockForceSingleStep,
   blockVerifyRecoveryEnabled,
+  plannerUxMetricsCollector,
 }) {
   const turnStore = new TurnStore({
     maintenanceIntervalMs: 60000,
@@ -24,6 +25,12 @@ function createService({
     blockBypassRouter: blockBypassRouter !== false,
     blockForceSingleStep: blockForceSingleStep === true,
     blockVerifyRecoveryEnabled: blockVerifyRecoveryEnabled === true,
+    plannerUxMetricsCollector:
+      plannerUxMetricsCollector &&
+      typeof plannerUxMetricsCollector.recordAttempt === "function" &&
+      typeof plannerUxMetricsCollector.getSnapshot === "function"
+        ? plannerUxMetricsCollector
+        : undefined,
     fileActionExecutor: {
       execute() {
         return {
@@ -107,6 +114,21 @@ test("S2B-T1 executeBlockSpecForMvp rejects missing block_spec", async () => {
   const outcome = await service.executeBlockSpecForMvp({});
   assert.equal(outcome.statusCode, 400);
   assert.equal(outcome.body.error_code, "E_SCHEMA_INVALID");
+  assert.equal(Array.isArray(outcome.body.missing_fields), true);
+  assert.equal(outcome.body.missing_fields.includes("block_spec"), true);
+  assert.equal(typeof outcome.body.data.planner_entry_repair, "object");
+  assert.equal(
+    Array.isArray(outcome.body.data.planner_entry_repair.block_type_enum),
+    true
+  );
+  assert.equal(
+    outcome.body.data.planner_entry_repair.block_type_enum.includes("MUTATE"),
+    true
+  );
+  assert.equal(
+    typeof outcome.body.data.planner_entry_repair.minimal_valid_template,
+    "object"
+  );
 });
 
 test("PLNR-003 executeBlockSpecForMvp accepts block_spec.family_key and translates to intent_key", async () => {
@@ -189,6 +211,242 @@ test("PLNR-003 executeBlockSpecForMvp accepts block_spec.legacy_concrete_key and
   assert.equal(
     outcome.body.data.execution_meta.mapping_meta.legacy_concrete_key,
     "set_active"
+  );
+});
+
+test("Step7 executeBlockSpecForMvp returns intent_key repair hints when intent source fields are missing", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+  });
+
+  const blockSpec = buildReadBlockSpec();
+  delete blockSpec.intent_key;
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: blockSpec,
+  });
+
+  assert.equal(outcome.statusCode, 400);
+  assert.equal(outcome.body.error_code, "E_SCHEMA_INVALID");
+  assert.equal(outcome.body.suggested_tool, "get_tool_schema");
+  assert.equal(Array.isArray(outcome.body.missing_fields), true);
+  assert.equal(outcome.body.missing_fields.includes("block_spec.intent_key"), true);
+  assert.equal(outcome.body.missing_fields.includes("block_spec.family_key"), true);
+  assert.equal(
+    outcome.body.missing_fields.includes("block_spec.legacy_concrete_key"),
+    true
+  );
+  assert.equal(typeof outcome.body.data.planner_entry_repair, "object");
+  assert.equal(
+    typeof outcome.body.data.planner_entry_repair.common_aliases,
+    "object"
+  );
+});
+
+test("Step5 executeBlockSpecForMvp normalizes aliases and autofills write envelope before dispatch", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+  });
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        status: "succeeded",
+        data: {
+          scene_revision: "ssot_rev_entry_step5_alias",
+          read_token_candidate: "ssot_rt_entry_step5_alias",
+        },
+      },
+    };
+  };
+
+  const aliasBlockSpec = buildWriteBlockSpec();
+  delete aliasBlockSpec.block_type;
+  aliasBlockSpec.type = "MUTATE";
+  delete aliasBlockSpec.intent_key;
+  aliasBlockSpec.intent = "mutate.set_active";
+  delete aliasBlockSpec.target_anchor;
+  aliasBlockSpec.target_object_id = "GlobalObjectId_V1-target";
+  aliasBlockSpec.target_path = "Scene/Canvas/Image";
+  aliasBlockSpec.write_envelope = {
+    mode: "execute",
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: aliasBlockSpec,
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].toolName, "set_active");
+  assert.equal(calls[0].payload.execution_mode, "execute");
+  assert.equal(typeof calls[0].payload.idempotency_key, "string");
+  assert.equal(calls[0].payload.idempotency_key.length >= 8, true);
+  assert.equal(
+    calls[0].payload.write_anchor_object_id,
+    "GlobalObjectId_V1-target"
+  );
+  assert.equal(calls[0].payload.write_anchor_path, "Scene/Canvas/Image");
+  assert.equal(
+    Array.isArray(outcome.body.data.planner_entry_normalization.alias_hits),
+    true
+  );
+  assert.equal(
+    outcome.body.data.planner_entry_normalization.auto_filled_fields.some(
+      (item) => item.field === "block_spec.write_envelope.idempotency_key"
+    ),
+    true
+  );
+});
+
+test("Step8 executeBlockSpecForMvp records planner ux metrics for success and before_dispatch failure", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    plannerUxMetricsCollector: collector,
+  });
+  service.dispatchSsotToolForMcp = async () => ({
+    statusCode: 200,
+    body: {
+      ok: true,
+      status: "succeeded",
+      data: {
+        scene_revision: "ssot_rev_entry_step8_metric",
+        read_token_candidate: "ssot_rt_entry_step8_metric",
+      },
+    },
+  });
+
+  const aliasBlockSpec = buildWriteBlockSpec();
+  delete aliasBlockSpec.block_type;
+  aliasBlockSpec.type = "MUTATE";
+  delete aliasBlockSpec.intent_key;
+  aliasBlockSpec.intent = "mutate.set_active";
+  delete aliasBlockSpec.target_anchor;
+  aliasBlockSpec.target_object_id = "GlobalObjectId_V1-target";
+  aliasBlockSpec.target_path = "Scene/Canvas/Image";
+  aliasBlockSpec.write_envelope = {
+    mode: "execute",
+  };
+
+  const successOutcome = await service.executeBlockSpecForMvp({
+    block_spec: aliasBlockSpec,
+  });
+  assert.equal(successOutcome.statusCode, 200);
+
+  const failOutcome = await service.executeBlockSpecForMvp({});
+  assert.equal(failOutcome.statusCode, 400);
+
+  assert.equal(metricEvents.length, 2);
+  assert.equal(metricEvents[0].success, true);
+  assert.equal(metricEvents[0].failure_stage, "none");
+  assert.equal(Array.isArray(metricEvents[0].normalization_meta.alias_hits), true);
+  assert.equal(metricEvents[0].normalization_meta.alias_hits.length > 0, true);
+  assert.equal(
+    Array.isArray(metricEvents[0].normalization_meta.auto_filled_fields),
+    true
+  );
+  assert.equal(
+    metricEvents[0].normalization_meta.auto_filled_fields.length > 0,
+    true
+  );
+  assert.equal(metricEvents[1].success, false);
+  assert.equal(metricEvents[1].failure_stage, "before_dispatch");
+  assert.equal(metricEvents[1].error_code, "E_SCHEMA_INVALID");
+});
+
+test("Step5 executeBlockSpecForMvp does not autofill based_on_read_token in phase1", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+  });
+  service.dispatchSsotToolForMcp = async () => {
+    throw new Error("dispatch should not be called without based_on_read_token");
+  };
+
+  const blockSpec = buildWriteBlockSpec();
+  delete blockSpec.based_on_read_token;
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: blockSpec,
+  });
+
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(outcome.body.error_code, "E_SCHEMA_INVALID");
+  assert.equal(
+    outcome.body.message.includes("based_on_read_token"),
+    true
+  );
+  assert.equal(
+    outcome.body.data.planner_entry_normalization.auto_filled_fields.some(
+      (item) => item.field === "block_spec.based_on_read_token"
+    ),
+    false
+  );
+  assert.equal(Array.isArray(outcome.body.missing_fields), true);
+  assert.equal(
+    outcome.body.missing_fields.includes("block_spec.based_on_read_token"),
+    true
+  );
+  const tokenFieldHint = Array.isArray(
+    outcome.body.data.planner_entry_repair.missing_field_hints
+  )
+    ? outcome.body.data.planner_entry_repair.missing_field_hints.find(
+        (item) => item.field === "block_spec.based_on_read_token"
+      )
+    : null;
+  assert.equal(!!tokenFieldHint, true);
+  assert.equal(tokenFieldHint.auto_fillable, false);
+});
+
+test("Step7 executeBlockSpecForMvp returns target_anchor repair hints for write blocks", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+  });
+  service.dispatchSsotToolForMcp = async () => {
+    throw new Error("dispatch should not be called when target_anchor is missing");
+  };
+
+  const blockSpec = buildWriteBlockSpec();
+  delete blockSpec.target_anchor;
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: blockSpec,
+  });
+
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(outcome.body.error_code, "E_SCHEMA_INVALID");
+  assert.equal(Array.isArray(outcome.body.missing_fields), true);
+  assert.equal(
+    outcome.body.missing_fields.includes("block_spec.target_anchor.object_id"),
+    true
+  );
+  assert.equal(
+    outcome.body.missing_fields.includes("block_spec.target_anchor.path"),
+    true
+  );
+  assert.equal(typeof outcome.body.data.planner_entry_repair, "object");
+  assert.equal(
+    Array.isArray(outcome.body.data.planner_entry_repair.auto_filled_fields),
+    true
+  );
+  assert.equal(
+    outcome.body.data.planner_entry_repair.auto_filled_fields.includes(
+      "block_spec.write_envelope.execution_mode"
+    ),
+    true
   );
 });
 

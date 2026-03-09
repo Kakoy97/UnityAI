@@ -58,7 +58,23 @@ test("get_write_contract_bundle returns static contract payload for SSOT write t
     Array.isArray(outcome.body.required_fields),
     true
   );
+  assert.equal(Array.isArray(outcome.body.required_business_fields), true);
+  assert.equal(Array.isArray(outcome.body.system_fields), true);
+  assert.equal(Array.isArray(outcome.body.auto_filled_fields), true);
+  assert.equal(typeof outcome.body.minimal_valid_template, "object");
+  assert.equal(typeof outcome.body.common_aliases, "object");
   assert.equal(outcome.body.required_fields.includes("target_path"), true);
+  assert.equal(outcome.body.required_business_fields.includes("target_path"), true);
+  assert.equal(outcome.body.required_business_fields.includes("anchored_x"), true);
+  assert.equal(outcome.body.system_fields.includes("execution_mode"), true);
+  assert.equal(outcome.body.system_fields.includes("idempotency_key"), true);
+  assert.equal(outcome.body.system_fields.includes("based_on_read_token"), true);
+  assert.equal(outcome.body.auto_filled_fields.length, 0);
+  assert.equal(
+    outcome.body.minimal_valid_template.target_path,
+    "Scene/Canvas/Button"
+  );
+  assert.equal(Object.keys(outcome.body.common_aliases).length, 0);
   assert.ok(outcome.body.write_envelope_contract);
   assert.equal(outcome.body.write_envelope_contract.mode, "static");
   assert.ok(outcome.body.minimal_valid_payload_template);

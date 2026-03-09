@@ -70,6 +70,10 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
 function normalizeDefinitionRef(value) {
   if (typeof value !== "string") {
     return value;
@@ -183,6 +187,199 @@ function buildToolInputSchema(toolInput, rawDefinitions) {
   return outputSchema;
 }
 
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+function buildPlannerBlockSpecHint(uxContract) {
+  const blockTypeEnum = normalizeStringArray(
+    uxContract && uxContract.block_type_enum
+  );
+  const blockTypeHint =
+    blockTypeEnum.length > 0 ? ` Allowed values: ${blockTypeEnum.join(", ")}.` : "";
+  return (
+    "Planner block payload. Minimal recommended fields: block_id, block_type, intent_key, input." +
+    " For write-like blocks, provide target_anchor, based_on_read_token, write_envelope." +
+    blockTypeHint
+  );
+}
+
+function augmentPlannerEntrySchema(schema, uxContract) {
+  if (!isPlainObject(schema)) {
+    return schema;
+  }
+  if (!isPlainObject(schema.properties)) {
+    schema.properties = {};
+  }
+  const properties = schema.properties;
+  const minimalTemplate = isPlainObject(uxContract && uxContract.minimal_valid_template)
+    ? cloneJson(uxContract.minimal_valid_template)
+    : null;
+  const minimalBlockSpec = minimalTemplate && isPlainObject(minimalTemplate.block_spec)
+    ? cloneJson(minimalTemplate.block_spec)
+    : null;
+  const blockTypeEnum = normalizeStringArray(uxContract && uxContract.block_type_enum);
+
+  if (minimalTemplate && !Array.isArray(schema.examples)) {
+    schema.examples = [minimalTemplate];
+  }
+
+  const blockSpec = isPlainObject(properties.block_spec)
+    ? properties.block_spec
+    : { type: "object", minProperties: 1 };
+  if (!isPlainObject(blockSpec.properties)) {
+    blockSpec.properties = {};
+  }
+  if (typeof blockSpec.description !== "string" || !blockSpec.description.trim()) {
+    blockSpec.description = buildPlannerBlockSpecHint(uxContract);
+  }
+  if (minimalBlockSpec && !Array.isArray(blockSpec.examples)) {
+    blockSpec.examples = [minimalBlockSpec];
+  }
+
+  const blockProps = blockSpec.properties;
+  if (!isPlainObject(blockProps.block_id)) {
+    blockProps.block_id = {
+      type: "string",
+      minLength: 1,
+      description: "Block id for tracing and response correlation.",
+    };
+  }
+  if (!isPlainObject(blockProps.block_type)) {
+    blockProps.block_type = {
+      type: "string",
+      description: "Block category in planner runtime.",
+    };
+  }
+  if (blockTypeEnum.length > 0) {
+    blockProps.block_type.enum = blockTypeEnum;
+    blockProps.block_type.case_insensitive = true;
+  }
+  if (!isPlainObject(blockProps.intent_key)) {
+    blockProps.intent_key = {
+      type: "string",
+      minLength: 1,
+      description:
+        "Planner intent key. Legacy aliases family_key/legacy_concrete_key may still be translated by runtime.",
+    };
+  }
+  if (!isPlainObject(blockProps.input)) {
+    blockProps.input = {
+      type: "object",
+      description: "Intent-specific business payload.",
+    };
+  }
+  if (!isPlainObject(blockProps.target_anchor)) {
+    blockProps.target_anchor = {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        object_id: {
+          type: "string",
+          minLength: 1,
+        },
+        path: {
+          type: "string",
+          minLength: 1,
+        },
+      },
+      description: "Explicit target anchor for create/mutate blocks.",
+    };
+  }
+  if (!isPlainObject(blockProps.based_on_read_token)) {
+    blockProps.based_on_read_token = {
+      type: "string",
+      minLength: 1,
+      description:
+        "Explicit read token for OCC validation on write blocks. Not auto-filled in Phase1.",
+    };
+  }
+  if (!isPlainObject(blockProps.write_envelope)) {
+    blockProps.write_envelope = {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        execution_mode: {
+          type: "string",
+          enum: ["validate", "execute"],
+          case_insensitive: true,
+        },
+        idempotency_key: {
+          type: "string",
+          minLength: 8,
+        },
+        write_anchor_object_id: {
+          type: "string",
+          minLength: 1,
+        },
+        write_anchor_path: {
+          type: "string",
+          minLength: 1,
+        },
+      },
+      description:
+        "Write protocol envelope. Minimal fields listed above; some may be auto-filled by normalizer in later steps.",
+    };
+  }
+
+  if (isPlainObject(properties.execution_context)) {
+    if (
+      typeof properties.execution_context.description !== "string" ||
+      !properties.execution_context.description.trim()
+    ) {
+      properties.execution_context.description =
+        "Planner execution context (shape/runtime hints).";
+    }
+  }
+  if (isPlainObject(properties.plan_initial_read_token)) {
+    if (
+      typeof properties.plan_initial_read_token.description !== "string" ||
+      !properties.plan_initial_read_token.description.trim()
+    ) {
+      properties.plan_initial_read_token.description =
+        "Optional initial read token candidate carried by planner context.";
+    }
+  }
+  if (isPlainObject(properties.previous_read_token_candidate)) {
+    if (
+      typeof properties.previous_read_token_candidate.description !== "string" ||
+      !properties.previous_read_token_candidate.description.trim()
+    ) {
+      properties.previous_read_token_candidate.description =
+        "Optional previous read token candidate from last successful write chain.";
+    }
+  }
+  if (isPlainObject(properties.transaction_read_token_candidate)) {
+    if (
+      typeof properties.transaction_read_token_candidate.description !== "string" ||
+      !properties.transaction_read_token_candidate.description.trim()
+    ) {
+      properties.transaction_read_token_candidate.description =
+        "Optional transaction-level read token candidate for chained write planning.";
+    }
+  }
+
+  properties.block_spec = blockSpec;
+  return schema;
+}
+
+function augmentInputSchemaForUxContract(schema, tool) {
+  if (!isPlainObject(schema) || !isPlainObject(tool) || !isPlainObject(tool.ux_contract)) {
+    return schema;
+  }
+  const uxContract = tool.ux_contract;
+  const domain = typeof uxContract.domain === "string" ? uxContract.domain.trim() : "";
+  if (domain === "planner_entry") {
+    return augmentPlannerEntrySchema(schema, uxContract);
+  }
+  return schema;
+}
+
 function projectGlobalContracts(definitions) {
   const source =
     definitions && typeof definitions === "object" && !Array.isArray(definitions)
@@ -234,9 +431,12 @@ function emitMcpToolsJson(dictionary) {
           : normalizeTokenFamily(tool.token_family, tool.kind || "write") !==
             "local_static_no_token",
       description: tool.description || "",
-      inputSchema: buildToolInputSchema(
-        tool && typeof tool === "object" ? tool.input : null,
-        definitions
+      inputSchema: augmentInputSchemaForUxContract(
+        buildToolInputSchema(
+          tool && typeof tool === "object" ? tool.input : null,
+          definitions
+        ),
+        tool
       ),
       examples: Array.isArray(tool.examples) ? tool.examples.map(projectExample) : [],
       tool_priority: normalizeToolPriority(tool.tool_priority),
@@ -267,6 +467,11 @@ function emitMcpToolsJson(dictionary) {
         !Array.isArray(tool.property_path_rules)
           ? cloneJson(tool.property_path_rules)
           : null,
+      ...((tool.ux_contract &&
+        typeof tool.ux_contract === "object" &&
+        !Array.isArray(tool.ux_contract))
+        ? { ux_contract: cloneJson(tool.ux_contract) }
+        : {}),
       high_frequency_properties:
         tool.high_frequency_properties &&
         typeof tool.high_frequency_properties === "object" &&

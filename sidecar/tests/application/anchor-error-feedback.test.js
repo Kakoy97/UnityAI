@@ -284,3 +284,22 @@ test("transaction ref path invalid exposes contract-guided fix action", () => {
     true
   );
 });
+
+test("source fix_steps are used when structured guidance has no steps", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_SCHEMA_INVALID",
+    message: "planner schema invalid",
+    fix_steps: [
+      {
+        step: 1,
+        step_id: "inspect_schema",
+        tool: "get_tool_schema",
+      },
+    ],
+  });
+
+  assert.equal(Array.isArray(outcome.fix_steps), true);
+  assert.equal(outcome.fix_steps.length, 1);
+  assert.equal(outcome.fix_steps[0].tool, "get_tool_schema");
+  assert.equal(outcome.fix_steps[0].step_id, "inspect_schema");
+});

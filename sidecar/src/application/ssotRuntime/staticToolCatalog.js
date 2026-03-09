@@ -308,6 +308,12 @@ function normalizeToolRecord(entry, index, sourceLabel) {
       !Array.isArray(record.property_path_rules)
         ? cloneJson(record.property_path_rules)
         : null,
+    ux_contract:
+      record.ux_contract &&
+      typeof record.ux_contract === "object" &&
+      !Array.isArray(record.ux_contract)
+        ? cloneJson(record.ux_contract)
+        : null,
     high_frequency_properties:
       record.high_frequency_properties &&
       typeof record.high_frequency_properties === "object" &&

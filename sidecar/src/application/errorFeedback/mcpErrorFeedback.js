@@ -236,8 +236,9 @@ function withMcpErrorFeedback(body) {
   const contextMissing =
     guidance.context_missing === true || source.context_missing === true;
   const warning = normalizeOptionalString(guidance.warning || source.warning);
+  const guidanceFixSteps = Array.isArray(guidance.fix_steps) ? guidance.fix_steps : [];
   const fixSteps = normalizeFixSteps(
-    Array.isArray(guidance.fix_steps) ? guidance.fix_steps : source.fix_steps
+    guidanceFixSteps.length > 0 ? guidanceFixSteps : source.fix_steps
   );
   const failedStepIndex = firstOptionalNumber(
     source.failed_step_index,

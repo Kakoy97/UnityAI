@@ -49,6 +49,38 @@ test("get_tool_schema returns static SSOT schema view for preflight tool", async
   assert.equal(outcome.body.required_fields.includes("payload"), true);
 });
 
+test("get_tool_schema exposes planner entry schema hints for minimal block request", async () => {
+  const registry = getMcpCommandRegistry();
+  const outcome = await dispatchBodyCommand(
+    registry,
+    "/mcp/get_tool_schema",
+    {
+      tool_name: "planner_execute_mcp",
+    },
+    createMockTurnService()
+  );
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(outcome.body.tool_name, "planner_execute_mcp");
+  assert.equal(Array.isArray(outcome.body.input_schema.examples), true);
+  assert.equal(outcome.body.input_schema.examples.length > 0, true);
+  assert.equal(
+    outcome.body.input_schema.examples[0].block_spec.block_type,
+    "READ_STATE"
+  );
+  const blockSpec = outcome.body.input_schema.properties.block_spec;
+  assert.equal(typeof blockSpec.description, "string");
+  assert.equal(
+    Array.isArray(blockSpec.properties.block_type.enum),
+    true
+  );
+  assert.equal(
+    blockSpec.properties.block_type.enum.includes("MUTATE"),
+    true
+  );
+});
+
 test("get_tool_schema returns not found for unknown tool", async () => {
   const registry = getMcpCommandRegistry();
   const outcome = await dispatchBodyCommand(

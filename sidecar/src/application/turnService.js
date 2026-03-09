@@ -92,6 +92,9 @@ const {
 } = require("./blockRuntime/hooks");
 const {
   createPlannerEntryTranslator,
+  createPlannerEntryNormalizer,
+  createPlannerEntryErrorHintBuilder,
+  getPlannerUxMetricsCollectorSingleton,
   createInternalToolInvoker,
   createPlannerExitPolicy,
 } = require("./blockRuntime/entry");
@@ -421,6 +424,14 @@ class TurnService {
     this.blockRuntimeVerifyHook = null;
     this.blockRuntimeRecoveryHook = null;
     this.plannerEntryTranslator = null;
+    this.plannerEntryNormalizer = null;
+    this.plannerEntryErrorHintBuilder = null;
+    this.plannerUxMetricsCollector =
+      deps.plannerUxMetricsCollector &&
+      typeof deps.plannerUxMetricsCollector.recordAttempt === "function" &&
+      typeof deps.plannerUxMetricsCollector.getSnapshot === "function"
+        ? deps.plannerUxMetricsCollector
+        : getPlannerUxMetricsCollectorSingleton();
     this.internalToolInvoker = null;
     this.plannerExitPolicy =
       deps.plannerExitPolicy && typeof deps.plannerExitPolicy.evaluate === "function"
@@ -595,6 +606,84 @@ class TurnService {
     return this.plannerEntryTranslator;
   }
 
+  getPlannerEntryNormalizer() {
+    if (
+      this.plannerEntryNormalizer &&
+      typeof this.plannerEntryNormalizer.normalizePayload === "function"
+    ) {
+      return this.plannerEntryNormalizer;
+    }
+    this.plannerEntryNormalizer = createPlannerEntryNormalizer();
+    return this.plannerEntryNormalizer;
+  }
+
+  getPlannerEntryErrorHintBuilder() {
+    if (
+      this.plannerEntryErrorHintBuilder &&
+      typeof this.plannerEntryErrorHintBuilder.buildHints === "function"
+    ) {
+      return this.plannerEntryErrorHintBuilder;
+    }
+    this.plannerEntryErrorHintBuilder = createPlannerEntryErrorHintBuilder();
+    return this.plannerEntryErrorHintBuilder;
+  }
+
+  buildPlannerEntryErrorOverlay(input) {
+    const source =
+      input && typeof input === "object" && !Array.isArray(input) ? input : {};
+    const builder = this.getPlannerEntryErrorHintBuilder();
+    if (!builder || typeof builder.buildHints !== "function") {
+      return {
+        feedback_fields: {},
+        repair_data: {},
+      };
+    }
+    const hints = builder.buildHints({
+      error_code:
+        typeof source.error_code === "string" ? source.error_code : "",
+      error_message:
+        typeof source.error_message === "string" ? source.error_message : "",
+      error_details:
+        source.error_details &&
+        typeof source.error_details === "object" &&
+        !Array.isArray(source.error_details)
+          ? source.error_details
+          : {},
+    });
+    if (!hints || typeof hints !== "object" || Array.isArray(hints)) {
+      return {
+        feedback_fields: {},
+        repair_data: {},
+      };
+    }
+    return {
+      feedback_fields: {
+        ...(typeof hints.suggested_action === "string" && hints.suggested_action.trim()
+          ? { suggested_action: hints.suggested_action.trim() }
+          : {}),
+        ...(typeof hints.suggested_tool === "string" && hints.suggested_tool.trim()
+          ? { suggested_tool: hints.suggested_tool.trim() }
+          : {}),
+        ...(typeof hints.fix_hint === "string" && hints.fix_hint.trim()
+          ? { fix_hint: hints.fix_hint.trim() }
+          : {}),
+        ...(typeof hints.contextual_hint === "string" && hints.contextual_hint.trim()
+          ? { contextual_hint: hints.contextual_hint.trim() }
+          : {}),
+        ...(Array.isArray(hints.missing_fields)
+          ? { missing_fields: hints.missing_fields }
+          : {}),
+        ...(Array.isArray(hints.fix_steps) ? { fix_steps: hints.fix_steps } : {}),
+      },
+      repair_data:
+        hints.repair_payload &&
+        typeof hints.repair_payload === "object" &&
+        !Array.isArray(hints.repair_payload)
+          ? { planner_entry_repair: hints.repair_payload }
+          : {},
+    };
+  }
+
   getPlannerExitPolicy() {
     if (
       this.plannerExitPolicy &&
@@ -606,6 +695,16 @@ class TurnService {
       MCP_PLANNER_EXIT_POLICY_CONTRACT
     );
     return this.plannerExitPolicy;
+  }
+
+  recordPlannerEntryUxMetrics(input) {
+    const collector = this.plannerUxMetricsCollector;
+    if (!collector || typeof collector.recordAttempt !== "function") {
+      return;
+    }
+    const source =
+      input && typeof input === "object" && !Array.isArray(input) ? input : {};
+    collector.recordAttempt(source);
   }
 
   async runVerifyRecoveryHooksForBlock({
@@ -684,7 +783,34 @@ class TurnService {
     const payload =
       body && typeof body === "object" && !Array.isArray(body) ? body : {};
     const runtimeFlags = this.blockRuntimeFlags;
+    const defaultPlannerNormalizationMeta = {
+      normalizer_version: "",
+      rules_source: "none",
+      alias_hits: [],
+      auto_filled_fields: [],
+      generated_fields: [],
+    };
+    let plannerNormalizationMeta = { ...defaultPlannerNormalizationMeta };
+    let plannerUxMetricRecorded = false;
+    const recordPlannerUxMetricOnce = ({ success, failure_stage, error_code }) => {
+      if (plannerUxMetricRecorded) {
+        return;
+      }
+      this.recordPlannerEntryUxMetrics({
+        success: success === true,
+        failure_stage:
+          typeof failure_stage === "string" ? failure_stage : "unknown",
+        error_code: typeof error_code === "string" ? error_code : "",
+        normalization_meta: plannerNormalizationMeta,
+      });
+      plannerUxMetricRecorded = true;
+    };
     if (!runtimeFlags || runtimeFlags.pipeline_enabled !== true) {
+      recordPlannerUxMetricOnce({
+        success: false,
+        failure_stage: "before_dispatch",
+        error_code: "E_BLOCK_PIPELINE_DISABLED",
+      });
       return {
         statusCode: 409,
         body: withMcpErrorFeedback({
@@ -699,13 +825,105 @@ class TurnService {
         }),
       };
     }
+    const plannerEntryNormalizer = this.getPlannerEntryNormalizer();
+    const normalizationOutcome = plannerEntryNormalizer.normalizePayload(payload);
+    if (!normalizationOutcome || normalizationOutcome.ok !== true) {
+      const normalizedErrorCode =
+        normalizationOutcome &&
+        typeof normalizationOutcome.error_code === "string" &&
+        normalizationOutcome.error_code.trim()
+          ? normalizationOutcome.error_code.trim()
+          : "E_SCHEMA_INVALID";
+      const normalizedErrorMessage =
+        normalizationOutcome &&
+        typeof normalizationOutcome.error_message === "string" &&
+        normalizationOutcome.error_message.trim()
+          ? normalizationOutcome.error_message.trim()
+          : "planner entry payload normalization failed";
+      const normalizationDetails =
+        normalizationOutcome &&
+        normalizationOutcome.details &&
+        typeof normalizationOutcome.details === "object" &&
+        !Array.isArray(normalizationOutcome.details)
+          ? normalizationOutcome.details
+          : {};
+      const plannerRepairOverlay = this.buildPlannerEntryErrorOverlay({
+        error_code: normalizedErrorCode,
+        error_message: normalizedErrorMessage,
+        error_details: normalizationDetails,
+      });
+      plannerNormalizationMeta =
+        normalizationOutcome &&
+        normalizationOutcome.normalization_meta &&
+        typeof normalizationOutcome.normalization_meta === "object" &&
+        !Array.isArray(normalizationOutcome.normalization_meta)
+          ? normalizationOutcome.normalization_meta
+          : { ...defaultPlannerNormalizationMeta };
+      recordPlannerUxMetricOnce({
+        success: false,
+        failure_stage: "before_dispatch",
+        error_code: normalizedErrorCode,
+      });
+      return {
+        statusCode: 400,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: normalizedErrorCode,
+          message: normalizedErrorMessage,
+          tool_name: "planner_execute_mcp",
+          ...plannerRepairOverlay.feedback_fields,
+          data: {
+            planner_entry_normalization: {
+              ...(normalizationOutcome &&
+              normalizationOutcome.normalization_meta &&
+              typeof normalizationOutcome.normalization_meta === "object" &&
+              !Array.isArray(normalizationOutcome.normalization_meta)
+                ? normalizationOutcome.normalization_meta
+                : {}),
+              ...(Object.keys(normalizationDetails).length > 0
+                ? { error_details: normalizationDetails }
+                : {}),
+            },
+            ...plannerRepairOverlay.repair_data,
+          },
+          context: {
+            stage: "before_dispatch",
+            previous_operation: "normalize_planner_entry_payload",
+          },
+        }),
+      };
+    }
+    const normalizedPayload =
+      normalizationOutcome.payload &&
+      typeof normalizationOutcome.payload === "object" &&
+      !Array.isArray(normalizationOutcome.payload)
+        ? normalizationOutcome.payload
+        : payload;
+    plannerNormalizationMeta =
+      normalizationOutcome.normalization_meta &&
+      typeof normalizationOutcome.normalization_meta === "object" &&
+      !Array.isArray(normalizationOutcome.normalization_meta)
+        ? normalizationOutcome.normalization_meta
+        : { ...defaultPlannerNormalizationMeta };
     const rawBlockSpec =
-      payload.block_spec &&
-      typeof payload.block_spec === "object" &&
-      !Array.isArray(payload.block_spec)
-        ? payload.block_spec
+      normalizedPayload.block_spec &&
+      typeof normalizedPayload.block_spec === "object" &&
+      !Array.isArray(normalizedPayload.block_spec)
+        ? normalizedPayload.block_spec
         : null;
     if (!rawBlockSpec) {
+      const plannerRepairOverlay = this.buildPlannerEntryErrorOverlay({
+        error_code: "E_SCHEMA_INVALID",
+        error_message: "block_spec must be a plain object",
+        error_details: {
+          missing_fields: ["block_spec"],
+        },
+      });
+      recordPlannerUxMetricOnce({
+        success: false,
+        failure_stage: "before_dispatch",
+        error_code: "E_SCHEMA_INVALID",
+      });
       return {
         statusCode: 400,
         body: withMcpErrorFeedback({
@@ -713,6 +931,11 @@ class TurnService {
           error_code: "E_SCHEMA_INVALID",
           message: "block_spec must be a plain object",
           tool_name: "planner_execute_mcp",
+          ...plannerRepairOverlay.feedback_fields,
+          data: {
+            planner_entry_normalization: plannerNormalizationMeta,
+            ...plannerRepairOverlay.repair_data,
+          },
           context: {
             stage: "before_dispatch",
             previous_operation: "validate_block_spec",
@@ -724,33 +947,52 @@ class TurnService {
     const translationOutcome =
       plannerEntryTranslator.translateBlockSpec(rawBlockSpec);
     if (!translationOutcome || translationOutcome.ok !== true) {
+      const translationErrorCode =
+        translationOutcome &&
+        typeof translationOutcome.error_code === "string" &&
+        translationOutcome.error_code.trim()
+          ? translationOutcome.error_code.trim()
+          : "E_SCHEMA_INVALID";
+      const translationErrorMessage =
+        translationOutcome &&
+        typeof translationOutcome.error_message === "string" &&
+        translationOutcome.error_message.trim()
+          ? translationOutcome.error_message.trim()
+          : "planner entry translation failed";
+      const translationDetails =
+        translationOutcome &&
+        translationOutcome.details &&
+        typeof translationOutcome.details === "object" &&
+        !Array.isArray(translationOutcome.details)
+          ? translationOutcome.details
+          : {};
+      const plannerRepairOverlay = this.buildPlannerEntryErrorOverlay({
+        error_code: translationErrorCode,
+        error_message: translationErrorMessage,
+        error_details: translationDetails,
+      });
+      recordPlannerUxMetricOnce({
+        success: false,
+        failure_stage: "before_dispatch",
+        error_code: translationErrorCode,
+      });
       return {
         statusCode: 400,
         body: withMcpErrorFeedback({
           status: "failed",
-          error_code:
-            translationOutcome &&
-            typeof translationOutcome.error_code === "string" &&
-            translationOutcome.error_code.trim()
-              ? translationOutcome.error_code.trim()
-              : "E_SCHEMA_INVALID",
-          message:
-            translationOutcome &&
-            typeof translationOutcome.error_message === "string" &&
-            translationOutcome.error_message.trim()
-              ? translationOutcome.error_message.trim()
-              : "planner entry translation failed",
+          error_code: translationErrorCode,
+          message: translationErrorMessage,
           tool_name: "planner_execute_mcp",
-          ...(translationOutcome &&
-          translationOutcome.details &&
-          typeof translationOutcome.details === "object" &&
-          !Array.isArray(translationOutcome.details)
-            ? {
-                data: {
-                  planner_entry_translation: translationOutcome.details,
-                },
-              }
-            : {}),
+          ...plannerRepairOverlay.feedback_fields,
+          data: {
+            planner_entry_normalization: plannerNormalizationMeta,
+            ...(Object.keys(translationDetails).length > 0
+              ? {
+                  planner_entry_translation: translationDetails,
+                }
+              : {}),
+            ...plannerRepairOverlay.repair_data,
+          },
           context: {
             stage: "before_dispatch",
             previous_operation: "translate_planner_entry_payload",
@@ -761,34 +1003,34 @@ class TurnService {
     const blockSpec = translationOutcome.block_spec;
 
     const rawExecutionContext =
-      payload.execution_context &&
-      typeof payload.execution_context === "object" &&
-      !Array.isArray(payload.execution_context)
-        ? { ...payload.execution_context }
+      normalizedPayload.execution_context &&
+      typeof normalizedPayload.execution_context === "object" &&
+      !Array.isArray(normalizedPayload.execution_context)
+        ? { ...normalizedPayload.execution_context }
         : {};
     if (
       typeof rawExecutionContext.plan_initial_read_token !== "string" &&
-      typeof payload.plan_initial_read_token === "string" &&
-      payload.plan_initial_read_token.trim()
+      typeof normalizedPayload.plan_initial_read_token === "string" &&
+      normalizedPayload.plan_initial_read_token.trim()
     ) {
       rawExecutionContext.plan_initial_read_token =
-        payload.plan_initial_read_token.trim();
+        normalizedPayload.plan_initial_read_token.trim();
     }
     if (
       typeof rawExecutionContext.previous_read_token_candidate !== "string" &&
-      typeof payload.previous_read_token_candidate === "string" &&
-      payload.previous_read_token_candidate.trim()
+      typeof normalizedPayload.previous_read_token_candidate === "string" &&
+      normalizedPayload.previous_read_token_candidate.trim()
     ) {
       rawExecutionContext.previous_read_token_candidate =
-        payload.previous_read_token_candidate.trim();
+        normalizedPayload.previous_read_token_candidate.trim();
     }
     if (
       typeof rawExecutionContext.transaction_read_token_candidate !== "string" &&
-      typeof payload.transaction_read_token_candidate === "string" &&
-      payload.transaction_read_token_candidate.trim()
+      typeof normalizedPayload.transaction_read_token_candidate === "string" &&
+      normalizedPayload.transaction_read_token_candidate.trim()
     ) {
       rawExecutionContext.transaction_read_token_candidate =
-        payload.transaction_read_token_candidate.trim();
+        normalizedPayload.transaction_read_token_candidate.trim();
     }
     const contextApplied = applyBlockRuntimeFlagsToExecutionContext(
       runtimeFlags,
@@ -810,23 +1052,44 @@ class TurnService {
           routeResult && typeof routeResult.block_error_code === "string"
             ? routeResult.block_error_code.trim()
             : "";
+        const routeDetails =
+          routeResult &&
+          routeResult.details &&
+          typeof routeResult.details === "object" &&
+          !Array.isArray(routeResult.details)
+            ? routeResult.details
+            : {};
+        const routeMessage =
+          routeResult &&
+          typeof routeResult.message === "string" &&
+          routeResult.message.trim()
+            ? routeResult.message.trim()
+            : "Block router rejected route request";
+        const plannerRepairOverlay = this.buildPlannerEntryErrorOverlay({
+          error_code: errorCode,
+          error_message: routeMessage,
+          error_details: routeDetails,
+        });
+        recordPlannerUxMetricOnce({
+          success: false,
+          failure_stage: "before_dispatch",
+          error_code: errorCode,
+        });
         return {
           statusCode: errorCode === "E_SCHEMA_INVALID" ? 400 : 409,
           body: withMcpErrorFeedback({
             status: "failed",
             error_code: errorCode,
-            message:
-              routeResult &&
-              typeof routeResult.message === "string" &&
-              routeResult.message.trim()
-                ? routeResult.message.trim()
-                : "Block router rejected route request",
+            message: routeMessage,
             tool_name: "planner_execute_mcp",
+            ...plannerRepairOverlay.feedback_fields,
             ...(blockErrorCode ? { block_error_code: blockErrorCode } : {}),
             data: {
+              planner_entry_normalization: plannerNormalizationMeta,
               runtime_flags: runtimeFlags,
               route_result: routeResult || {},
               ...(blockErrorCode ? { block_error_code: blockErrorCode } : {}),
+              ...plannerRepairOverlay.repair_data,
             },
             context: {
               stage: "before_dispatch",
@@ -871,6 +1134,11 @@ class TurnService {
         });
       }
       if (blockResult && blockResult.status === "succeeded") {
+        recordPlannerUxMetricOnce({
+          success: true,
+          failure_stage: "none",
+          error_code: "",
+        });
         return {
           statusCode: 200,
           body: {
@@ -879,6 +1147,7 @@ class TurnService {
             query_type: "block.request",
             data: {
               ...blockResult,
+              planner_entry_normalization: plannerNormalizationMeta,
               runtime_flags: runtimeFlags,
               ...(routeResult ? { route_result: routeResult } : {}),
             },
@@ -890,12 +1159,13 @@ class TurnService {
       const plannerExitDecision =
         plannerExitPolicy && typeof plannerExitPolicy.evaluate === "function"
           ? plannerExitPolicy.evaluate({
-              request_payload: payload,
+              request_payload: normalizedPayload,
               block_spec: blockSpec,
               block_result: blockResult,
             })
           : null;
       const failureData = {
+        planner_entry_normalization: plannerNormalizationMeta,
         block_result: blockResult || {},
         runtime_flags: runtimeFlags,
         ...(routeResult ? { route_result: routeResult } : {}),
@@ -937,6 +1207,11 @@ class TurnService {
             ? escapeOutcome.body
             : {};
         if (normalizedEscapeStatusCode >= 200 && normalizedEscapeStatusCode < 300) {
+          recordPlannerUxMetricOnce({
+            success: true,
+            failure_stage: "none",
+            error_code: "",
+          });
           return {
             statusCode: 200,
             body: {
@@ -961,14 +1236,20 @@ class TurnService {
           };
         }
 
+        const escapeErrorCode =
+          typeof escapeBody.error_code === "string" && escapeBody.error_code.trim()
+            ? escapeBody.error_code.trim()
+            : "E_PLANNER_NO_SAFE_FALLBACK";
+        recordPlannerUxMetricOnce({
+          success: false,
+          failure_stage: "during_dispatch",
+          error_code: escapeErrorCode,
+        });
         return {
           statusCode: normalizedEscapeStatusCode > 0 ? normalizedEscapeStatusCode : 409,
           body: withMcpErrorFeedback({
             status: "failed",
-            error_code:
-              typeof escapeBody.error_code === "string" && escapeBody.error_code.trim()
-                ? escapeBody.error_code.trim()
-                : "E_PLANNER_NO_SAFE_FALLBACK",
+            error_code: escapeErrorCode,
             message:
               typeof escapeBody.message === "string" && escapeBody.message.trim()
                 ? escapeBody.message.trim()
@@ -1001,15 +1282,21 @@ class TurnService {
         plannerExitDecision.applied === true &&
         plannerExitDecision.action === "fail_closed"
       ) {
+        const plannerExitErrorCode =
+          typeof plannerExitDecision.error_code === "string" &&
+          plannerExitDecision.error_code.trim()
+            ? plannerExitDecision.error_code.trim()
+            : "E_PLANNER_EXIT_NOT_ALLOWED";
+        recordPlannerUxMetricOnce({
+          success: false,
+          failure_stage: "during_dispatch",
+          error_code: plannerExitErrorCode,
+        });
         return {
           statusCode: 409,
           body: withMcpErrorFeedback({
             status: "failed",
-            error_code:
-              typeof plannerExitDecision.error_code === "string" &&
-              plannerExitDecision.error_code.trim()
-                ? plannerExitDecision.error_code.trim()
-                : "E_PLANNER_EXIT_NOT_ALLOWED",
+            error_code: plannerExitErrorCode,
             message:
               typeof plannerExitDecision.error_message === "string" &&
               plannerExitDecision.error_message.trim()
@@ -1055,6 +1342,23 @@ class TurnService {
         blockError.error_message.trim()
           ? blockError.error_message.trim()
           : "Block execution failed";
+      const blockErrorDetails =
+        blockError &&
+        blockError.details &&
+        typeof blockError.details === "object" &&
+        !Array.isArray(blockError.details)
+          ? blockError.details
+          : {};
+      const plannerRepairOverlay = this.buildPlannerEntryErrorOverlay({
+        error_code: errorCode,
+        error_message: message,
+        error_details: blockErrorDetails,
+      });
+      recordPlannerUxMetricOnce({
+        success: false,
+        failure_stage: "during_dispatch",
+        error_code: errorCode,
+      });
       if (
         typeof blockError.block_error_code === "string" &&
         blockError.block_error_code.trim()
@@ -1068,10 +1372,14 @@ class TurnService {
           error_code: errorCode,
           message,
           tool_name: "planner_execute_mcp",
+          ...plannerRepairOverlay.feedback_fields,
           ...(failureData.block_error_code
             ? { block_error_code: failureData.block_error_code }
             : {}),
-          data: failureData,
+          data: {
+            ...failureData,
+            ...plannerRepairOverlay.repair_data,
+          },
           context: {
             stage: "during_dispatch",
             previous_operation: "execute_planner_entry_for_mcp",
@@ -1098,6 +1406,11 @@ class TurnService {
         error && typeof error.message === "string" && error.message.trim()
           ? error.message.trim()
           : "planner_execute_mcp failed unexpectedly";
+      recordPlannerUxMetricOnce({
+        success: false,
+        failure_stage: "during_dispatch",
+        error_code: errorCode,
+      });
       return {
         statusCode: 500,
         body: withMcpErrorFeedback({
@@ -1105,6 +1418,9 @@ class TurnService {
           error_code: errorCode,
           message,
           tool_name: "planner_execute_mcp",
+          data: {
+            planner_entry_normalization: plannerNormalizationMeta,
+          },
           context: {
             stage: "during_dispatch",
             previous_operation: "execute_planner_entry_for_mcp",
@@ -1182,6 +1498,11 @@ class TurnService {
         "function"
         ? this.genericPropertyFallbackMetricsCollector.getSnapshot()
         : null;
+    const plannerUxMetrics =
+      this.plannerUxMetricsCollector &&
+      typeof this.plannerUxMetricsCollector.getSnapshot === "function"
+        ? this.plannerUxMetricsCollector.getSnapshot()
+        : null;
     return {
       ...turnSnapshot,
       mcp_runtime: {
@@ -1196,6 +1517,7 @@ class TurnService {
         planner_direct_compatibility: plannerDirectCompatibilityMetrics,
         mcp_entry_governance: this.mcpEntryGovernanceState,
         generic_property_fallback: genericPropertyFallbackMetrics,
+        planner_entry_ux_metrics: plannerUxMetrics,
         token_automation_metrics: buildTokenAutomationMetricsSnapshot(
           tokenLifecycleMetrics,
           tokenRecoveryMetrics

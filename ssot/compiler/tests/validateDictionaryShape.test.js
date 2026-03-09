@@ -814,3 +814,133 @@ test("validateDictionaryShape rejects write_requires_token tool when based_on_re
     /write_requires_token must declare based_on_read_token/
   );
 });
+
+test("validateDictionaryShape accepts planner ux_contract metadata", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions(),
+    tools: [
+      {
+        name: "planner_execute_mcp",
+        kind: "read",
+        token_family: "local_static_no_token",
+        scene_revision_capable: false,
+        input: {
+          type: "object",
+          additionalProperties: false,
+          required: ["block_spec"],
+          properties: {
+            block_spec: {
+              type: "object",
+            },
+          },
+        },
+        ux_contract: {
+          domain: "planner_entry",
+          block_type_enum: ["READ_STATE", "CREATE", "MUTATE", "VERIFY"],
+          required_business_fields: [
+            "block_spec.block_id",
+            "block_spec.block_type",
+            "block_spec.intent_key",
+            "block_spec.input",
+          ],
+          system_fields: [
+            "execution_context",
+            "block_spec.based_on_read_token",
+          ],
+          auto_filled_fields: [
+            "block_spec.write_envelope.execution_mode",
+            "block_spec.write_envelope.idempotency_key",
+          ],
+          minimal_valid_template: {
+            block_spec: {
+              block_id: "block_read_snapshot_1",
+              block_type: "READ_STATE",
+              intent_key: "read.snapshot_for_write",
+              input: {
+                scope_path: "Scene/Canvas",
+              },
+            },
+          },
+          common_aliases: {
+            "block_spec.block_type": ["block_spec.type"],
+          },
+          autofill_policy: {
+            write_envelope_execution_mode: {
+              field: "block_spec.write_envelope.execution_mode",
+              strategy: "default_if_missing",
+              value: "execute",
+            },
+            write_envelope_idempotency_key: {
+              field: "block_spec.write_envelope.idempotency_key",
+              strategy: "generate_if_missing",
+            },
+          },
+        },
+      },
+    ],
+  };
+
+  assert.equal(validateDictionaryShape(dictionary), true);
+});
+
+test("validateDictionaryShape rejects planner ux_contract with invalid autofill strategy", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions(),
+    tools: [
+      {
+        name: "planner_execute_mcp",
+        kind: "read",
+        token_family: "local_static_no_token",
+        scene_revision_capable: false,
+        input: {
+          type: "object",
+          additionalProperties: false,
+          required: ["block_spec"],
+          properties: {
+            block_spec: {
+              type: "object",
+            },
+          },
+        },
+        ux_contract: {
+          domain: "planner_entry",
+          block_type_enum: ["READ_STATE", "CREATE", "MUTATE", "VERIFY"],
+          required_business_fields: [
+            "block_spec.block_id",
+            "block_spec.block_type",
+            "block_spec.intent_key",
+            "block_spec.input",
+          ],
+          system_fields: [
+            "execution_context",
+            "block_spec.based_on_read_token",
+          ],
+          auto_filled_fields: ["block_spec.write_envelope.execution_mode"],
+          minimal_valid_template: {
+            block_spec: {
+              block_id: "block_read_snapshot_1",
+              block_type: "READ_STATE",
+              intent_key: "read.snapshot_for_write",
+              input: {
+                scope_path: "Scene/Canvas",
+              },
+            },
+          },
+          autofill_policy: {
+            write_envelope_execution_mode: {
+              field: "block_spec.write_envelope.execution_mode",
+              strategy: "smart_infer",
+            },
+          },
+        },
+      },
+    ],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /strategy must be one of/
+  );
+});

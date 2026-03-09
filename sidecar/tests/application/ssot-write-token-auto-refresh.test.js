@@ -232,6 +232,25 @@ test("getStateSnapshotPayload exposes token automation counters for G2-5.5", () 
         };
       },
     };
+    service.plannerUxMetricsCollector = {
+      getSnapshot() {
+        return {
+          schema_version: "planner_entry_ux_metrics.v1",
+          totals: {
+            requests_total: 9,
+            first_attempt_success_total: 6,
+            first_attempt_failure_total: 3,
+            normalized_alias_fields_total: 4,
+            auto_filled_fields_total: 7,
+          },
+          failure_stage: {
+            before_dispatch_total: 2,
+            during_dispatch_total: 1,
+            unknown_total: 0,
+          },
+        };
+      },
+    };
 
     const snapshot = service.getStateSnapshotPayload();
     assert.equal(
@@ -278,6 +297,19 @@ test("getStateSnapshotPayload exposes token automation counters for G2-5.5", () 
     assert.equal(
       snapshot.mcp_runtime.generic_property_fallback.rates.fallback_success_rate,
       0.75
+    );
+    assert.equal(
+      snapshot.mcp_runtime.planner_entry_ux_metrics.schema_version,
+      "planner_entry_ux_metrics.v1"
+    );
+    assert.equal(
+      snapshot.mcp_runtime.planner_entry_ux_metrics.totals.requests_total,
+      9
+    );
+    assert.equal(
+      snapshot.mcp_runtime.planner_entry_ux_metrics.failure_stage
+        .before_dispatch_total,
+      2
     );
   } finally {
     turnStore.stopMaintenance();

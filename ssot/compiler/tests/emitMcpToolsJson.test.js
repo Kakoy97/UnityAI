@@ -89,6 +89,7 @@ test("emitMcpToolsJson applies fallback defaults for missing optional tool field
   assert.equal(tool.scene_revision_capable, true);
   assert.deepEqual(tool.inputSchema, { type: "object", properties: {} });
   assert.deepEqual(tool.examples, []);
+  assert.equal(Object.prototype.hasOwnProperty.call(tool, "ux_contract"), false);
   assert.deepEqual(emitted.global_contracts, {});
 });
 
@@ -394,6 +395,92 @@ test("emitMcpToolsJson projects g1 contract metadata fields", () => {
   assert.equal(
     tool.high_frequency_properties["UnityEngine.UI.HorizontalLayoutGroup, UnityEngine.UI"].m_Spacing.type,
     "number"
+  );
+});
+
+test("emitMcpToolsJson projects planner ux_contract metadata", () => {
+  const emitted = emitMcpToolsJson({
+    version: 1,
+    tools: [
+      {
+        name: "planner_execute_mcp",
+        kind: "read",
+        token_family: "local_static_no_token",
+        scene_revision_capable: false,
+        input: {
+          type: "object",
+          required: ["block_spec"],
+          properties: {
+            block_spec: {
+              type: "object",
+            },
+          },
+        },
+        ux_contract: {
+          domain: "planner_entry",
+          block_type_enum: ["READ_STATE", "CREATE", "MUTATE", "VERIFY"],
+          required_business_fields: [
+            "block_spec.block_id",
+            "block_spec.block_type",
+            "block_spec.intent_key",
+            "block_spec.input",
+          ],
+          system_fields: [
+            "execution_context",
+            "block_spec.based_on_read_token",
+          ],
+          auto_filled_fields: [
+            "block_spec.write_envelope.execution_mode",
+            "block_spec.write_envelope.idempotency_key",
+          ],
+          minimal_valid_template: {
+            block_spec: {
+              block_id: "block_read_snapshot_1",
+              block_type: "READ_STATE",
+              intent_key: "read.snapshot_for_write",
+              input: {
+                scope_path: "Scene/Canvas",
+              },
+            },
+          },
+          common_aliases: {
+            "block_spec.block_type": ["block_spec.type"],
+          },
+          autofill_policy: {
+            write_envelope_execution_mode: {
+              field: "block_spec.write_envelope.execution_mode",
+              strategy: "default_if_missing",
+              value: "execute",
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  const tool = emitted.tools[0];
+  assert.equal(tool.name, "planner_execute_mcp");
+  assert.equal(tool.ux_contract.domain, "planner_entry");
+  assert.deepEqual(tool.ux_contract.block_type_enum, [
+    "READ_STATE",
+    "CREATE",
+    "MUTATE",
+    "VERIFY",
+  ]);
+  assert.equal(
+    tool.ux_contract.autofill_policy.write_envelope_execution_mode.strategy,
+    "default_if_missing"
+  );
+  assert.equal(Array.isArray(tool.inputSchema.examples), true);
+  assert.equal(tool.inputSchema.examples.length, 1);
+  assert.equal(tool.inputSchema.examples[0].block_spec.block_type, "READ_STATE");
+  assert.equal(
+    tool.inputSchema.properties.block_spec.properties.block_type.enum.includes("MUTATE"),
+    true
+  );
+  assert.equal(
+    typeof tool.inputSchema.properties.block_spec.description === "string",
+    true
   );
 });
 

@@ -206,55 +206,18 @@ test("capability routes expose offline/connecting/ready/stale lifecycle", async 
   });
   assert.equal(catalog.statusCode, 200);
   assert.equal(catalog.body.ok, true);
-  assert.equal(Array.isArray(catalog.body.items), true);
-  assert.equal(catalog.body.items.length, 1);
-  assert.equal(catalog.body.items[0].type, "set_ui_image_color");
-  assert.equal(typeof catalog.body.etag, "string");
+  assert.equal(catalog.body.deprecated, true);
+  assert.equal(catalog.body.tool_name, "get_action_catalog");
+  assert.equal(typeof catalog.body.message, "string");
 
   const schema = await invokeRoute(route, "POST", "/mcp/get_action_schema", {
     action_type: "set_ui_image_color",
   });
   assert.equal(schema.statusCode, 200);
   assert.equal(schema.body.ok, true);
-  assert.equal(schema.body.not_modified, false);
-  assert.equal(typeof schema.body.etag, "string");
-  assert.equal(schema.body.action.type, "set_ui_image_color");
-  assert.equal(schema.body.action.action_data_schema.type, "object");
-  assert.ok(schema.body.write_envelope_contract);
-  assert.equal(
-    schema.body.write_envelope_contract.tool_name,
-    "apply_visual_actions"
-  );
-  assert.ok(schema.body.minimal_valid_payload_template);
-  assert.equal(
-    Array.isArray(schema.body.minimal_valid_payload_template.actions),
-    true
-  );
-  assert.equal(
-    schema.body.minimal_valid_payload_template.actions[0].type,
-    "set_ui_image_color"
-  );
-
-  const schemaCached = await invokeRoute(
-    route,
-    "POST",
-    "/mcp/get_action_schema",
-    {
-      action_type: "set_ui_image_color",
-      if_none_match: schema.body.etag,
-    }
-  );
-  assert.equal(schemaCached.statusCode, 200);
-  assert.equal(schemaCached.body.ok, true);
-  assert.equal(schemaCached.body.not_modified, true);
-  assert.equal(schemaCached.body.etag, schema.body.etag);
-
-  const missing = await invokeRoute(route, "POST", "/mcp/get_action_schema", {
-    action_type: "unknown_action",
-  });
-  assert.equal(missing.statusCode, 404);
-  assert.equal(missing.body.error_code, "E_ACTION_SCHEMA_NOT_FOUND");
-  assert.equal(missing.body.recoverable, true);
+  assert.equal(schema.body.deprecated, true);
+  assert.equal(schema.body.tool_name, "get_action_schema");
+  assert.equal(typeof schema.body.message, "string");
 
   nowRef.value += 2000;
   const stale = await invokeRoute(route, "GET", "/mcp/capabilities");
@@ -262,7 +225,7 @@ test("capability routes expose offline/connecting/ready/stale lifecycle", async 
   assert.equal(stale.body.unity_connection_state, "stale");
 });
 
-test("get_action_catalog returns E_ACTION_CAPABILITY_MISMATCH on stale catalog_version", async () => {
+test("get_action_catalog returns deprecated static response regardless of catalog_version", async () => {
   const nowRef = {
     value: Date.parse("2026-02-28T00:00:00.000Z"),
   };
@@ -280,15 +243,14 @@ test("get_action_catalog returns E_ACTION_CAPABILITY_MISMATCH on stale catalog_v
     limit: 10,
   });
 
-  assert.equal(mismatch.statusCode, 409);
-  assert.equal(mismatch.body.ok, false);
-  assert.equal(mismatch.body.error_code, "E_ACTION_CAPABILITY_MISMATCH");
-  assert.equal(mismatch.body.recoverable, true);
-  assert.equal(typeof mismatch.body.suggestion, "string");
-  assert.equal(mismatch.body.capability_version, "sha256:capability_v1");
+  assert.equal(mismatch.statusCode, 200);
+  assert.equal(mismatch.body.ok, true);
+  assert.equal(mismatch.body.deprecated, true);
+  assert.equal(mismatch.body.tool_name, "get_action_catalog");
+  assert.equal(typeof mismatch.body.message, "string");
 });
 
-test("get_action_schema returns E_ACTION_CAPABILITY_MISMATCH on stale catalog_version", async () => {
+test("get_action_schema returns deprecated static response regardless of catalog_version", async () => {
   const nowRef = {
     value: Date.parse("2026-02-28T00:00:00.000Z"),
   };
@@ -305,16 +267,14 @@ test("get_action_schema returns E_ACTION_CAPABILITY_MISMATCH on stale catalog_ve
     catalog_version: "sha256:stale_version",
   });
 
-  assert.equal(mismatch.statusCode, 409);
-  assert.equal(mismatch.body.ok, false);
-  assert.equal(mismatch.body.error_code, "E_ACTION_CAPABILITY_MISMATCH");
-  assert.equal(mismatch.body.recoverable, true);
-  assert.equal(typeof mismatch.body.suggestion, "string");
-  assert.equal(mismatch.body.action_type, "set_ui_image_color");
-  assert.equal(mismatch.body.capability_version, "sha256:capability_v1");
+  assert.equal(mismatch.statusCode, 200);
+  assert.equal(mismatch.body.ok, true);
+  assert.equal(mismatch.body.deprecated, true);
+  assert.equal(mismatch.body.tool_name, "get_action_schema");
+  assert.equal(typeof mismatch.body.message, "string");
 });
 
-test("get_action_catalog preserves phase2 lifecycle and replacement metadata", async () => {
+test("phase2 capability report remains visible via /mcp/capabilities while catalog route is deprecated", async () => {
   const nowRef = {
     value: Date.parse("2026-02-28T00:00:00.000Z"),
   };
@@ -341,6 +301,12 @@ test("get_action_catalog preserves phase2 lifecycle and replacement metadata", a
   assert.equal(report.statusCode, 200);
   assert.equal(report.body.capability_version, "sha256:capability_phase2_v1");
 
+  const ready = await invokeRoute(route, "GET", "/mcp/capabilities");
+  assert.equal(ready.statusCode, 200);
+  assert.equal(ready.body.unity_connection_state, "ready");
+  assert.equal(ready.body.action_count, 1);
+  assert.equal(ready.body.actions[0].type, "set_rect_anchored_position");
+
   const stable = await invokeRoute(route, "POST", "/mcp/get_action_catalog", {
     domain: "rect_transform",
     lifecycle: "stable",
@@ -349,12 +315,9 @@ test("get_action_catalog preserves phase2 lifecycle and replacement metadata", a
   });
   assert.equal(stable.statusCode, 200);
   assert.equal(stable.body.ok, true);
-  assert.equal(stable.body.items.length, 1);
-  assert.equal(stable.body.items[0].type, "set_rect_anchored_position");
-  assert.equal(stable.body.items[0].lifecycle, "stable");
-  assert.equal(stable.body.items[0].undo_safety, "atomic_safe");
+  assert.equal(stable.body.deprecated, true);
+  assert.equal(stable.body.tool_name, "get_action_catalog");
 
-  // R21-detox: deprecated aliases removed from L3, so deprecated filter returns 0 items.
   const deprecated = await invokeRoute(route, "POST", "/mcp/get_action_catalog", {
     domain: "rect_transform",
     lifecycle: "deprecated",
@@ -363,5 +326,6 @@ test("get_action_catalog preserves phase2 lifecycle and replacement metadata", a
   });
   assert.equal(deprecated.statusCode, 200);
   assert.equal(deprecated.body.ok, true);
-  assert.equal(deprecated.body.items.length, 0);
+  assert.equal(deprecated.body.deprecated, true);
+  assert.equal(deprecated.body.tool_name, "get_action_catalog");
 });

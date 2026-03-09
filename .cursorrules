@@ -32,6 +32,9 @@
 - `block_spec` 必须包含：`block_id`、`block_type`、`intent_key`（或可映射 family key）、`input`。
 - 写入请求必须保证 `write_envelope` 与锚点信息完整、可追溯。
 
+## 4.1 自动补全规则（Phase1）
+- 提供 `target_anchor` 时，`write_envelope` 字段自动补全；`based_on_read_token` 需手动传递。
+
 ## 5. 事务使用规则（必须遵守）
 - **多个写操作必须使用事务**：当需要执行 2 个或以上写操作（`MUTATE`/`CREATE`）时，必须使用 `write.transaction.execute` intent_key 组合为单个事务。
 - 事务格式：使用 `intent_key: "write.transaction.execute"`，在 `input.steps[]` 中定义多个步骤。

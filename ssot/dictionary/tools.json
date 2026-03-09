@@ -4472,6 +4472,114 @@
       "tool_priority": "P1",
       "must_configure": false,
       "priority_score": 0.084,
+      "ux_contract": {
+        "domain": "planner_entry",
+        "block_type_enum": [
+          "READ_STATE",
+          "CREATE",
+          "MUTATE",
+          "VERIFY"
+        ],
+        "required_business_fields": [
+          "block_spec.block_id",
+          "block_spec.block_type",
+          "block_spec.intent_key",
+          "block_spec.input"
+        ],
+        "system_fields": [
+          "thread_id",
+          "execution_context",
+          "plan_initial_read_token",
+          "previous_read_token_candidate",
+          "transaction_read_token_candidate",
+          "block_spec.based_on_read_token"
+        ],
+        "auto_filled_fields": [
+          "block_spec.write_envelope.execution_mode",
+          "block_spec.write_envelope.idempotency_key",
+          "block_spec.write_envelope.write_anchor_object_id",
+          "block_spec.write_envelope.write_anchor_path"
+        ],
+        "minimal_valid_template": {
+          "block_spec": {
+            "block_id": "block_read_snapshot_1",
+            "block_type": "READ_STATE",
+            "intent_key": "read.snapshot_for_write",
+            "input": {
+              "scope_path": "Scene/Canvas"
+            }
+          },
+          "execution_context": {
+            "shape": "single_step"
+          }
+        },
+        "common_aliases": {
+          "block_spec.block_type": [
+            "block_spec.type",
+            "block_spec.blockType"
+          ],
+          "block_spec.intent_key": [
+            "block_spec.intent"
+          ],
+          "block_spec.target_anchor.object_id": [
+            "block_spec.target_object_id"
+          ],
+          "block_spec.target_anchor.path": [
+            "block_spec.target_path"
+          ],
+          "block_spec.write_envelope.execution_mode": [
+            "block_spec.write_envelope.mode"
+          ],
+          "block_spec.write_envelope.idempotency_key": [
+            "block_spec.write_envelope.idempotency"
+          ]
+        },
+        "autofill_policy": {
+          "write_envelope_execution_mode": {
+            "field": "block_spec.write_envelope.execution_mode",
+            "strategy": "default_if_missing",
+            "value": "execute",
+            "conditions": {
+              "block_type_in": [
+                "CREATE",
+                "MUTATE"
+              ]
+            }
+          },
+          "write_envelope_idempotency_key": {
+            "field": "block_spec.write_envelope.idempotency_key",
+            "strategy": "generate_if_missing",
+            "conditions": {
+              "block_type_in": [
+                "CREATE",
+                "MUTATE"
+              ]
+            }
+          },
+          "write_anchor_object_id_from_target_anchor": {
+            "field": "block_spec.write_envelope.write_anchor_object_id",
+            "strategy": "copy_if_missing",
+            "source_field": "block_spec.target_anchor.object_id",
+            "conditions": {
+              "block_type_in": [
+                "CREATE",
+                "MUTATE"
+              ]
+            }
+          },
+          "write_anchor_path_from_target_anchor": {
+            "field": "block_spec.write_envelope.write_anchor_path",
+            "strategy": "copy_if_missing",
+            "source_field": "block_spec.target_anchor.path",
+            "conditions": {
+              "block_type_in": [
+                "CREATE",
+                "MUTATE"
+              ]
+            }
+          }
+        }
+      },
       "token_family": "local_static_no_token",
       "scene_revision_capable": false
     },

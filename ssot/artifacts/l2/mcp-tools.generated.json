@@ -5580,26 +5580,130 @@
           },
           "block_spec": {
             "type": "object",
-            "minProperties": 1
+            "minProperties": 1,
+            "properties": {
+              "block_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Block id for tracing and response correlation."
+              },
+              "block_type": {
+                "type": "string",
+                "description": "Block category in planner runtime.",
+                "enum": [
+                  "READ_STATE",
+                  "CREATE",
+                  "MUTATE",
+                  "VERIFY"
+                ],
+                "case_insensitive": true
+              },
+              "intent_key": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Planner intent key. Legacy aliases family_key/legacy_concrete_key may still be translated by runtime."
+              },
+              "input": {
+                "type": "object",
+                "description": "Intent-specific business payload."
+              },
+              "target_anchor": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "object_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "Explicit target anchor for create/mutate blocks."
+              },
+              "based_on_read_token": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Explicit read token for OCC validation on write blocks. Not auto-filled in Phase1."
+              },
+              "write_envelope": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "execution_mode": {
+                    "type": "string",
+                    "enum": [
+                      "validate",
+                      "execute"
+                    ],
+                    "case_insensitive": true
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "minLength": 8
+                  },
+                  "write_anchor_object_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "write_anchor_path": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "description": "Write protocol envelope. Minimal fields listed above; some may be auto-filled by normalizer in later steps."
+              }
+            },
+            "description": "Planner block payload. Minimal recommended fields: block_id, block_type, intent_key, input. For write-like blocks, provide target_anchor, based_on_read_token, write_envelope. Allowed values: READ_STATE, CREATE, MUTATE, VERIFY.",
+            "examples": [
+              {
+                "block_id": "block_read_snapshot_1",
+                "block_type": "READ_STATE",
+                "intent_key": "read.snapshot_for_write",
+                "input": {
+                  "scope_path": "Scene/Canvas"
+                }
+              }
+            ]
           },
           "execution_context": {
-            "type": "object"
+            "type": "object",
+            "description": "Planner execution context (shape/runtime hints)."
           },
           "plan_initial_read_token": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Optional initial read token candidate carried by planner context."
           },
           "previous_read_token_candidate": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Optional previous read token candidate from last successful write chain."
           },
           "transaction_read_token_candidate": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Optional transaction-level read token candidate for chained write planning."
           }
         },
         "required": [
           "block_spec"
+        ],
+        "examples": [
+          {
+            "block_spec": {
+              "block_id": "block_read_snapshot_1",
+              "block_type": "READ_STATE",
+              "intent_key": "read.snapshot_for_write",
+              "input": {
+                "scope_path": "Scene/Canvas"
+              }
+            },
+            "execution_context": {
+              "shape": "single_step"
+            }
+          }
         ]
       },
       "examples": [
@@ -5655,6 +5759,114 @@
       "related_tools": [],
       "tool_combinations": [],
       "property_path_rules": null,
+      "ux_contract": {
+        "domain": "planner_entry",
+        "block_type_enum": [
+          "READ_STATE",
+          "CREATE",
+          "MUTATE",
+          "VERIFY"
+        ],
+        "required_business_fields": [
+          "block_spec.block_id",
+          "block_spec.block_type",
+          "block_spec.intent_key",
+          "block_spec.input"
+        ],
+        "system_fields": [
+          "thread_id",
+          "execution_context",
+          "plan_initial_read_token",
+          "previous_read_token_candidate",
+          "transaction_read_token_candidate",
+          "block_spec.based_on_read_token"
+        ],
+        "auto_filled_fields": [
+          "block_spec.write_envelope.execution_mode",
+          "block_spec.write_envelope.idempotency_key",
+          "block_spec.write_envelope.write_anchor_object_id",
+          "block_spec.write_envelope.write_anchor_path"
+        ],
+        "minimal_valid_template": {
+          "block_spec": {
+            "block_id": "block_read_snapshot_1",
+            "block_type": "READ_STATE",
+            "intent_key": "read.snapshot_for_write",
+            "input": {
+              "scope_path": "Scene/Canvas"
+            }
+          },
+          "execution_context": {
+            "shape": "single_step"
+          }
+        },
+        "common_aliases": {
+          "block_spec.block_type": [
+            "block_spec.type",
+            "block_spec.blockType"
+          ],
+          "block_spec.intent_key": [
+            "block_spec.intent"
+          ],
+          "block_spec.target_anchor.object_id": [
+            "block_spec.target_object_id"
+          ],
+          "block_spec.target_anchor.path": [
+            "block_spec.target_path"
+          ],
+          "block_spec.write_envelope.execution_mode": [
+            "block_spec.write_envelope.mode"
+          ],
+          "block_spec.write_envelope.idempotency_key": [
+            "block_spec.write_envelope.idempotency"
+          ]
+        },
+        "autofill_policy": {
+          "write_envelope_execution_mode": {
+            "field": "block_spec.write_envelope.execution_mode",
+            "strategy": "default_if_missing",
+            "value": "execute",
+            "conditions": {
+              "block_type_in": [
+                "CREATE",
+                "MUTATE"
+              ]
+            }
+          },
+          "write_envelope_idempotency_key": {
+            "field": "block_spec.write_envelope.idempotency_key",
+            "strategy": "generate_if_missing",
+            "conditions": {
+              "block_type_in": [
+                "CREATE",
+                "MUTATE"
+              ]
+            }
+          },
+          "write_anchor_object_id_from_target_anchor": {
+            "field": "block_spec.write_envelope.write_anchor_object_id",
+            "strategy": "copy_if_missing",
+            "source_field": "block_spec.target_anchor.object_id",
+            "conditions": {
+              "block_type_in": [
+                "CREATE",
+                "MUTATE"
+              ]
+            }
+          },
+          "write_anchor_path_from_target_anchor": {
+            "field": "block_spec.write_envelope.write_anchor_path",
+            "strategy": "copy_if_missing",
+            "source_field": "block_spec.target_anchor.path",
+            "conditions": {
+              "block_type_in": [
+                "CREATE",
+                "MUTATE"
+              ]
+            }
+          }
+        }
+      },
       "high_frequency_properties": {}
     },
     {

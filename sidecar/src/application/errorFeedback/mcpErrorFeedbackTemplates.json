@@ -1,7 +1,7 @@
 {
   "E_SCHEMA_INVALID": {
     "recoverable": true,
-    "suggestion": "Fix request schema and resubmit. Ensure required fields are non-empty strings; use get_tool_schema when unsure about tool payload shape."
+    "suggestion": "Fix request schema and resubmit. Ensure required fields are present with correct types; use get_tool_schema, and for planner_execute_mcp prefer the provided minimal template + canonical block_spec fields."
   },
   "E_SSOT_SCHEMA_INVALID": {
     "recoverable": true,

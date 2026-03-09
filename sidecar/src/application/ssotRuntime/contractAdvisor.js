@@ -10,6 +10,7 @@ const DEFAULT_BUDGET_CHARS = 12000;
 const MAX_RELATED_TOOLS = 5;
 const CONTRACT_VERSION = "2.0";
 const BUDGET_ERROR_CODE = "E_CONTRACT_BUDGET_TOO_SMALL";
+const WRITE_PROTOCOL_FIELD_COVERAGE = 0.85;
 
 const MINIMAL_REQUIRED_FIELD_KEYS = Object.freeze([
   "minimal_valid_payload_template",
@@ -50,6 +51,27 @@ function normalizePositiveInteger(value, fallbackValue) {
 
 function normalizeString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set();
+  const output = [];
+  for (const entry of value) {
+    const token = normalizeString(entry);
+    if (!token || seen.has(token)) {
+      continue;
+    }
+    seen.add(token);
+    output.push(token);
+  }
+  return output;
+}
+
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function cloneJson(value) {
@@ -148,6 +170,78 @@ function ensureCommonMistakes(toolRecord) {
       note: "Do not guess payload fields. Use required_fields + get_tool_schema/get_write_contract_bundle.",
     },
   ];
+}
+
+function getCommonWriteRequiredFields(catalog) {
+  const tools = Array.isArray(catalog && catalog.tools) ? catalog.tools : [];
+  const writeTools = tools.filter(
+    (tool) =>
+      tool &&
+      typeof tool === "object" &&
+      normalizeString(tool.kind).toLowerCase() === "write"
+  );
+  if (writeTools.length <= 0) {
+    return [];
+  }
+
+  const requiredCount = new Map();
+  const orderedFields = [];
+  for (const tool of writeTools) {
+    const required = normalizeStringArray(tool.required);
+    for (const field of required) {
+      if (!requiredCount.has(field)) {
+        requiredCount.set(field, 0);
+        orderedFields.push(field);
+      }
+      requiredCount.set(field, requiredCount.get(field) + 1);
+    }
+  }
+
+  const minimumCoverage = Math.ceil(writeTools.length * WRITE_PROTOCOL_FIELD_COVERAGE);
+  const output = [];
+  for (const field of orderedFields) {
+    const count = Number(requiredCount.get(field) || 0);
+    if (count >= minimumCoverage) {
+      output.push(field);
+    }
+  }
+  return output;
+}
+
+function buildUxFieldLayers({ catalog, toolRecord, fallbackMinimalTemplate }) {
+  const fallbackTemplate = isPlainObject(fallbackMinimalTemplate)
+    ? cloneJson(fallbackMinimalTemplate)
+    : {};
+  const uxContract = isPlainObject(toolRecord && toolRecord.ux_contract)
+    ? toolRecord.ux_contract
+    : null;
+  if (uxContract) {
+    return {
+      required_business_fields: normalizeStringArray(
+        uxContract.required_business_fields
+      ),
+      system_fields: normalizeStringArray(uxContract.system_fields),
+      auto_filled_fields: normalizeStringArray(uxContract.auto_filled_fields),
+      minimal_valid_template: isPlainObject(uxContract.minimal_valid_template)
+        ? cloneJson(uxContract.minimal_valid_template)
+        : fallbackTemplate,
+      common_aliases: isPlainObject(uxContract.common_aliases)
+        ? cloneJson(uxContract.common_aliases)
+        : {},
+    };
+  }
+
+  const requiredFields = normalizeStringArray(toolRecord && toolRecord.required);
+  const commonWriteFieldSet = new Set(getCommonWriteRequiredFields(catalog));
+  return {
+    required_business_fields: requiredFields.filter(
+      (field) => !commonWriteFieldSet.has(field)
+    ),
+    system_fields: requiredFields.filter((field) => commonWriteFieldSet.has(field)),
+    auto_filled_fields: [],
+    minimal_valid_template: fallbackTemplate,
+    common_aliases: {},
+  };
 }
 
 function buildRelatedContracts(catalog, toolRecord, includeRelated, budgetChars) {
@@ -424,6 +518,7 @@ function buildEnhancedFields({
   scenario,
   catalog,
   budgetChars,
+  legacyFields,
 }) {
   const commonMistakes = ensureCommonMistakes(toolRecord);
   const quickFixes = includeErrorFixMap
@@ -440,6 +535,12 @@ function buildEnhancedFields({
     includeRelated,
     budgetChars
   );
+  const uxFieldLayers = buildUxFieldLayers({
+    catalog,
+    toolRecord,
+    fallbackMinimalTemplate:
+      legacyFields && legacyFields.minimal_valid_payload_template,
+  });
 
   return {
     usage_notes:
@@ -462,6 +563,11 @@ function buildEnhancedFields({
       include_self: false,
     },
     create_pre_check_policy: buildCreatePreCheckPolicy(toolRecord, catalog),
+    required_business_fields: uxFieldLayers.required_business_fields,
+    system_fields: uxFieldLayers.system_fields,
+    auto_filled_fields: uxFieldLayers.auto_filled_fields,
+    minimal_valid_template: uxFieldLayers.minimal_valid_template,
+    common_aliases: uxFieldLayers.common_aliases,
   };
 }
 
@@ -504,6 +610,11 @@ function buildBaseResponse({
     schema_source: "ssot_static_artifact",
     validation_tool: "preflight_validate_write_payload",
     required_fields: Array.isArray(toolRecord.required) ? toolRecord.required : [],
+    required_business_fields: enhancedFields.required_business_fields,
+    system_fields: enhancedFields.system_fields,
+    auto_filled_fields: enhancedFields.auto_filled_fields,
+    minimal_valid_template: enhancedFields.minimal_valid_template,
+    common_aliases: enhancedFields.common_aliases,
     write_envelope_contract: legacyFields.write_envelope_contract,
     minimal_valid_payload_template: legacyFields.minimal_valid_payload_template,
     schema_ref: legacyFields.schema_ref,
@@ -656,6 +767,11 @@ function applyBudgetTrim(baseResponse, budgetChars) {
     ["catalog_version"],
     ["message"],
     ["schema_ref"],
+    ["common_aliases"],
+    ["minimal_valid_template"],
+    ["auto_filled_fields"],
+    ["system_fields"],
+    ["required_business_fields"],
     ["related_contracts"],
     ["enhanced_fields", "related_contracts"],
     ["enhanced_fields", "canonical_examples"],
@@ -836,6 +952,7 @@ function buildWriteContractBundleView(requestBody) {
     scenario,
     catalog,
     budgetChars,
+    legacyFields,
   });
   const baseResponse = buildBaseResponse({
     catalog,
