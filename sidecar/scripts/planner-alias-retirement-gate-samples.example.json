@@ -1,0 +1,18 @@
+{
+  "alias_retirement_window": {
+    "required_consecutive_days": 14,
+    "alias_share_max": 0.01,
+    "required_release_windows": 2,
+    "p1_incident_max": 0,
+    "announcement_published": true,
+    "release_windows_completed": 2,
+    "daily": [
+      {
+        "date": "2026-02-23",
+        "planner_entry_call_total": 200,
+        "planner_entry_alias_call_total": 1,
+        "p1_incident_count": 0
+      }
+    ]
+  }
+}

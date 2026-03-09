@@ -27,6 +27,12 @@ const { UnityTestRunnerService } = require("./unityTestRunnerService");
 const {
   createCaptureCompositeRuntime,
 } = require("./captureCompositeRuntime");
+const {
+  getPlannerDirectCompatibilityMetricsCollectorSingleton,
+} = require("./blockRuntime/visibility/plannerDirectCompatibilityMetricsCollector");
+const {
+  getGenericPropertyFallbackMetricsCollectorSingleton,
+} = require("./blockRuntime/execution/genericPropertyFallbackMetricsCollector");
 const { dispatchSsotRequest } = require("./ssotRuntime/dispatchSsotRequest");
 const {
   getValidatorRegistrySingleton,
@@ -68,6 +74,44 @@ const {
   normalizeFailureContext,
   projectFailureDataFromContext,
 } = require("./errorFeedback/failureContextNormalizer");
+const {
+  createExecutionChannelAdapter,
+} = require("./blockRuntime/execution");
+const {
+  createTurnServiceRuntimePort,
+} = require("./blockRuntime/runtime");
+const {
+  createThinBlockRouter,
+} = require("./blockRuntime/routing");
+const {
+  createExecutionShapeDecider,
+} = require("./blockRuntime/shape");
+const {
+  createVerifyHook,
+  createRecoveryHook,
+} = require("./blockRuntime/hooks");
+const {
+  createPlannerEntryTranslator,
+  createInternalToolInvoker,
+  createPlannerExitPolicy,
+} = require("./blockRuntime/entry");
+const {
+  resolveBlockRuntimeFlags,
+  applyBlockRuntimeFlagsToExecutionContext,
+} = require("./blockRuntime/BlockRuntimeFlags");
+const {
+  createPlannerVisibilityProfileRuntime,
+} = require("./blockRuntime/visibility/PlannerVisibilityProfileRuntime");
+const {
+  createPlannerDirectCompatibilityRuntime,
+} = require("./blockRuntime/visibility/PlannerDirectCompatibilityRuntime");
+const {
+  MCP_ENTRY_GOVERNANCE_CONTRACT,
+  MCP_PLANNER_VISIBILITY_PROFILE_CONTRACT,
+  MCP_PLANNER_DIRECT_COMPATIBILITY_POLICY_CONTRACT,
+  MCP_PLANNER_EXIT_POLICY_CONTRACT,
+  MCP_PLANNER_GENERIC_PROPERTY_FALLBACK_POLICY_CONTRACT,
+} = require("../ports/contracts");
 
 const SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
 
@@ -120,6 +164,42 @@ function toNonNegativeMetric(value) {
     return 0;
   }
   return Math.floor(n);
+}
+
+function mergeShapeDecisionIntoExecutionContext(executionContext, shapeDecision) {
+  const context =
+    executionContext &&
+    typeof executionContext === "object" &&
+    !Array.isArray(executionContext)
+      ? { ...executionContext }
+      : {};
+  const decision =
+    shapeDecision && typeof shapeDecision === "object" && !Array.isArray(shapeDecision)
+      ? shapeDecision
+      : null;
+  if (!decision) {
+    return context;
+  }
+  if (typeof decision.shape === "string" && decision.shape.trim()) {
+    context.shape = decision.shape.trim();
+  }
+  if (typeof decision.shape_reason === "string" && decision.shape_reason.trim()) {
+    context.shape_reason = decision.shape_reason.trim();
+  }
+  if (typeof decision.shape_degraded === "boolean") {
+    context.shape_degraded = decision.shape_degraded;
+  }
+  if (typeof decision.original_shape === "string" && decision.original_shape.trim()) {
+    context.original_shape = decision.original_shape.trim();
+  } else {
+    delete context.original_shape;
+  }
+  if (typeof decision.degraded_reason === "string" && decision.degraded_reason.trim()) {
+    context.degraded_reason = decision.degraded_reason.trim();
+  } else {
+    delete context.degraded_reason;
+  }
+  return context;
 }
 
 function normalizeTokenAutomationEnvelope(source) {
@@ -253,6 +333,66 @@ function buildTokenAutomationMetricsSnapshot(
   };
 }
 
+const MCP_ENTRY_MODE = Object.freeze({
+  LEGACY: "legacy",
+  OBSERVE: "observe",
+  REJECT: "reject",
+});
+
+function normalizeMcpEntryMode(value) {
+  const normalized =
+    typeof value === "string" && value.trim() ? value.trim().toLowerCase() : "";
+  if (
+    normalized === MCP_ENTRY_MODE.LEGACY ||
+    normalized === MCP_ENTRY_MODE.OBSERVE ||
+    normalized === MCP_ENTRY_MODE.REJECT
+  ) {
+    return normalized;
+  }
+  return MCP_ENTRY_MODE.REJECT;
+}
+
+function resolveMcpEntryGovernanceState(deps = {}) {
+  const source = deps && typeof deps === "object" ? deps : {};
+  const contract =
+    MCP_ENTRY_GOVERNANCE_CONTRACT &&
+    typeof MCP_ENTRY_GOVERNANCE_CONTRACT === "object"
+      ? MCP_ENTRY_GOVERNANCE_CONTRACT
+      : {};
+  const enabled =
+    typeof source.mcpEntryGovernanceEnabled === "boolean"
+      ? source.mcpEntryGovernanceEnabled
+      : contract.enabled === true;
+  const requestedMode = normalizeMcpEntryMode(
+    typeof source.mcpEntryMode === "string" && source.mcpEntryMode.trim()
+      ? source.mcpEntryMode
+      : contract.mode
+  );
+  const observeShadow =
+    typeof source.mcpEntryObserveShadow === "boolean"
+      ? source.mcpEntryObserveShadow
+      : contract.observe_shadow === true;
+  return Object.freeze({
+    enabled,
+    requested_mode: requestedMode,
+    active_mode: enabled ? requestedMode : MCP_ENTRY_MODE.LEGACY,
+    observe_shadow: observeShadow,
+    planner_primary_tool_name:
+      typeof contract.planner_primary_tool_name === "string" &&
+      contract.planner_primary_tool_name.trim()
+        ? contract.planner_primary_tool_name.trim()
+        : "planner_execute_mcp",
+    planner_alias_tool_name:
+      typeof contract.planner_alias_tool_name === "string" &&
+      contract.planner_alias_tool_name.trim()
+        ? contract.planner_alias_tool_name.trim()
+        : "",
+    supported_modes: Array.isArray(contract.supported_modes)
+      ? contract.supported_modes
+      : [MCP_ENTRY_MODE.LEGACY, MCP_ENTRY_MODE.OBSERVE, MCP_ENTRY_MODE.REJECT],
+  });
+}
+
 class TurnService {
   constructor(deps) {
     this.turnStore = deps.turnStore;
@@ -268,6 +408,24 @@ class TurnService {
         ? deps.v1PolishMetricsCollector
         : null;
     this.captureCompositeEnabled = deps.captureCompositeEnabled === true;
+    this.blockRuntimeFlags = resolveBlockRuntimeFlags({
+      blockPipelineEnabled: deps.blockPipelineEnabled === true,
+      bypassRouter: deps.blockBypassRouter !== false,
+      forceSingleStep: deps.blockForceSingleStep === true,
+      verifyRecoveryEnabled: deps.blockVerifyRecoveryEnabled === true,
+    });
+    this.mcpEntryGovernanceState = resolveMcpEntryGovernanceState(deps);
+    this.blockRuntimeExecutionAdapter = null;
+    this.blockRuntimeRouter = null;
+    this.blockRuntimeShapeDecider = null;
+    this.blockRuntimeVerifyHook = null;
+    this.blockRuntimeRecoveryHook = null;
+    this.plannerEntryTranslator = null;
+    this.internalToolInvoker = null;
+    this.plannerExitPolicy =
+      deps.plannerExitPolicy && typeof deps.plannerExitPolicy.evaluate === "function"
+        ? deps.plannerExitPolicy
+        : null;
     this.captureCompositeRuntime = createCaptureCompositeRuntime({
       enabled: this.captureCompositeEnabled,
       fuseFailureThreshold: deps.captureCompositeFuseFailureThreshold,
@@ -326,6 +484,638 @@ class TurnService {
       nowIso: this.nowIso,
       enqueueAndWaitForUnityQuery: this.enqueueAndWaitForUnityQuery.bind(this),
     });
+    this.plannerDirectCompatibilityMetricsCollector =
+      deps.plannerDirectCompatibilityMetricsCollector &&
+      typeof deps.plannerDirectCompatibilityMetricsCollector === "object"
+        ? deps.plannerDirectCompatibilityMetricsCollector
+        : getPlannerDirectCompatibilityMetricsCollectorSingleton();
+    this.genericPropertyFallbackMetricsCollector =
+      deps.genericPropertyFallbackMetricsCollector &&
+      typeof deps.genericPropertyFallbackMetricsCollector === "object"
+        ? deps.genericPropertyFallbackMetricsCollector
+        : getGenericPropertyFallbackMetricsCollectorSingleton();
+    this.plannerVisibilityProfileRuntime = createPlannerVisibilityProfileRuntime(
+      MCP_PLANNER_VISIBILITY_PROFILE_CONTRACT
+    );
+    this.plannerDirectCompatibilityRuntime = createPlannerDirectCompatibilityRuntime(
+      MCP_PLANNER_DIRECT_COMPATIBILITY_POLICY_CONTRACT,
+      {
+        metricsCollector: this.plannerDirectCompatibilityMetricsCollector,
+      }
+    );
+  }
+
+  getBlockRuntimeExecutionAdapter() {
+    if (
+      this.blockRuntimeExecutionAdapter &&
+      typeof this.blockRuntimeExecutionAdapter.executeBlock === "function"
+    ) {
+      return this.blockRuntimeExecutionAdapter;
+    }
+    const internalToolInvoker = this.getInternalToolInvoker();
+    const runtimePort = createTurnServiceRuntimePort({
+      turnService: this,
+      internalToolInvoker,
+    });
+    this.blockRuntimeExecutionAdapter = createExecutionChannelAdapter({
+      runtimePort,
+      genericPropertyFallbackPolicyContract:
+        MCP_PLANNER_GENERIC_PROPERTY_FALLBACK_POLICY_CONTRACT,
+      genericPropertyFallbackMetricsCollector:
+        this.genericPropertyFallbackMetricsCollector,
+    });
+    return this.blockRuntimeExecutionAdapter;
+  }
+
+  getInternalToolInvoker() {
+    if (
+      this.internalToolInvoker &&
+      typeof this.internalToolInvoker.invokeTool === "function"
+    ) {
+      return this.internalToolInvoker;
+    }
+    this.internalToolInvoker = createInternalToolInvoker({
+      turnService: this,
+    });
+    return this.internalToolInvoker;
+  }
+
+  getBlockRuntimeRouter() {
+    if (
+      this.blockRuntimeRouter &&
+      typeof this.blockRuntimeRouter.routeBlock === "function"
+    ) {
+      return this.blockRuntimeRouter;
+    }
+    this.blockRuntimeRouter = createThinBlockRouter();
+    return this.blockRuntimeRouter;
+  }
+
+  getExecutionShapeDecider() {
+    if (
+      this.blockRuntimeShapeDecider &&
+      typeof this.blockRuntimeShapeDecider.decideExecutionShape === "function"
+    ) {
+      return this.blockRuntimeShapeDecider;
+    }
+    this.blockRuntimeShapeDecider = createExecutionShapeDecider();
+    return this.blockRuntimeShapeDecider;
+  }
+
+  getBlockRuntimeVerifyHook() {
+    if (
+      this.blockRuntimeVerifyHook &&
+      typeof this.blockRuntimeVerifyHook.runVerify === "function"
+    ) {
+      return this.blockRuntimeVerifyHook;
+    }
+    this.blockRuntimeVerifyHook = createVerifyHook();
+    return this.blockRuntimeVerifyHook;
+  }
+
+  getBlockRuntimeRecoveryHook() {
+    if (
+      this.blockRuntimeRecoveryHook &&
+      typeof this.blockRuntimeRecoveryHook.runRecovery === "function"
+    ) {
+      return this.blockRuntimeRecoveryHook;
+    }
+    this.blockRuntimeRecoveryHook = createRecoveryHook();
+    return this.blockRuntimeRecoveryHook;
+  }
+
+  getPlannerEntryTranslator() {
+    if (
+      this.plannerEntryTranslator &&
+      typeof this.plannerEntryTranslator.translateBlockSpec === "function"
+    ) {
+      return this.plannerEntryTranslator;
+    }
+    this.plannerEntryTranslator = createPlannerEntryTranslator();
+    return this.plannerEntryTranslator;
+  }
+
+  getPlannerExitPolicy() {
+    if (
+      this.plannerExitPolicy &&
+      typeof this.plannerExitPolicy.evaluate === "function"
+    ) {
+      return this.plannerExitPolicy;
+    }
+    this.plannerExitPolicy = createPlannerExitPolicy(
+      MCP_PLANNER_EXIT_POLICY_CONTRACT
+    );
+    return this.plannerExitPolicy;
+  }
+
+  async runVerifyRecoveryHooksForBlock({
+    blockSpec,
+    executionContext,
+    adapter,
+    blockResult,
+  }) {
+    let currentBlockResult = blockResult;
+    const verifyHook = this.getBlockRuntimeVerifyHook();
+
+    const initialVerifyOutcome = verifyHook.runVerify({
+      blockSpec,
+      blockResult: currentBlockResult,
+    });
+    if (
+      initialVerifyOutcome &&
+      initialVerifyOutcome.block_result &&
+      typeof initialVerifyOutcome.block_result === "object"
+    ) {
+      currentBlockResult = initialVerifyOutcome.block_result;
+    }
+    if (initialVerifyOutcome && initialVerifyOutcome.ok !== true) {
+      return currentBlockResult;
+    }
+    if (!currentBlockResult || currentBlockResult.status !== "failed") {
+      return currentBlockResult;
+    }
+
+    const recoveryHook = this.getBlockRuntimeRecoveryHook();
+    const recoveryOutcome = await recoveryHook.runRecovery({
+      blockSpec,
+      executionContext,
+      blockResult: currentBlockResult,
+      recoveryAttemptCount: 0,
+      retryExecutor: async ({ blockSpec: retryBlockSpec, executionContext: retryContext }) =>
+        adapter.executeBlock(
+          retryBlockSpec &&
+            typeof retryBlockSpec === "object" &&
+            !Array.isArray(retryBlockSpec)
+            ? retryBlockSpec
+            : blockSpec,
+          retryContext &&
+            typeof retryContext === "object" &&
+            !Array.isArray(retryContext)
+            ? retryContext
+            : executionContext
+        ),
+    });
+    if (
+      recoveryOutcome &&
+      recoveryOutcome.block_result &&
+      typeof recoveryOutcome.block_result === "object"
+    ) {
+      currentBlockResult = recoveryOutcome.block_result;
+    }
+    if (!currentBlockResult || currentBlockResult.status !== "succeeded") {
+      return currentBlockResult;
+    }
+
+    const verifyAfterRecoveryOutcome = verifyHook.runVerify({
+      blockSpec,
+      blockResult: currentBlockResult,
+    });
+    if (
+      verifyAfterRecoveryOutcome &&
+      verifyAfterRecoveryOutcome.block_result &&
+      typeof verifyAfterRecoveryOutcome.block_result === "object"
+    ) {
+      currentBlockResult = verifyAfterRecoveryOutcome.block_result;
+    }
+    return currentBlockResult;
+  }
+
+  async executeBlockSpecForMvp(body) {
+    const payload =
+      body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    const runtimeFlags = this.blockRuntimeFlags;
+    if (!runtimeFlags || runtimeFlags.pipeline_enabled !== true) {
+      return {
+        statusCode: 409,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: "E_BLOCK_PIPELINE_DISABLED",
+          message: "Block runtime pipeline is disabled by feature flag",
+          tool_name: "planner_execute_mcp",
+          context: {
+            stage: "before_dispatch",
+            previous_operation: "execute_planner_entry_for_mcp",
+          },
+        }),
+      };
+    }
+    const rawBlockSpec =
+      payload.block_spec &&
+      typeof payload.block_spec === "object" &&
+      !Array.isArray(payload.block_spec)
+        ? payload.block_spec
+        : null;
+    if (!rawBlockSpec) {
+      return {
+        statusCode: 400,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: "E_SCHEMA_INVALID",
+          message: "block_spec must be a plain object",
+          tool_name: "planner_execute_mcp",
+          context: {
+            stage: "before_dispatch",
+            previous_operation: "validate_block_spec",
+          },
+        }),
+      };
+    }
+    const plannerEntryTranslator = this.getPlannerEntryTranslator();
+    const translationOutcome =
+      plannerEntryTranslator.translateBlockSpec(rawBlockSpec);
+    if (!translationOutcome || translationOutcome.ok !== true) {
+      return {
+        statusCode: 400,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code:
+            translationOutcome &&
+            typeof translationOutcome.error_code === "string" &&
+            translationOutcome.error_code.trim()
+              ? translationOutcome.error_code.trim()
+              : "E_SCHEMA_INVALID",
+          message:
+            translationOutcome &&
+            typeof translationOutcome.error_message === "string" &&
+            translationOutcome.error_message.trim()
+              ? translationOutcome.error_message.trim()
+              : "planner entry translation failed",
+          tool_name: "planner_execute_mcp",
+          ...(translationOutcome &&
+          translationOutcome.details &&
+          typeof translationOutcome.details === "object" &&
+          !Array.isArray(translationOutcome.details)
+            ? {
+                data: {
+                  planner_entry_translation: translationOutcome.details,
+                },
+              }
+            : {}),
+          context: {
+            stage: "before_dispatch",
+            previous_operation: "translate_planner_entry_payload",
+          },
+        }),
+      };
+    }
+    const blockSpec = translationOutcome.block_spec;
+
+    const rawExecutionContext =
+      payload.execution_context &&
+      typeof payload.execution_context === "object" &&
+      !Array.isArray(payload.execution_context)
+        ? { ...payload.execution_context }
+        : {};
+    if (
+      typeof rawExecutionContext.plan_initial_read_token !== "string" &&
+      typeof payload.plan_initial_read_token === "string" &&
+      payload.plan_initial_read_token.trim()
+    ) {
+      rawExecutionContext.plan_initial_read_token =
+        payload.plan_initial_read_token.trim();
+    }
+    if (
+      typeof rawExecutionContext.previous_read_token_candidate !== "string" &&
+      typeof payload.previous_read_token_candidate === "string" &&
+      payload.previous_read_token_candidate.trim()
+    ) {
+      rawExecutionContext.previous_read_token_candidate =
+        payload.previous_read_token_candidate.trim();
+    }
+    if (
+      typeof rawExecutionContext.transaction_read_token_candidate !== "string" &&
+      typeof payload.transaction_read_token_candidate === "string" &&
+      payload.transaction_read_token_candidate.trim()
+    ) {
+      rawExecutionContext.transaction_read_token_candidate =
+        payload.transaction_read_token_candidate.trim();
+    }
+    const contextApplied = applyBlockRuntimeFlagsToExecutionContext(
+      runtimeFlags,
+      rawExecutionContext
+    );
+    let executionContext = contextApplied.execution_context;
+    let routeResult = null;
+
+    if (runtimeFlags.bypass_router !== true) {
+      const router = this.getBlockRuntimeRouter();
+      routeResult = router.routeBlock(blockSpec, executionContext);
+      if (!routeResult || routeResult.ok !== true) {
+        const errorCode = normalizeSsotErrorCodeForMcp(
+          routeResult && typeof routeResult.error_code === "string"
+            ? routeResult.error_code
+            : "E_PRECONDITION_FAILED"
+        );
+        const blockErrorCode =
+          routeResult && typeof routeResult.block_error_code === "string"
+            ? routeResult.block_error_code.trim()
+            : "";
+        return {
+          statusCode: errorCode === "E_SCHEMA_INVALID" ? 400 : 409,
+          body: withMcpErrorFeedback({
+            status: "failed",
+            error_code: errorCode,
+            message:
+              routeResult &&
+              typeof routeResult.message === "string" &&
+              routeResult.message.trim()
+                ? routeResult.message.trim()
+                : "Block router rejected route request",
+            tool_name: "planner_execute_mcp",
+            ...(blockErrorCode ? { block_error_code: blockErrorCode } : {}),
+            data: {
+              runtime_flags: runtimeFlags,
+              route_result: routeResult || {},
+              ...(blockErrorCode ? { block_error_code: blockErrorCode } : {}),
+            },
+            context: {
+              stage: "before_dispatch",
+              previous_operation: "route_block_to_channel",
+              route_reason:
+                routeResult && typeof routeResult.route_reason === "string"
+                  ? routeResult.route_reason
+                  : "",
+            },
+          }),
+        };
+      }
+      executionContext = {
+        ...executionContext,
+        channel:
+          typeof routeResult.channel_id === "string" &&
+          routeResult.channel_id.trim()
+            ? routeResult.channel_id.trim()
+            : "execution",
+      };
+      const shapeDecider = this.getExecutionShapeDecider();
+      const shapeDecision = shapeDecider.decideExecutionShape({
+        block_spec: blockSpec,
+        execution_context: executionContext,
+        runtime_flags: runtimeFlags,
+      });
+      executionContext = mergeShapeDecisionIntoExecutionContext(
+        executionContext,
+        shapeDecision
+      );
+    }
+
+    try {
+      const adapter = this.getBlockRuntimeExecutionAdapter();
+      let blockResult = await adapter.executeBlock(blockSpec, executionContext);
+      if (runtimeFlags.verify_recovery_enabled === true) {
+        blockResult = await this.runVerifyRecoveryHooksForBlock({
+          blockSpec,
+          executionContext,
+          adapter,
+          blockResult,
+        });
+      }
+      if (blockResult && blockResult.status === "succeeded") {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            query_type: "block.request",
+            data: {
+              ...blockResult,
+              runtime_flags: runtimeFlags,
+              ...(routeResult ? { route_result: routeResult } : {}),
+            },
+          },
+        };
+      }
+
+      const plannerExitPolicy = this.getPlannerExitPolicy();
+      const plannerExitDecision =
+        plannerExitPolicy && typeof plannerExitPolicy.evaluate === "function"
+          ? plannerExitPolicy.evaluate({
+              request_payload: payload,
+              block_spec: blockSpec,
+              block_result: blockResult,
+            })
+          : null;
+      const failureData = {
+        block_result: blockResult || {},
+        runtime_flags: runtimeFlags,
+        ...(routeResult ? { route_result: routeResult } : {}),
+      };
+      if (
+        plannerExitDecision &&
+        plannerExitDecision.applied === true &&
+        plannerExitDecision.action === "escape"
+      ) {
+        const escapeToolName =
+          plannerExitDecision &&
+          typeof plannerExitDecision.escape_tool_name === "string" &&
+          plannerExitDecision.escape_tool_name.trim()
+            ? plannerExitDecision.escape_tool_name.trim()
+            : "";
+        const escapePayload =
+          plannerExitDecision &&
+          plannerExitDecision.escape_payload &&
+          typeof plannerExitDecision.escape_payload === "object" &&
+          !Array.isArray(plannerExitDecision.escape_payload)
+            ? plannerExitDecision.escape_payload
+            : {};
+        const internalToolInvoker = this.getInternalToolInvoker();
+        const escapeOutcome = await internalToolInvoker.invokeTool(
+          escapeToolName,
+          escapePayload
+        );
+        const escapeStatusCode = Number(
+          escapeOutcome && escapeOutcome.statusCode
+        );
+        const normalizedEscapeStatusCode = Number.isFinite(escapeStatusCode)
+          ? escapeStatusCode
+          : 0;
+        const escapeBody =
+          escapeOutcome &&
+          escapeOutcome.body &&
+          typeof escapeOutcome.body === "object" &&
+          !Array.isArray(escapeOutcome.body)
+            ? escapeOutcome.body
+            : {};
+        if (normalizedEscapeStatusCode >= 200 && normalizedEscapeStatusCode < 300) {
+          return {
+            statusCode: 200,
+            body: {
+              ok: true,
+              status: "succeeded",
+              query_type: "planner.exit",
+              tool_name: escapeToolName,
+              data: {
+                status: "succeeded",
+                planner_exit: plannerExitDecision,
+                block_result: blockResult || {},
+                escape_result:
+                  escapeBody.data &&
+                  typeof escapeBody.data === "object" &&
+                  !Array.isArray(escapeBody.data)
+                    ? escapeBody.data
+                    : escapeBody,
+                runtime_flags: runtimeFlags,
+                ...(routeResult ? { route_result: routeResult } : {}),
+              },
+            },
+          };
+        }
+
+        return {
+          statusCode: normalizedEscapeStatusCode > 0 ? normalizedEscapeStatusCode : 409,
+          body: withMcpErrorFeedback({
+            status: "failed",
+            error_code:
+              typeof escapeBody.error_code === "string" && escapeBody.error_code.trim()
+                ? escapeBody.error_code.trim()
+                : "E_PLANNER_NO_SAFE_FALLBACK",
+            message:
+              typeof escapeBody.message === "string" && escapeBody.message.trim()
+                ? escapeBody.message.trim()
+                : typeof escapeBody.error_message === "string" &&
+                    escapeBody.error_message.trim()
+                  ? escapeBody.error_message.trim()
+                  : "planner exit backend dispatch failed",
+            tool_name: "planner_execute_mcp",
+            data: {
+              ...failureData,
+              planner_exit: plannerExitDecision,
+              escape_tool_name: escapeToolName,
+              escape_status_code: normalizedEscapeStatusCode,
+              escape_body: escapeBody,
+            },
+            context: {
+              stage: "during_dispatch",
+              previous_operation: "planner_exit_escape_dispatch",
+              failed_block_id:
+                blockResult && typeof blockResult.block_id === "string"
+                  ? blockResult.block_id
+                  : "",
+              failed_tool_name: escapeToolName,
+            },
+          }),
+        };
+      }
+      if (
+        plannerExitDecision &&
+        plannerExitDecision.applied === true &&
+        plannerExitDecision.action === "fail_closed"
+      ) {
+        return {
+          statusCode: 409,
+          body: withMcpErrorFeedback({
+            status: "failed",
+            error_code:
+              typeof plannerExitDecision.error_code === "string" &&
+              plannerExitDecision.error_code.trim()
+                ? plannerExitDecision.error_code.trim()
+                : "E_PLANNER_EXIT_NOT_ALLOWED",
+            message:
+              typeof plannerExitDecision.error_message === "string" &&
+              plannerExitDecision.error_message.trim()
+                ? plannerExitDecision.error_message.trim()
+                : "planner entry exit policy failed closed",
+            tool_name: "planner_execute_mcp",
+            data: {
+              ...failureData,
+              planner_exit: plannerExitDecision,
+            },
+            context: {
+              stage: "during_dispatch",
+              previous_operation: "planner_exit_policy_fail_closed",
+              failed_block_id:
+                blockResult && typeof blockResult.block_id === "string"
+                  ? blockResult.block_id
+                  : "",
+              failed_tool_name:
+                blockResult &&
+                blockResult.execution_meta &&
+                typeof blockResult.execution_meta === "object" &&
+                typeof blockResult.execution_meta.tool_name === "string"
+                  ? blockResult.execution_meta.tool_name
+                  : "",
+            },
+          }),
+        };
+      }
+
+      const blockError =
+        blockResult &&
+        blockResult.error &&
+        typeof blockResult.error === "object" &&
+        !Array.isArray(blockResult.error)
+          ? blockResult.error
+          : {};
+      const errorCode =
+        typeof blockError.error_code === "string" && blockError.error_code.trim()
+          ? blockError.error_code.trim()
+          : "E_BLOCK_EXECUTION_FAILED";
+      const message =
+        typeof blockError.error_message === "string" &&
+        blockError.error_message.trim()
+          ? blockError.error_message.trim()
+          : "Block execution failed";
+      if (
+        typeof blockError.block_error_code === "string" &&
+        blockError.block_error_code.trim()
+      ) {
+        failureData.block_error_code = blockError.block_error_code.trim();
+      }
+      return {
+        statusCode: 409,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: errorCode,
+          message,
+          tool_name: "planner_execute_mcp",
+          ...(failureData.block_error_code
+            ? { block_error_code: failureData.block_error_code }
+            : {}),
+          data: failureData,
+          context: {
+            stage: "during_dispatch",
+            previous_operation: "execute_planner_entry_for_mcp",
+            failed_block_id:
+              blockResult && typeof blockResult.block_id === "string"
+                ? blockResult.block_id
+                : "",
+            failed_tool_name:
+              blockResult &&
+              blockResult.execution_meta &&
+              typeof blockResult.execution_meta === "object" &&
+              typeof blockResult.execution_meta.tool_name === "string"
+                ? blockResult.execution_meta.tool_name
+                : "",
+          },
+        }),
+      };
+    } catch (error) {
+      const errorCode =
+        error && typeof error.errorCode === "string" && error.errorCode.trim()
+          ? error.errorCode.trim()
+          : "E_BLOCK_EXECUTION_FAILED";
+      const message =
+        error && typeof error.message === "string" && error.message.trim()
+          ? error.message.trim()
+          : "planner_execute_mcp failed unexpectedly";
+      return {
+        statusCode: 500,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: errorCode,
+          message,
+          tool_name: "planner_execute_mcp",
+          context: {
+            stage: "during_dispatch",
+            previous_operation: "execute_planner_entry_for_mcp",
+          },
+        }),
+      };
+    }
+  }
+
+  async executePlannerEntryForMcp(body) {
+    return this.executeBlockSpecForMvp(body);
   }
 
   getHealthPayload() {
@@ -375,6 +1165,23 @@ class TurnService {
         "function"
         ? this.ssotTokenDriftRecoveryCoordinator.getRecoveryMetricsSnapshot()
         : null;
+    const plannerDirectCompatibilityMetrics =
+      this.plannerDirectCompatibilityMetricsCollector &&
+      typeof this.plannerDirectCompatibilityMetricsCollector.getSnapshot ===
+        "function"
+        ? this.plannerDirectCompatibilityMetricsCollector.getSnapshot()
+        : null;
+    const plannerVisibilityProfileState =
+      this.plannerVisibilityProfileRuntime &&
+      typeof this.plannerVisibilityProfileRuntime.getState === "function"
+        ? this.plannerVisibilityProfileRuntime.getState()
+        : null;
+    const genericPropertyFallbackMetrics =
+      this.genericPropertyFallbackMetricsCollector &&
+      typeof this.genericPropertyFallbackMetricsCollector.getSnapshot ===
+        "function"
+        ? this.genericPropertyFallbackMetricsCollector.getSnapshot()
+        : null;
     return {
       ...turnSnapshot,
       mcp_runtime: {
@@ -385,6 +1192,10 @@ class TurnService {
         query_runtime: queryRuntime,
         token_drift_recovery_shadow: tokenShadowMetrics,
         token_drift_recovery_execute: tokenRecoveryMetrics,
+        planner_visibility_profile: plannerVisibilityProfileState,
+        planner_direct_compatibility: plannerDirectCompatibilityMetrics,
+        mcp_entry_governance: this.mcpEntryGovernanceState,
+        generic_property_fallback: genericPropertyFallbackMetrics,
         token_automation_metrics: buildTokenAutomationMetricsSnapshot(
           tokenLifecycleMetrics,
           tokenRecoveryMetrics
@@ -1133,6 +1944,20 @@ class TurnService {
   }
 
   recordMcpToolInvocation(input) {
+    const source = input && typeof input === "object" ? input : {};
+    const toolName =
+      typeof source.command_name === "string" ? source.command_name.trim() : "";
+    if (
+      toolName &&
+      this.plannerDirectCompatibilityRuntime &&
+      typeof this.plannerDirectCompatibilityRuntime.evaluateDirectCall === "function" &&
+      typeof this.plannerDirectCompatibilityRuntime.recordDecision === "function"
+    ) {
+      const decision = this.plannerDirectCompatibilityRuntime.evaluateDirectCall(
+        toolName
+      );
+      this.plannerDirectCompatibilityRuntime.recordDecision(decision);
+    }
     if (
       this.v1PolishMetricsCollector &&
       typeof this.v1PolishMetricsCollector.recordToolInvocation === "function"

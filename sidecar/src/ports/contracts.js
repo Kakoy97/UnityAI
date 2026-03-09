@@ -8,6 +8,9 @@ const {
   loadVisibilityPolicyArtifact,
   loadSidecarCommandManifestArtifact,
 } = require("../application/ssotRuntime/startupArtifactsGuard");
+const {
+  FAMILY_TOOL_MIGRATION_MATRIX,
+} = require("../application/blockRuntime/execution/FamilyToolMigrationMatrix");
 
 function normalizeToolName(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -28,6 +31,132 @@ function toFrozenStringArray(value) {
   return Object.freeze(output);
 }
 
+function normalizeEnvEnum(name, fallback, allowedValues) {
+  const allowed = new Set(
+    (Array.isArray(allowedValues) ? allowedValues : [])
+      .map((item) => normalizeToolName(item))
+      .filter((item) => !!item)
+  );
+  const normalizedFallback = normalizeToolName(fallback);
+  const raw = normalizeToolName(process.env[name]);
+  if (!raw) {
+    return normalizedFallback;
+  }
+  if (allowed.size > 0 && !allowed.has(raw)) {
+    return normalizedFallback;
+  }
+  return raw;
+}
+
+function normalizeEnvNonNegativeNumber(name, fallback) {
+  const raw = normalizeToolName(process.env[name]);
+  const normalizedFallback = Number.isFinite(Number(fallback)) && Number(fallback) >= 0
+    ? Number(fallback)
+    : null;
+  if (!raw) {
+    return normalizedFallback;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return normalizedFallback;
+  }
+  return parsed;
+}
+
+function normalizeEnvBoolean(name, fallback) {
+  const raw = normalizeToolName(process.env[name]).toLowerCase();
+  if (!raw) {
+    return fallback === true;
+  }
+  if (["1", "true", "on", "enabled", "yes"].includes(raw)) {
+    return true;
+  }
+  if (["0", "false", "off", "disabled", "no"].includes(raw)) {
+    return false;
+  }
+  return fallback === true;
+}
+
+function normalizeEnvCsvArray(name, fallback) {
+  const raw = normalizeToolName(process.env[name]);
+  if (!raw) {
+    return toFrozenStringArray(Array.isArray(fallback) ? fallback : []);
+  }
+  return toFrozenStringArray(
+    raw
+      .split(",")
+      .map((item) => normalizeToolName(item))
+      .filter((item) => !!item)
+  );
+}
+
+const MCP_ENTRY_MODE = Object.freeze({
+  LEGACY: "legacy",
+  OBSERVE: "observe",
+  REJECT: "reject",
+});
+const MCP_PLANNER_PRIMARY_ENTRY_TOOL_NAME = "planner_execute_mcp";
+const MCP_PLANNER_ALIAS_ENTRY_TOOL_NAME = "";
+
+function appendPlannerPrimaryEntryToolName(toolNames, entryGovernanceContract) {
+  const source = Array.isArray(toolNames) ? toolNames : [];
+  const governance =
+    entryGovernanceContract &&
+    typeof entryGovernanceContract === "object" &&
+    entryGovernanceContract.enabled === true
+      ? entryGovernanceContract
+      : null;
+  if (!governance) {
+    return source;
+  }
+  const normalized = source
+    .map((item) => normalizeToolName(item))
+    .filter((item) => !!item);
+  if (
+    !normalized.includes(MCP_PLANNER_ALIAS_ENTRY_TOOL_NAME) ||
+    normalized.includes(MCP_PLANNER_PRIMARY_ENTRY_TOOL_NAME)
+  ) {
+    return source;
+  }
+  return [...source, MCP_PLANNER_PRIMARY_ENTRY_TOOL_NAME];
+}
+
+function collectPlannerCoveredFamilyAndManagedTools() {
+  const familyKeys = [];
+  const managedTools = [];
+  const managedToolFamilyMap = {};
+  const seenFamily = new Set();
+  const seenTool = new Set();
+  const source =
+    FAMILY_TOOL_MIGRATION_MATRIX && typeof FAMILY_TOOL_MIGRATION_MATRIX === "object"
+      ? FAMILY_TOOL_MIGRATION_MATRIX
+      : {};
+  for (const families of Object.values(source)) {
+    const familyMap = families && typeof families === "object" ? families : {};
+    for (const [familyKeyRaw, profileRaw] of Object.entries(familyMap)) {
+      const familyKey = normalizeToolName(familyKeyRaw);
+      if (familyKey && !seenFamily.has(familyKey)) {
+        seenFamily.add(familyKey);
+        familyKeys.push(familyKey);
+      }
+      const profile = profileRaw && typeof profileRaw === "object" ? profileRaw : {};
+      const primaryTool = normalizeToolName(profile.primary_tool);
+      if (primaryTool && !seenTool.has(primaryTool)) {
+        seenTool.add(primaryTool);
+        managedTools.push(primaryTool);
+        if (familyKey) {
+          managedToolFamilyMap[primaryTool] = familyKey;
+        }
+      }
+    }
+  }
+  return Object.freeze({
+    covered_family_keys: Object.freeze(familyKeys),
+    managed_tool_names: Object.freeze(managedTools),
+    managed_tool_family_map: Object.freeze({ ...managedToolFamilyMap }),
+  });
+}
+
 const {
   visibilityPolicyPath: MCP_VISIBILITY_POLICY_PATH,
   visibilityPolicy: MCP_VISIBILITY_POLICY,
@@ -37,8 +166,30 @@ const {
   sidecarCommandManifest: MCP_SIDECAR_COMMAND_MANIFEST,
 } = loadSidecarCommandManifestArtifact();
 
+const MCP_ENTRY_GOVERNANCE_CONTRACT = Object.freeze({
+  policy_formula:
+    "single-state-machine for external MCP entry governance: legacy|observe|reject",
+  supported_modes: Object.freeze([
+    MCP_ENTRY_MODE.LEGACY,
+    MCP_ENTRY_MODE.OBSERVE,
+    MCP_ENTRY_MODE.REJECT,
+  ]),
+  enabled: normalizeEnvBoolean("MCP_ENTRY_GOVERNANCE_ENABLED", true),
+  mode: normalizeEnvEnum("MCP_ENTRY_MODE", MCP_ENTRY_MODE.REJECT, [
+    MCP_ENTRY_MODE.LEGACY,
+    MCP_ENTRY_MODE.OBSERVE,
+    MCP_ENTRY_MODE.REJECT,
+  ]),
+  observe_shadow: normalizeEnvBoolean("MCP_ENTRY_OBSERVE_SHADOW", false),
+  planner_primary_tool_name: MCP_PLANNER_PRIMARY_ENTRY_TOOL_NAME,
+  planner_alias_tool_name: MCP_PLANNER_ALIAS_ENTRY_TOOL_NAME,
+});
+
 const MCP_ACTIVE_TOOL_NAMES = toFrozenStringArray(
-  MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.active_tool_names
+  appendPlannerPrimaryEntryToolName(
+    MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.active_tool_names,
+    MCP_ENTRY_GOVERNANCE_CONTRACT
+  )
 );
 const MCP_DEPRECATED_TOOL_NAMES = toFrozenStringArray(
   MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.deprecated_tool_names
@@ -47,10 +198,16 @@ const MCP_REMOVED_TOOL_NAMES = toFrozenStringArray(
   MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.removed_tool_names
 );
 const MCP_EXPOSED_TOOL_NAMES = toFrozenStringArray(
-  MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.exposed_tool_names
+  appendPlannerPrimaryEntryToolName(
+    MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.exposed_tool_names,
+    MCP_ENTRY_GOVERNANCE_CONTRACT
+  )
 );
 const MCP_LOCAL_STATIC_TOOL_NAMES = toFrozenStringArray(
-  MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.local_static_tool_names
+  appendPlannerPrimaryEntryToolName(
+    MCP_VISIBILITY_POLICY && MCP_VISIBILITY_POLICY.local_static_tool_names,
+    MCP_ENTRY_GOVERNANCE_CONTRACT
+  )
 );
 const MCP_DISABLED_TOOL_NAMES = Object.freeze([]);
 const MCP_TRANSACTION_ENABLED_WRITE_TOOL_NAMES = toFrozenStringArray(
@@ -74,6 +231,174 @@ const MCP_TRANSACTION_ENABLED_WRITE_TOOL_NAMES = toFrozenStringArray(
     })
     .map((command) => command.name)
 );
+const STEP_C_PLANNER_SCOPE = collectPlannerCoveredFamilyAndManagedTools();
+const MCP_PLANNER_VISIBILITY_PROFILE_CONTRACT = Object.freeze({
+  profile_formula:
+    "tools/list visible = exposed & active - disabled - managed_when_planner_first",
+  supported_profiles: Object.freeze(["legacy_full", "planner_first"]),
+  requested_profile: normalizeEnvEnum("MCP_VISIBILITY_PROFILE", "planner_first", [
+    "legacy_full",
+    "planner_first",
+  ]),
+  covered_family_keys: STEP_C_PLANNER_SCOPE.covered_family_keys,
+  managed_tool_names: STEP_C_PLANNER_SCOPE.managed_tool_names,
+  enable_gate: Object.freeze({
+    covered_family_ratio_min: 0.8,
+    planner_path_failure_rate_max: 0.01,
+    planner_path_p95_regression_max: 0.1,
+    metrics: Object.freeze({
+      covered_family_ratio: normalizeEnvNonNegativeNumber(
+        "MCP_PLANNER_COVERED_FAMILY_RATIO_7D",
+        Number.NaN
+      ),
+      planner_path_failure_rate: normalizeEnvNonNegativeNumber(
+        "MCP_PLANNER_PATH_FAILURE_RATE_7D",
+        Number.NaN
+      ),
+      planner_path_p95_regression: normalizeEnvNonNegativeNumber(
+        "MCP_PLANNER_PATH_P95_REGRESSION_7D",
+        Number.NaN
+      ),
+    }),
+  }),
+  rollback_trigger: Object.freeze({
+    planner_path_failure_rate_1h_max: 0.02,
+    planner_path_p95_regression_1h_max: 0.2,
+    metrics: Object.freeze({
+      planner_path_failure_rate_1h: normalizeEnvNonNegativeNumber(
+        "MCP_PLANNER_PATH_FAILURE_RATE_1H",
+        Number.NaN
+      ),
+      planner_path_p95_regression_1h: normalizeEnvNonNegativeNumber(
+        "MCP_PLANNER_PATH_P95_REGRESSION_1H",
+        Number.NaN
+      ),
+    }),
+  }),
+});
+const MCP_PLANNER_DIRECT_COMPATIBILITY_POLICY_CONTRACT = Object.freeze({
+  policy_formula:
+    "direct mode for managed tools = allow|warn|deny; deny gated by Step D thresholds with rollback-to-warn",
+  supported_modes: Object.freeze(["allow", "warn", "deny"]),
+  requested_mode: normalizeEnvEnum("MCP_PLANNER_DIRECT_MODE", "allow", [
+    "allow",
+    "warn",
+    "deny",
+  ]),
+  managed_tool_names: STEP_C_PLANNER_SCOPE.managed_tool_names,
+  managed_tool_family_map: STEP_C_PLANNER_SCOPE.managed_tool_family_map,
+  deny_gate: Object.freeze({
+    direct_warn_soak_days_min: 7,
+    planner_success_rate_min: 0.99,
+    direct_share_for_deny_max: 0.1,
+    metrics: Object.freeze({
+      direct_warn_soak_days: normalizeEnvNonNegativeNumber(
+        "MCP_PLANNER_DIRECT_WARN_SOAK_DAYS",
+        Number.NaN
+      ),
+      planner_success_rate_for_deny: normalizeEnvNonNegativeNumber(
+        "MCP_PLANNER_SUCCESS_RATE_FOR_DENY_7D",
+        Number.NaN
+      ),
+      direct_share_for_deny: normalizeEnvNonNegativeNumber(
+        "MCP_PLANNER_DIRECT_SHARE_FOR_DENY_7D",
+        Number.NaN
+      ),
+    }),
+  }),
+  rollback_trigger: Object.freeze({
+    deny_incident_guard_max: 0,
+    deny_failure_guard_24h_max: 0.015,
+    metrics: Object.freeze({
+      deny_incident_count_24h: normalizeEnvNonNegativeNumber(
+        "MCP_PLANNER_DENY_P1_INCIDENT_COUNT_24H",
+        Number.NaN
+      ),
+      deny_failure_rate_24h: normalizeEnvNonNegativeNumber(
+        "MCP_PLANNER_DENY_FAILURE_RATE_24H",
+        Number.NaN
+      ),
+    }),
+  }),
+  data_source: Object.freeze({
+    evaluation_mode: "env_snapshot_static",
+    metric_env_keys: Object.freeze({
+      direct_warn_soak_days: "MCP_PLANNER_DIRECT_WARN_SOAK_DAYS",
+      planner_success_rate_for_deny: "MCP_PLANNER_SUCCESS_RATE_FOR_DENY_7D",
+      direct_share_for_deny: "MCP_PLANNER_DIRECT_SHARE_FOR_DENY_7D",
+      deny_incident_count_24h: "MCP_PLANNER_DENY_P1_INCIDENT_COUNT_24H",
+      deny_failure_rate_24h: "MCP_PLANNER_DENY_FAILURE_RATE_24H",
+    }),
+    threshold_source: "contracts.step_d_thresholds",
+    note:
+      "Step D uses process env snapshots at boot-time; not rolling-window stream aggregation yet.",
+  }),
+});
+const MCP_PLANNER_EXIT_POLICY_CONTRACT = Object.freeze({
+  policy_formula:
+    "planner entry fail-fast exit policy: classify no_family/no_tool/no_safe_fallback then allow minimal escape backend by whitelist",
+  enabled: normalizeEnvBoolean("MCP_PLANNER_EXIT_POLICY_ENABLED", true),
+  error_codes: Object.freeze({
+    no_family: "E_PLANNER_UNSUPPORTED_FAMILY",
+    no_tool: "E_PLANNER_NO_TOOL_MAPPING",
+    no_safe_fallback: "E_PLANNER_NO_SAFE_FALLBACK",
+    exit_not_allowed: "E_PLANNER_EXIT_NOT_ALLOWED",
+  }),
+  escape_family_allowlist: Object.freeze(["write.async_ops"]),
+  escape_tool_allowlist: Object.freeze(["get_unity_task_status"]),
+  never_escape_family_prefixes: Object.freeze([
+    "write.hierarchy",
+    "write.component_lifecycle",
+    "write.object_lifecycle",
+    "write.transform",
+    "write.rect_layout",
+    "write.ui_style",
+  ]),
+  data_source: Object.freeze({
+    evaluation_mode: "env_snapshot_static",
+    env_keys: Object.freeze({
+      enabled: "MCP_PLANNER_EXIT_POLICY_ENABLED",
+    }),
+    note:
+      "Step4 PlannerExitPolicy enable switch only applies after planner entry is selected.",
+  }),
+});
+const MCP_PLANNER_GENERIC_PROPERTY_FALLBACK_POLICY_CONTRACT = Object.freeze({
+  policy_formula:
+    "generic fallback allowed only for policy families and only when Step E preconditions are satisfied",
+  enabled: normalizeEnvBoolean("MCP_PLANNER_GENERIC_FALLBACK_ENABLED", true),
+  fallback_tool_name: "set_serialized_property",
+  allowed_source_capability_families: normalizeEnvCsvArray(
+    "MCP_PLANNER_GENERIC_FALLBACK_ALLOWED_CAPABILITY_FAMILIES",
+    ["Write.GenericProperty"]
+  ),
+  source_family_alias_map: Object.freeze({
+    "mutate.component_properties": "Write.GenericProperty",
+  }),
+  component_type_whitelist_patterns: Object.freeze([
+    "^UnityEngine\\.[A-Za-z0-9_+.]+\\s*,\\s*[A-Za-z0-9_+.]+$",
+  ]),
+  property_path_whitelist_patterns: Object.freeze([
+    "^m_[A-Za-z0-9_.\\[\\]-]+$",
+  ]),
+  precondition_requirements: Object.freeze({
+    specialized_attempted_source: "primary_tool_failure",
+    service_verified_preflight_required: true,
+    preflight_tool_name: "preflight_validate_write_payload",
+    component_type_whitelist_match_required: true,
+    property_path_whitelist_match_required: true,
+  }),
+  data_source: Object.freeze({
+    evaluation_mode: "env_snapshot_static",
+    env_keys: Object.freeze({
+      enabled: "MCP_PLANNER_GENERIC_FALLBACK_ENABLED",
+      allowed_source_capability_families:
+        "MCP_PLANNER_GENERIC_FALLBACK_ALLOWED_CAPABILITY_FAMILIES",
+    }),
+    note:
+      "Step E fallback gating uses boot-time env snapshot + static whitelist patterns.",
+  }),
+});
 
 const OCC_WRITE_GUARD_CONTRACT = Object.freeze({
   based_on_read_token_required: true,
@@ -235,5 +560,10 @@ module.exports = {
   LEGACY_ANCHOR_MIGRATION_CONTRACT,
   ROUTER_PROTOCOL_FREEZE_CONTRACT,
   MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
+  MCP_ENTRY_GOVERNANCE_CONTRACT,
+  MCP_PLANNER_VISIBILITY_PROFILE_CONTRACT,
+  MCP_PLANNER_DIRECT_COMPATIBILITY_POLICY_CONTRACT,
+  MCP_PLANNER_EXIT_POLICY_CONTRACT,
+  MCP_PLANNER_GENERIC_PROPERTY_FALLBACK_POLICY_CONTRACT,
   MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT,
 };

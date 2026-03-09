@@ -1,0 +1,72 @@
+{
+  "mcp_runtime": {
+    "planner_visibility_profile": {
+      "requested_profile": "planner_first",
+      "active_profile": "planner_first",
+      "reason": "planner_first_enabled",
+      "gate": {
+        "passed": true,
+        "reasons": []
+      },
+      "rollback": {
+        "triggered": false,
+        "reasons": []
+      }
+    },
+    "planner_direct_compatibility": {
+      "policy_state": {
+        "requested_mode": "deny",
+        "active_mode": "deny",
+        "reason": "deny_enabled",
+        "deny_gate": {
+          "passed": true,
+          "reasons": []
+        },
+        "rollback": {
+          "triggered": false,
+          "reasons": []
+        }
+      }
+    },
+    "planner_only_exposure": {
+      "policy_state": {
+        "enabled": true,
+        "requested_mode": "reject",
+        "active_mode": "reject"
+      },
+      "counters": {
+        "planner_entry_call_total": 420,
+        "planner_entry_primary_call_total": 420,
+        "planner_entry_alias_call_total": 0,
+        "external_direct_runtime_call_total": 0,
+        "external_direct_runtime_error_total": 0,
+        "observe_prompt_total": 0,
+        "redirected_after_observe_total": 0
+      }
+    }
+  },
+  "alias_retirement_window": {
+    "required_consecutive_days": 14,
+    "alias_share_max": 0.01,
+    "required_release_windows": 2,
+    "p1_incident_max": 0,
+    "announcement_published": true,
+    "release_windows_completed": 2,
+    "daily": [
+      { "date": "2026-02-23", "planner_entry_call_total": 320, "planner_entry_alias_call_total": 2, "p1_incident_count": 0 },
+      { "date": "2026-02-24", "planner_entry_call_total": 305, "planner_entry_alias_call_total": 1, "p1_incident_count": 0 },
+      { "date": "2026-02-25", "planner_entry_call_total": 298, "planner_entry_alias_call_total": 1, "p1_incident_count": 0 },
+      { "date": "2026-02-26", "planner_entry_call_total": 311, "planner_entry_alias_call_total": 0, "p1_incident_count": 0 },
+      { "date": "2026-02-27", "planner_entry_call_total": 327, "planner_entry_alias_call_total": 2, "p1_incident_count": 0 },
+      { "date": "2026-02-28", "planner_entry_call_total": 289, "planner_entry_alias_call_total": 0, "p1_incident_count": 0 },
+      { "date": "2026-03-01", "planner_entry_call_total": 314, "planner_entry_alias_call_total": 1, "p1_incident_count": 0 },
+      { "date": "2026-03-02", "planner_entry_call_total": 333, "planner_entry_alias_call_total": 2, "p1_incident_count": 0 },
+      { "date": "2026-03-03", "planner_entry_call_total": 322, "planner_entry_alias_call_total": 1, "p1_incident_count": 0 },
+      { "date": "2026-03-04", "planner_entry_call_total": 341, "planner_entry_alias_call_total": 2, "p1_incident_count": 0 },
+      { "date": "2026-03-05", "planner_entry_call_total": 336, "planner_entry_alias_call_total": 1, "p1_incident_count": 0 },
+      { "date": "2026-03-06", "planner_entry_call_total": 309, "planner_entry_alias_call_total": 1, "p1_incident_count": 0 },
+      { "date": "2026-03-07", "planner_entry_call_total": 318, "planner_entry_alias_call_total": 0, "p1_incident_count": 0 },
+      { "date": "2026-03-08", "planner_entry_call_total": 347, "planner_entry_alias_call_total": 1, "p1_incident_count": 0 }
+    ]
+  }
+}

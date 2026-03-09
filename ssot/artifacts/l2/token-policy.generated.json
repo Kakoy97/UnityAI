@@ -624,6 +624,17 @@
       "declares_based_on_read_token": false
     },
     {
+      "name": "planner_execute_mcp",
+      "kind": "read",
+      "lifecycle": "experimental",
+      "dispatch_mode": "local_static",
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false,
+      "auto_retry_safe": false,
+      "requires_based_on_read_token": false,
+      "declares_based_on_read_token": false
+    },
+    {
       "name": "get_unity_task_status",
       "kind": "read",
       "lifecycle": "stable",
@@ -735,11 +746,11 @@
     }
   ],
   "summary": {
-    "total_tools": 63,
+    "total_tools": 64,
     "family_counts": {
       "write_requires_token": 38,
       "read_issues_token": 17,
-      "local_static_no_token": 8
+      "local_static_no_token": 9
     },
     "auto_retry_safe_tools": [
       "modify_ui_layout",

@@ -180,6 +180,58 @@ test("getStateSnapshotPayload exposes token automation counters for G2-5.5", () 
         };
       },
     };
+    service.plannerDirectCompatibilityMetricsCollector = {
+      getSnapshot() {
+        return {
+          schema_version: "planner_direct_compatibility_metrics.v1",
+          totals: {
+            decisions_total: 8,
+            allow_total: 5,
+            warn_total: 2,
+            deny_total: 1,
+          },
+          policy_state: {
+            requested_mode: "deny",
+            active_mode: "warn",
+            reason: "deny_gate_not_satisfied",
+            data_source: {
+              evaluation_mode: "env_snapshot_static",
+            },
+          },
+        };
+      },
+    };
+    service.plannerVisibilityProfileRuntime = {
+      getState() {
+        return {
+          requested_profile: "planner_first",
+          active_profile: "planner_first",
+          reason: "planner_first_enabled",
+          gate: {
+            passed: true,
+            reasons: [],
+          },
+          rollback: {
+            triggered: false,
+            reasons: [],
+          },
+        };
+      },
+    };
+    service.genericPropertyFallbackMetricsCollector = {
+      getSnapshot() {
+        return {
+          schema_version: "block_runtime_generic_property_fallback_metrics.v1",
+          totals: {
+            attempt_total: 4,
+            success_total: 3,
+          },
+          rates: {
+            fallback_success_rate: 0.75,
+          },
+        };
+      },
+    };
 
     const snapshot = service.getStateSnapshotPayload();
     assert.equal(
@@ -197,6 +249,35 @@ test("getStateSnapshotPayload exposes token automation counters for G2-5.5", () 
     assert.equal(
       snapshot.mcp_runtime.token_automation_metrics.token_auto_retry_duration_p95_ms,
       1875
+    );
+    assert.equal(
+      snapshot.mcp_runtime.planner_direct_compatibility.totals.warn_total,
+      2
+    );
+    assert.equal(
+      snapshot.mcp_runtime.planner_direct_compatibility.policy_state.active_mode,
+      "warn"
+    );
+    assert.equal(
+      snapshot.mcp_runtime.planner_direct_compatibility.policy_state.data_source
+        .evaluation_mode,
+      "env_snapshot_static"
+    );
+    assert.equal(
+      snapshot.mcp_runtime.planner_visibility_profile.active_profile,
+      "planner_first"
+    );
+    assert.equal(
+      snapshot.mcp_runtime.planner_visibility_profile.gate.passed,
+      true
+    );
+    assert.equal(
+      snapshot.mcp_runtime.generic_property_fallback.totals.attempt_total,
+      4
+    );
+    assert.equal(
+      snapshot.mcp_runtime.generic_property_fallback.rates.fallback_success_rate,
+      0.75
     );
   } finally {
     turnStore.stopMaintenance();

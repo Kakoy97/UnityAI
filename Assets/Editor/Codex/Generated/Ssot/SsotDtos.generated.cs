@@ -937,6 +937,20 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
     }
 
     [Serializable]
+    public sealed class PlannerExecuteMcpRequestDto
+    {
+        public const string ToolName = "planner_execute_mcp";
+        public static readonly string[] RequiredFields = new[] { "block_spec" };
+
+        public string thread_id;
+        public string block_spec;
+        public string execution_context;
+        public string plan_initial_read_token;
+        public string previous_read_token_candidate;
+        public string transaction_read_token_candidate;
+    }
+
+    [Serializable]
     public sealed class GetUnityTaskStatusRequestDto
     {
         public const string ToolName = "get_unity_task_status";

@@ -7,6 +7,7 @@ const { getMcpCommandRegistry } = require("../../src/mcp/commandRegistry");
 const { UnityMcpServer } = require("../../src/mcp/mcpServer");
 const {
   MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
+  MCP_ENTRY_GOVERNANCE_CONTRACT,
 } = require("../../src/ports/contracts");
 
 const V1_UI_TOOLS = Object.freeze([
@@ -44,17 +45,41 @@ test("UI-V1 tools are present in command registry and tools/list visibility form
       ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.removed_tool_names
       : []
   );
+  const localStatic = new Set(
+    Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.local_static_tool_names)
+      ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.local_static_tool_names
+      : []
+  );
+  const plannerPrimaryToolName =
+    typeof MCP_ENTRY_GOVERNANCE_CONTRACT.planner_primary_tool_name === "string" &&
+    MCP_ENTRY_GOVERNANCE_CONTRACT.planner_primary_tool_name.trim()
+      ? MCP_ENTRY_GOVERNANCE_CONTRACT.planner_primary_tool_name.trim()
+      : "planner_execute_mcp";
+  const plannerAliasToolName =
+    typeof MCP_ENTRY_GOVERNANCE_CONTRACT.planner_alias_tool_name === "string" &&
+    MCP_ENTRY_GOVERNANCE_CONTRACT.planner_alias_tool_name.trim()
+      ? MCP_ENTRY_GOVERNANCE_CONTRACT.planner_alias_tool_name.trim()
+      : "";
 
   for (const toolName of V1_UI_TOOLS) {
     const command = registry.getCommandByName(toolName);
     assert.ok(command, `command missing: ${toolName}`);
     assert.equal(command.mcp && command.mcp.expose, true);
 
-    const expectedVisible =
+    const isPlannerEntry =
+      toolName === plannerPrimaryToolName || toolName === plannerAliasToolName;
+    const expectedPlannerOnlyVisible =
       active.has(toolName) &&
       !disabled.has(toolName) &&
       !deprecated.has(toolName) &&
-      !removed.has(toolName);
+      !removed.has(toolName) &&
+      (isPlannerEntry || localStatic.has(toolName));
+    const expectedVisible =
+      isPlannerEntry && toolName === plannerAliasToolName &&
+      MCP_ENTRY_GOVERNANCE_CONTRACT.enabled === true
+        ? false
+        : expectedPlannerOnlyVisible;
+
     assert.equal(
       names.includes(toolName),
       expectedVisible,

@@ -1,0 +1,20 @@
+"use strict";
+
+const {
+  CHANNEL_SLOT_MANIFEST_VERSION,
+  CHANNEL_SLOT_MANIFEST_SCHEMA_VERSION,
+  CHANNEL_ID,
+  CHANNEL_STATUS,
+  DEFAULT_CHANNEL_SLOT_MANIFEST,
+  createChannelSlotManifest,
+} = require("./ChannelSlotManifest");
+
+module.exports = {
+  CHANNEL_SLOT_MANIFEST_VERSION,
+  CHANNEL_SLOT_MANIFEST_SCHEMA_VERSION,
+  CHANNEL_ID,
+  CHANNEL_STATUS,
+  DEFAULT_CHANNEL_SLOT_MANIFEST,
+  createChannelSlotManifest,
+};
+

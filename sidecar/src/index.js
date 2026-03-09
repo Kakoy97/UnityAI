@@ -66,6 +66,35 @@ function bootstrap(port, options) {
     "TOKEN_AUTO_RETRY_ENABLED",
     true
   );
+  const blockPipelineEnabled = parseEnvBoolean(
+    "BLOCK_PIPELINE_ENABLED",
+    true
+  );
+  const blockBypassRouter = parseEnvBoolean(
+    "BLOCK_BYPASS_ROUTER",
+    true
+  );
+  const blockForceSingleStep = parseEnvBoolean(
+    "BLOCK_FORCE_SINGLE_STEP",
+    false
+  );
+  const blockVerifyRecoveryEnabled = parseEnvBoolean(
+    "BLOCK_VERIFY_RECOVERY_ENABLED",
+    false
+  );
+  const mcpEntryGovernanceEnabled = parseEnvBoolean(
+    "MCP_ENTRY_GOVERNANCE_ENABLED",
+    true
+  );
+  const mcpEntryMode = parseEnvEnum("MCP_ENTRY_MODE", "reject", [
+    "legacy",
+    "observe",
+    "reject",
+  ]);
+  const mcpEntryObserveShadow = parseEnvBoolean(
+    "MCP_ENTRY_OBSERVE_SHADOW",
+    false
+  );
 
   const snapshotStore = new FileStateSnapshotStore({
     filePath: path.resolve(__dirname, "..", ".state", "sidecar-state.json"),
@@ -141,6 +170,13 @@ function bootstrap(port, options) {
     tokenAutoIssueEnabled,
     tokenAutoRetryShadowEnabled,
     tokenAutoRetryEnabled,
+    blockPipelineEnabled,
+    blockBypassRouter,
+    blockForceSingleStep,
+    blockVerifyRecoveryEnabled,
+    mcpEntryGovernanceEnabled,
+    mcpEntryMode,
+    mcpEntryObserveShadow,
     v1PolishMetricsCollector,
     captureCompositeEnabled,
     captureCompositeFuseFailureThreshold,

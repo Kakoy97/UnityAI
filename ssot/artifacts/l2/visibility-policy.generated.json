@@ -62,6 +62,7 @@
     "setup_cursor_mcp",
     "verify_mcp_setup",
     "run_unity_tests",
+    "planner_execute_mcp",
     "get_unity_task_status",
     "cancel_unity_task",
     "submit_unity_task",
@@ -130,6 +131,7 @@
     "setup_cursor_mcp",
     "verify_mcp_setup",
     "run_unity_tests",
+    "planner_execute_mcp",
     "get_unity_task_status",
     "cancel_unity_task",
     "submit_unity_task",
@@ -148,11 +150,12 @@
     "preflight_validate_write_payload",
     "setup_cursor_mcp",
     "verify_mcp_setup",
-    "run_unity_tests"
+    "run_unity_tests",
+    "planner_execute_mcp"
   ],
   "metadata": {
-    "total_dictionary_tools": 63,
-    "total_exposed_tools": 63,
+    "total_dictionary_tools": 64,
+    "total_exposed_tools": 64,
     "excluded_removed": 1,
     "excluded_deprecated": 2
   }

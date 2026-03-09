@@ -1,84 +1,59 @@
-# Unity MCP SSOT 执行规则（低 Token 版）
+# Unity MCP Planner-Only 执行规则（Phase1 Step6）
 
-## 目标
-- 首次执行成功率优先。
-- 同一任务最少工具调用次数优先。
-- 禁止猜测事务引用格式、属性路径、组件类型。
+## 0. 目标（必须）
+- MCP 外部入口只使用 `planner_execute_mcp`。
+- 外部 direct runtime 调用占比必须为 `0`。
+- 不再使用旧别名入口 `execute_block_spec_mvp`。
 
-## 一、查询策略（先少后准）
-1. 默认先用 function definitions。
-2. 命中以下任一条件时，再查询 SSOT：
-   - 使用 `execute_unity_transaction`。
-   - 首次使用某个复杂写工具（如 `set_component_properties`、`set_serialized_property`）。
-   - 出现错误码后需要定向修复。
-3. 优先查询顺序：
-   - `get_write_contract_bundle`（拿最小有效模板）
-   - `get_tool_schema`（看字段约束）
-4. 禁止直接全量扫描大文件（如整份 `mcp-tools.generated.json`），除非排障明确需要。
+## 1. 单入口硬规则（必须遵守）
+- 所有 Unity runtime 读写请求，统一走 `planner_execute_mcp`。
+- 禁止从客户端直接调用 runtime 工具（如 `set_*`、`add_component`、`execute_unity_transaction`、`get_scene_roots` 等）。
+- 若收到 `E_USE_PLANNER_ENTRY`，立即改为 `planner_execute_mcp`，不要重试 direct 调用。
+- 禁止在提示词、示例、脚本中继续使用 `execute_block_spec_mvp`。
 
-## 二、事务规则（强约束）
-1. `execute_unity_transaction` 使用结构化 `steps`，不用 `steps_json`。
-2. `$ref` 只能使用对象形式：
-   - 正确：`{"$ref":"alias.field"}`
-   - 错误：字符串插值、混合对象（`$ref` + 其他字段）。
-3. 引用来源是 `save_as` 别名，不是 `step_id`。
-4. 当前允许的别名字段：
-   - `target_object_id`
-   - `target_path`
-   - `target_object_name`
-   - `scene_revision`
-   - `value_kind`
-   - `value_string`
-   - `value_number`
-   - `value_boolean`
-5. 常见错误修正：
-   - `container.object_id` -> `container.target_object_id`
-   - `container.path` -> `container.target_path`
+## 2. 允许直调的工具范围（仅 control/support-plane）
+- `get_tool_schema`
+- `get_write_contract_bundle`
+- `preflight_validate_write_payload`
+- `run_unity_tests`
+- `setup_cursor_mcp`
+- `verify_mcp_setup`
 
-## 三、属性写入规则
-1. `set_component_properties`/`set_serialized_property` 的 `property_path` 使用 Unity 序列化路径（如 `m_Spacing`、`m_Color.a`），不要用 C# 属性名（如 `spacing`）。
-2. `component_type` 优先使用：
-   - `"Namespace.Type, AssemblyName"`（例如 `"UnityEngine.UI.HorizontalLayoutGroup, UnityEngine.UI"`）
-3. 写属性前若不确定路径，先用 `get_serialized_property_tree` 查一次后复用，不重复查。
+说明：以上用于“查约束/查契约/环境治理”，不用于替代 Planner runtime 执行。
 
-## 四、Token 与调用次数控制
-1. 写操作会改变 `scene_revision`，旧 token 不可继续复用。
-2. 优先把相关写操作收敛到一次事务内，减少 token 往返。
-3. 同一任务默认流程：
-   - 读锚点/令牌 1 次
-   - 事务写 1 次
-   - `save_scene` 1 次
-   - 验证截图最多 1 次（仅用户要求验收时）
-4. 非必要禁止：
-   - 重复 `get_scene_snapshot_for_write`
-   - 重复 schema 查询
-   - 为“确认而确认”的多次读操作
+## 3. 推荐执行流程（默认）
+1. 先判断是否需要 schema/contract 信息。
+2. 需要时先调 `get_write_contract_bundle`，再按需调 `get_tool_schema`。
+3. 组装 `planner_execute_mcp` 的 `block_spec` 并提交。
+4. 依据 `BlockResult` 决定后续步骤，不绕过 Planner 直调 runtime 工具。
 
-## 五、批量 UI 任务执行模板（推荐）
-适用任务：批量创建 UI、统一布局、设置颜色/文本、并保存场景。
+## 4. block_spec 约束（优先口径）
+- 优先使用 family 语义键（`family_key` / family intent），不要新增 legacy concrete key 依赖。
+- `block_spec` 必须包含：`block_id`、`block_type`、`intent_key`（或可映射 family key）、`input`。
+- 写入请求必须保证 `write_envelope` 与锚点信息完整、可追溯。
 
-1. `get_scene_snapshot_for_write`（一次）
-2. `execute_unity_transaction`（一次，包含）
-   - 创建容器（可 `save_as`）
-   - 添加/设置 Layout 组件（例如 `HorizontalLayoutGroup` + `m_Spacing`）
-   - 创建 N 个子节点
-   - 通过 `$ref` 绑定每个子节点并设置颜色/位置/尺寸
-3. `save_scene`（一次）
-4. `capture_scene_screenshot`（可选，一次）
+## 5. 事务使用规则（必须遵守）
+- **多个写操作必须使用事务**：当需要执行 2 个或以上写操作（`MUTATE`/`CREATE`）时，必须使用 `write.transaction.execute` intent_key 组合为单个事务。
+- 事务格式：使用 `intent_key: "write.transaction.execute"`，在 `input.steps[]` 中定义多个步骤。
+- 禁止将多个写操作拆分为独立的 `block_spec` 分别执行（除非操作间无依赖且允许部分失败）。
+- 事务优势：原子性保证、单次场景版本更新、统一错误处理。
 
-## 六、失败处理（最多一轮修复重试）
-1. 先读错误码，再定向查询一次：
-   - `E_TRANSACTION_REF_PATH_INVALID` -> 查事务别名字段与 `$ref` 结构
-   - `E_PROPERTY_NOT_FOUND`/`E_PROPERTY_TYPE_MISMATCH` -> 查 `property_path` 与 `value_kind`
-   - `E_COMPONENT_NOT_FOUND` -> 查 `component_type` 格式
-2. 修复后只重试一次；仍失败则返回明确阻塞点，不进行盲试。
+## 6. 错误处理（最多一轮修复）
+- `E_SCHEMA_INVALID`：先查 schema/contract，再修 payload。
+- `E_PRECONDITION_FAILED`：先补前置读或锚点，再重试一次。
+- `E_USE_PLANNER_ENTRY`：只允许改走 `planner_execute_mcp`，禁止 direct fallback。
+- 同一错误禁止盲目多轮重试；二次失败后返回阻塞点与最小修复建议。
 
-## 七、移除的旧做法（禁止）
-- 禁止规则里引用“固定文件行号”（产物更新后会漂移失效）。
-- 禁止“写后直接复用返回 token”与“写后 token 无效”并存的矛盾规则。
-- 禁止把“并行调用”用于有依赖的写步骤；有依赖写步骤必须用事务或串行。
+## 7. 迁移/验收门禁（发布前）
+- 必跑并通过：
+  - `npm --prefix sidecar run metrics:planner:stepcd:gate:ci`
+  - `npm --prefix sidecar run metrics:planner:alias-retire:gate:ci`
+  - `npm --prefix sidecar run metrics:planner:cutover:gate:ci`
+- 仅当真实窗口数据满足门禁时，才可宣告 Step6 完成。
 
-## SSOT 关键位置
-- `ssot/dictionary/tools.json`
-- `ssot/artifacts/l2/mcp-tools.generated.json`
-- `ssot/artifacts/l3/SsotDtos.generated.cs`
+## 8. 禁止项
+- 禁止新增或恢复“双入口”逻辑。
+- 禁止新增同类入口治理开关，唯一口径保持：
+  - `MCP_ENTRY_GOVERNANCE_ENABLED`
+  - `MCP_ENTRY_MODE`
+- 禁止让模型自行决定是否绕过 Planner 走 direct runtime。

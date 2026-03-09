@@ -156,6 +156,8 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
                     return TryDeserialize<VerifyMcpSetupRequestDto>(payloadJson, out requestDto, out errorMessage);
                 case RunUnityTestsRequestDto.ToolName:
                     return TryDeserialize<RunUnityTestsRequestDto>(payloadJson, out requestDto, out errorMessage);
+                case PlannerExecuteMcpRequestDto.ToolName:
+                    return TryDeserialize<PlannerExecuteMcpRequestDto>(payloadJson, out requestDto, out errorMessage);
                 case GetUnityTaskStatusRequestDto.ToolName:
                     return TryDeserialize<GetUnityTaskStatusRequestDto>(payloadJson, out requestDto, out errorMessage);
                 case CancelUnityTaskRequestDto.ToolName:
@@ -868,6 +870,19 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
             }
 
             requestDto = (RunUnityTestsRequestDto)boxedRequest;
+            return true;
+        }
+
+        public static bool TryDeserializePlannerExecuteMcp(string payloadJson, out PlannerExecuteMcpRequestDto requestDto, out string errorMessage)
+        {
+            requestDto = null;
+            errorMessage = null;
+            if (!TryDeserialize<PlannerExecuteMcpRequestDto>(payloadJson, out var boxedRequest, out errorMessage))
+            {
+                return false;
+            }
+
+            requestDto = (PlannerExecuteMcpRequestDto)boxedRequest;
             return true;
         }
 

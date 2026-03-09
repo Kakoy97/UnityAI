@@ -9,10 +9,60 @@ const { getMcpCommandRegistry } = require("../../src/mcp/commandRegistry");
 const { UnityMcpServer } = require("../../src/mcp/mcpServer");
 const {
   ROUTER_PROTOCOL_FREEZE_CONTRACT,
+  MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
+  MCP_ENTRY_GOVERNANCE_CONTRACT,
 } = require("../../src/ports/contracts");
 const {
   getToolSchemaView,
 } = require("../../src/application/ssotRuntime/staticContractViews");
+
+function normalizeToolName(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function toToolSet(value) {
+  const source = Array.isArray(value) ? value : [];
+  return new Set(source.map((item) => normalizeToolName(item)).filter((item) => !!item));
+}
+
+function resolvePlannerOnlyExpectedVisibleToolNames({
+  activeToolNameSet,
+  exposedToolNameSet,
+  localStaticToolNameSet,
+  disabledToolNameSet,
+  deprecatedToolNameSet,
+  removedToolNameSet,
+  plannerPrimaryToolName,
+  plannerAliasToolName,
+  entryGovernanceEnabled,
+}) {
+  const expected = new Set();
+  for (const toolName of activeToolNameSet.values()) {
+    if (!exposedToolNameSet.has(toolName)) {
+      continue;
+    }
+    if (
+      disabledToolNameSet.has(toolName) ||
+      deprecatedToolNameSet.has(toolName) ||
+      removedToolNameSet.has(toolName)
+    ) {
+      continue;
+    }
+    const isPlannerEntry =
+      toolName === plannerPrimaryToolName || toolName === plannerAliasToolName;
+    if (isPlannerEntry) {
+      if (entryGovernanceEnabled && toolName === plannerAliasToolName) {
+        continue;
+      }
+      expected.add(toolName);
+      continue;
+    }
+    if (localStaticToolNameSet.has(toolName)) {
+      expected.add(toolName);
+    }
+  }
+  return expected;
+}
 
 function readJsonAbsolute(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -86,31 +136,71 @@ test("L1 closure: active tool names are consistent across dictionary/artifacts/t
     ? ROUTER_PROTOCOL_FREEZE_CONTRACT.mcp_tool_names
     : [];
   assert.ok(activeToolNames.length > 0);
+  const activeToolNameSet = toToolSet(activeToolNames);
+  const exposedToolNameSet = toToolSet(
+    MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.exposed_tool_names
+  );
+  const localStaticToolNameSet = toToolSet(
+    MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.local_static_tool_names
+  );
+  const disabledToolNameSet = toToolSet(
+    MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.disabled_tools
+  );
+  const deprecatedToolNameSet = toToolSet(
+    MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.deprecated_tool_names
+  );
+  const removedToolNameSet = toToolSet(
+    MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.removed_tool_names
+  );
+  const plannerPrimaryToolName =
+    normalizeToolName(MCP_ENTRY_GOVERNANCE_CONTRACT.planner_primary_tool_name) ||
+    "planner_execute_mcp";
+  const plannerAliasToolName =
+    normalizeToolName(MCP_ENTRY_GOVERNANCE_CONTRACT.planner_alias_tool_name) ||
+    "";
+  const expectedVisibleToolNameSet = resolvePlannerOnlyExpectedVisibleToolNames({
+    activeToolNameSet,
+    exposedToolNameSet,
+    localStaticToolNameSet,
+    disabledToolNameSet,
+    deprecatedToolNameSet,
+    removedToolNameSet,
+    plannerPrimaryToolName,
+    plannerAliasToolName,
+    entryGovernanceEnabled: MCP_ENTRY_GOVERNANCE_CONTRACT.enabled === true,
+  });
 
   for (const toolName of activeToolNames) {
     assert.equal(dictionaryNames.has(toolName), true, `dictionary missing: ${toolName}`);
     assert.equal(artifactByName.has(toolName), true, `artifact missing: ${toolName}`);
-    assert.equal(
-      toolsListByName.has(toolName),
-      true,
-      `tools/list missing active tool: ${toolName}`
-    );
+    if (expectedVisibleToolNameSet.has(toolName)) {
+      assert.equal(
+        toolsListByName.has(toolName),
+        true,
+        `tools/list missing visible tool: ${toolName}`
+      );
 
-    const listItem = toolsListByName.get(toolName);
-    const artifactItem = artifactByName.get(toolName);
-    assert.deepEqual(
-      listItem && listItem.inputSchema ? listItem.inputSchema : {},
-      artifactItem && artifactItem.inputSchema ? artifactItem.inputSchema : {},
-      `tools/list schema drift for ${toolName}`
-    );
+      const listItem = toolsListByName.get(toolName);
+      const artifactItem = artifactByName.get(toolName);
+      assert.deepEqual(
+        listItem && listItem.inputSchema ? listItem.inputSchema : {},
+        artifactItem && artifactItem.inputSchema ? artifactItem.inputSchema : {},
+        `tools/list schema drift for ${toolName}`
+      );
+    } else {
+      assert.equal(
+        toolsListByName.has(toolName),
+        false,
+        `tools/list should hide runtime direct tool: ${toolName}`
+      );
+    }
   }
 
-  const activeToolNameSet = new Set(activeToolNames);
   for (const listed of toolsListByName.keys()) {
     assert.equal(
-      activeToolNameSet.has(listed),
+      expectedVisibleToolNameSet.has(listed),
       true,
-      `tools/list exposed non-active tool: ${listed}`
+      `tools/list exposed non-planner/control tool: ${listed}`
     );
   }
 });
@@ -268,7 +358,7 @@ test("L1 closure: execute_unity_transaction uses structured steps only", () => {
   );
 });
 
-test("L1 closure: execute_unity_transaction tools/list schema is self-contained and ref-resolvable", async () => {
+test("L1 closure: execute_unity_transaction schema remains self-contained via command metadata while tools/list stays frozen", async () => {
   const registry = getMcpCommandRegistry();
   const server = Object.create(UnityMcpServer.prototype);
   server.commandRegistry = registry;
@@ -276,10 +366,18 @@ test("L1 closure: execute_unity_transaction tools/list schema is self-contained 
   const txTool = tools.find(
     (item) => String(item && item.name || "").trim() === "execute_unity_transaction"
   );
-  assert.ok(txTool, "tools/list should expose execute_unity_transaction");
+  assert.equal(
+    !!txTool,
+    false,
+    "tools/list should hide runtime write tools after PLNR-010 freeze"
+  );
 
-  const schema = txTool && txTool.inputSchema && typeof txTool.inputSchema === "object"
-    ? txTool.inputSchema
+  const txMetadata = registry.getToolMetadataByName("execute_unity_transaction", {});
+  assert.ok(txMetadata, "command metadata should expose execute_unity_transaction schema");
+
+  const schema =
+    txMetadata && txMetadata.input_schema && typeof txMetadata.input_schema === "object"
+      ? txMetadata.input_schema
     : {};
   const stepsItemsRef = String(
     schema &&
@@ -396,6 +494,7 @@ test("L1 closure: sidecar command manifest keeps transport + dispatch contracts"
     "setup_cursor_mcp",
     "verify_mcp_setup",
     "run_unity_tests",
+    "planner_execute_mcp",
   ]);
   for (const [name, command] of byName.entries()) {
     const expectedMode = localStaticNames.has(name) ? "local_static" : "ssot_query";

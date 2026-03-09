@@ -1,0 +1,71 @@
+{
+  "mcp_runtime": {
+    "planner_visibility_profile": {
+      "requested_profile": "planner_first",
+      "active_profile": "planner_first",
+      "reason": "planner_first_enabled",
+      "gate": {
+        "passed": true,
+        "reasons": []
+      },
+      "rollback": {
+        "triggered": false,
+        "reasons": []
+      },
+      "covered_family_keys": [
+        "read.selection",
+        "write.rect_layout"
+      ],
+      "managed_tool_names": [
+        "get_current_selection",
+        "set_rect_anchored_position"
+      ]
+    },
+    "planner_direct_compatibility": {
+      "policy_state": {
+        "requested_mode": "deny",
+        "active_mode": "deny",
+        "reason": "deny_enabled",
+        "deny_gate": {
+          "passed": true,
+          "reasons": []
+        },
+        "rollback": {
+          "triggered": false,
+          "reasons": []
+        },
+        "managed_tool_names": [
+          "get_current_selection",
+          "set_rect_anchored_position"
+        ],
+        "managed_tool_family_map": {
+          "get_current_selection": "read.selection.current",
+          "set_rect_anchored_position": "write.rect_layout.anchored_position"
+        }
+      },
+      "totals": {
+        "decisions_total": 120,
+        "allow_total": 6,
+        "warn_total": 14,
+        "deny_total": 100
+      },
+      "by_family": [
+        {
+          "family_key": "read.selection.current",
+          "decisions_total": 45,
+          "allow_total": 3,
+          "warn_total": 6,
+          "deny_total": 36
+        },
+        {
+          "family_key": "write.rect_layout.anchored_position",
+          "decisions_total": 75,
+          "allow_total": 3,
+          "warn_total": 8,
+          "deny_total": 64
+        }
+      ]
+    }
+  }
+}
+

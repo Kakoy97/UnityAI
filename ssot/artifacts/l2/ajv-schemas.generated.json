@@ -18635,6 +18635,337 @@
       }
     },
     {
+      "tool_name": "planner_execute_mcp",
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "block_spec": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "execution_context": {
+            "type": "object"
+          },
+          "plan_initial_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "previous_read_token_candidate": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transaction_read_token_candidate": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "block_spec"
+        ],
+        "$defs": {
+          "removed_tool_names": [
+            "instantiate_prefab"
+          ],
+          "mixins": {
+            "write_envelope": {
+              "input": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "execution_mode",
+                  "idempotency_key",
+                  "based_on_read_token",
+                  "write_anchor_object_id",
+                  "write_anchor_path"
+                ],
+                "properties": {
+                  "execution_mode": {
+                    "type": "string",
+                    "enum": [
+                      "validate",
+                      "execute"
+                    ],
+                    "case_insensitive": true
+                  },
+                  "thread_id": {
+                    "type": "string"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "minLength": 8
+                  },
+                  "based_on_read_token": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "write_anchor_object_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "write_anchor_path": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            },
+            "read_envelope": {
+              "input": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "thread_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "transaction_ref_value": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "$ref"
+            ],
+            "properties": {
+              "$ref": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$"
+              }
+            }
+          },
+          "transaction_payload_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/transaction_ref_value"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/transaction_payload_value"
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/transaction_payload_value"
+                }
+              }
+            ]
+          },
+          "transaction_step": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "step_id",
+              "tool_name",
+              "payload"
+            ],
+            "properties": {
+              "step_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "tool_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "payload": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/transaction_payload_value"
+                }
+              },
+              "save_as": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "depends_on": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              }
+            }
+          },
+          "error_context_contract": {
+            "error_context_version": "2.0",
+            "transaction_failure": {
+              "required_fields": [
+                "failed_step_id",
+                "failed_tool_name",
+                "failed_error_code",
+                "failed_error_message",
+                "nested_error_code",
+                "nested_error_message"
+              ]
+            },
+            "anchor_conflict": {
+              "required_fields": [
+                "ambiguity_kind",
+                "resolved_candidates_count",
+                "path_candidate_path",
+                "path_candidate_object_id",
+                "object_id_candidate_path",
+                "object_id_candidate_object_id"
+              ]
+            }
+          },
+          "recovery_action_contract": {
+            "dependency_validation": {
+              "check_cycles": true,
+              "max_depth": 10,
+              "on_cycle_detected": "fail_fast"
+            },
+            "context_validity": {
+              "ttl_seconds": 300,
+              "context_snapshot": true,
+              "requires_context_refresh_field": "requires_context_refresh"
+            },
+            "fallback_strategy": {
+              "allowed": [
+                "try_simpler_fix",
+                "return_manual_instructions",
+                "escalate_to_human"
+              ],
+              "default": "return_manual_instructions"
+            }
+          },
+          "ambiguity_resolution_policy_contract": {
+            "anchor_conflict": {
+              "resolution_mode": "explicit_target_only",
+              "required_actions": [
+                "get_hierarchy_subtree"
+              ]
+            },
+            "name_collision": {
+              "allowed_policies": [
+                "fail",
+                "suffix",
+                "reuse"
+              ],
+              "default_policy": "fail"
+            }
+          },
+          "transaction_write_family": {
+            "rollback_policy": {
+              "on_step_failure": "rollback_all",
+              "allowed_values": [
+                "rollback_all",
+                "rollback_none",
+                "rollback_partial"
+              ]
+            }
+          },
+          "anchor_write_family": {
+            "conflict_error_code": "E_TARGET_ANCHOR_CONFLICT",
+            "requires_ambiguity_kind": true
+          },
+          "create_family": {
+            "pre_check_policy": {
+              "check_existing": true,
+              "on_conflict": "fail",
+              "return_candidates": true,
+              "policy_field": "name_collision_policy"
+            }
+          },
+          "error_feedback_contract": {
+            "catalog_version": "v1",
+            "defaults": {
+              "fallback_suggestion": "Inspect error_code/error_message, adjust task payload, then retry if safe.",
+              "timeout_suggestion": "Retry once after backoff. If timeout persists, reduce task scope or inspect sidecar logs."
+            },
+            "anchor_error_codes": [
+              "E_ACTION_SCHEMA_INVALID",
+              "E_TARGET_ANCHOR_CONFLICT",
+              "E_TARGET_CONFLICT"
+            ],
+            "error_templates": {
+              "E_STALE_SNAPSHOT": {
+                "recoverable": true,
+                "suggestion": "请先调用读工具获取最新 token，并仅重试一次写操作。"
+              },
+              "E_ACTION_SCHEMA_INVALID": {
+                "recoverable": true,
+                "suggestion": "请先调用读工具获取目标 object_id 与 path，再重试写操作。"
+              },
+              "E_TARGET_ANCHOR_CONFLICT": {
+                "recoverable": true,
+                "suggestion": "请先调用读工具获取目标 object_id 与 path，再重试写操作。"
+              },
+              "E_TARGET_CONFLICT": {
+                "recoverable": true,
+                "suggestion": "请先调用读工具获取目标 object_id 与 path，再重试写操作。"
+              }
+            }
+          },
+          "g1_priority_freeze": {
+            "schema_version": "g1_tool_priority_freeze.v1",
+            "generated_at": "2026-03-07T08:34:01.918Z",
+            "source_git_commit": "648d6cf",
+            "p0_total": 5,
+            "p1_total": 4,
+            "p2_total": 53
+          },
+          "token_automation_contract": {
+            "issuance_authority": "l2_sidecar",
+            "token_families": [
+              "read_issues_token",
+              "write_requires_token",
+              "local_static_no_token"
+            ],
+            "success_continuation": [
+              "read",
+              "write"
+            ],
+            "drift_recovery": {
+              "enabled": true,
+              "error_code": "E_SCENE_REVISION_DRIFT",
+              "max_retry": 1,
+              "requires_idempotency": true,
+              "refresh_tool_name": "get_scene_snapshot_for_write"
+            },
+            "redaction_policy": {
+              "strip_fields": [
+                "read_token",
+                "read_token_candidate",
+                "read_token_candidate_legacy"
+              ]
+            },
+            "auto_retry_policy": {
+              "max_retry": 1,
+              "requires_idempotency_key": true,
+              "on_retry_failure": "return_both_errors"
+            },
+            "auto_retry_safe_family": [
+              "write_requires_token"
+            ]
+          }
+        }
+      }
+    },
+    {
       "tool_name": "get_unity_task_status",
       "input_schema": {
         "type": "object",

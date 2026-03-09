@@ -19,7 +19,23 @@ const readline = require("readline");
 const { getMcpCommandRegistry } = require("./commandRegistry");
 const {
   MCP_TOOL_VISIBILITY_FREEZE_CONTRACT,
+  MCP_ENTRY_GOVERNANCE_CONTRACT,
+  MCP_PLANNER_VISIBILITY_PROFILE_CONTRACT,
+  MCP_PLANNER_DIRECT_COMPATIBILITY_POLICY_CONTRACT,
 } = require("../ports/contracts");
+const {
+  createPlannerVisibilityProfileRuntime,
+} = require("../application/blockRuntime/visibility/PlannerVisibilityProfileRuntime");
+const {
+  DIRECT_COMPATIBILITY_MODE,
+  createPlannerDirectCompatibilityRuntime,
+} = require("../application/blockRuntime/visibility/PlannerDirectCompatibilityRuntime");
+const {
+  getPlannerDirectCompatibilityMetricsCollectorSingleton,
+} = require("../application/blockRuntime/visibility/plannerDirectCompatibilityMetricsCollector");
+const {
+  createPlannerOnlyExposurePolicy,
+} = require("./plannerOnlyExposurePolicy");
 
 function normalizeToolName(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -61,6 +77,50 @@ const MCP_DISABLED_TOOL_NAMES = Object.freeze(
     : []
 );
 const MCP_DISABLED_TOOL_NAME_SET = new Set(MCP_DISABLED_TOOL_NAMES);
+const MCP_LOCAL_STATIC_TOOL_NAMES = Object.freeze(
+  MCP_TOOL_VISIBILITY_FREEZE_CONTRACT &&
+    Array.isArray(MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.local_static_tool_names)
+    ? MCP_TOOL_VISIBILITY_FREEZE_CONTRACT.local_static_tool_names
+        .map((item) => normalizeToolName(item))
+        .filter((item) => !!item)
+    : []
+);
+const MCP_LOCAL_STATIC_TOOL_NAME_SET = new Set(MCP_LOCAL_STATIC_TOOL_NAMES);
+
+const ENTRY_MODE = Object.freeze({
+  LEGACY: "legacy",
+  OBSERVE: "observe",
+  REJECT: "reject",
+});
+
+function resolveEntryGovernanceState(contract) {
+  const source = contract && typeof contract === "object" ? contract : {};
+  const mode = normalizeToolName(source.mode).toLowerCase();
+  const normalizedMode =
+    mode === ENTRY_MODE.LEGACY ||
+    mode === ENTRY_MODE.OBSERVE ||
+    mode === ENTRY_MODE.REJECT
+      ? mode
+      : ENTRY_MODE.LEGACY;
+  const enabled = source.enabled === true;
+  return Object.freeze({
+    enabled,
+    requested_mode: normalizedMode,
+    active_mode: enabled ? normalizedMode : ENTRY_MODE.LEGACY,
+    observe_shadow: source.observe_shadow === true,
+    planner_primary_tool_name:
+      normalizeToolName(source.planner_primary_tool_name) || "planner_execute_mcp",
+    planner_alias_tool_name:
+      normalizeToolName(source.planner_alias_tool_name) || "",
+    supported_modes: Array.isArray(source.supported_modes)
+      ? source.supported_modes
+      : [ENTRY_MODE.LEGACY, ENTRY_MODE.OBSERVE, ENTRY_MODE.REJECT],
+  });
+}
+
+const MCP_ENTRY_GOVERNANCE_STATE = resolveEntryGovernanceState(
+  MCP_ENTRY_GOVERNANCE_CONTRACT
+);
 
 function isToolLifecycleBlocked(name) {
   const normalized = normalizeToolName(name);
@@ -73,7 +133,7 @@ function isToolLifecycleBlocked(name) {
   );
 }
 
-function isToolAllowedByVisibilityContract(name) {
+function isToolEnabledByBaseVisibilityContract(name) {
   const normalized = normalizeToolName(name);
   if (!normalized) {
     return false;
@@ -88,6 +148,163 @@ function isToolAllowedByVisibilityContract(name) {
     return false;
   }
   return MCP_ACTIVE_TOOL_NAME_SET.has(normalized);
+}
+
+const PLANNER_VISIBILITY_PROFILE_RUNTIME = createPlannerVisibilityProfileRuntime(
+  MCP_PLANNER_VISIBILITY_PROFILE_CONTRACT
+);
+const PLANNER_DIRECT_COMPATIBILITY_METRICS_COLLECTOR =
+  getPlannerDirectCompatibilityMetricsCollectorSingleton();
+const PLANNER_DIRECT_COMPATIBILITY_RUNTIME = createPlannerDirectCompatibilityRuntime(
+  MCP_PLANNER_DIRECT_COMPATIBILITY_POLICY_CONTRACT,
+  {
+    metricsCollector: PLANNER_DIRECT_COMPATIBILITY_METRICS_COLLECTOR,
+  }
+);
+const PLANNER_ONLY_EXPOSURE_POLICY = createPlannerOnlyExposurePolicy({
+  entry_governance_state: MCP_ENTRY_GOVERNANCE_STATE,
+  local_static_tool_name_set: MCP_LOCAL_STATIC_TOOL_NAME_SET,
+  managed_tool_family_map:
+    MCP_PLANNER_DIRECT_COMPATIBILITY_POLICY_CONTRACT &&
+    typeof MCP_PLANNER_DIRECT_COMPATIBILITY_POLICY_CONTRACT === "object"
+      ? MCP_PLANNER_DIRECT_COMPATIBILITY_POLICY_CONTRACT.managed_tool_family_map
+      : {},
+});
+
+function isPlannerEntryToolName(name) {
+  const normalized = normalizeToolName(name);
+  if (!normalized) {
+    return false;
+  }
+  return (
+    normalized === MCP_ENTRY_GOVERNANCE_STATE.planner_primary_tool_name ||
+    normalized === MCP_ENTRY_GOVERNANCE_STATE.planner_alias_tool_name
+  );
+}
+
+function isControlSupportPlaneToolName(name) {
+  const normalized = normalizeToolName(name);
+  if (!normalized) {
+    return false;
+  }
+  if (isPlannerEntryToolName(normalized)) {
+    return false;
+  }
+  return MCP_LOCAL_STATIC_TOOL_NAME_SET.has(normalized);
+}
+
+function attachWarningPayloadToMcpResult(result, fieldName, warningPayload) {
+  const source = result && typeof result === "object" ? result : {};
+  const warning =
+    warningPayload && typeof warningPayload === "object" ? warningPayload : null;
+  const key = normalizeToolName(fieldName);
+  if (!warning || !key) {
+    return source;
+  }
+
+  if (Array.isArray(source.content)) {
+    const content = source.content.map((item) =>
+      item && typeof item === "object" ? { ...item } : item
+    );
+    const firstTextIndex = content.findIndex((item) => {
+      return (
+        item &&
+        typeof item === "object" &&
+        item.type === "text" &&
+        typeof item.text === "string"
+      );
+    });
+    if (firstTextIndex >= 0) {
+      const entry = content[firstTextIndex];
+      let parsed = null;
+      try {
+        parsed = JSON.parse(entry.text);
+      } catch {
+        parsed = null;
+      }
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        if (!Object.prototype.hasOwnProperty.call(parsed, key)) {
+          parsed[key] = warning;
+        }
+        content[firstTextIndex] = {
+          ...entry,
+          text: JSON.stringify(parsed, null, 2),
+        };
+      } else {
+        content.push({
+          type: "text",
+          text: JSON.stringify(
+            {
+              [key]: warning,
+            },
+            null,
+            2
+          ),
+        });
+      }
+      return {
+        ...source,
+        content,
+      };
+    }
+  }
+
+  if (
+    source &&
+    typeof source === "object" &&
+    !Array.isArray(source) &&
+    !Object.prototype.hasOwnProperty.call(source, key)
+  ) {
+    return {
+      ...source,
+      [key]: warning,
+    };
+  }
+  return source;
+}
+
+function buildDirectCompatibilityWarningPayload(decision) {
+  const source = decision && typeof decision === "object" ? decision : {};
+  const toolName = normalizeToolName(source.tool_name);
+  const familyKey = normalizeToolName(source.family_key);
+  return {
+    schema_version: "planner_direct_compatibility_warning.v1",
+    mode: "warn",
+    tool_name: toolName,
+    family_key: familyKey,
+    reason: normalizeToolName(source.reason) || "managed_tool_warned_in_warn_mode",
+    suggested_action: MCP_ENTRY_GOVERNANCE_STATE.planner_primary_tool_name,
+    guidance:
+      "Managed direct tool is in warn mode. Prefer planner block entry for this capability family.",
+  };
+}
+
+function attachDirectCompatibilityWarningToMcpResult(result, warningPayload) {
+  return attachWarningPayloadToMcpResult(
+    result,
+    "planner_direct_compatibility",
+    warningPayload
+  );
+}
+
+function buildEntryGovernanceObserveWarningPayload(toolName) {
+  return {
+    schema_version: "mcp_entry_governance_warning.v1",
+    mode: ENTRY_MODE.OBSERVE,
+    tool_name: normalizeToolName(toolName),
+    reason: "external_direct_runtime_observed",
+    suggested_action: MCP_ENTRY_GOVERNANCE_STATE.planner_primary_tool_name,
+    guidance:
+      "External direct runtime call observed. Use planner_execute_mcp for MCP planner-first entry.",
+  };
+}
+
+function attachEntryGovernanceObserveWarning(result, warningPayload) {
+  return attachWarningPayloadToMcpResult(
+    result,
+    "mcp_entry_governance",
+    warningPayload
+  );
 }
 
 class UnityMcpServer {
@@ -137,7 +354,104 @@ class UnityMcpServer {
     if (!exposedToolNameSet.has(normalized)) {
       return false;
     }
-    return isToolAllowedByVisibilityContract(normalized);
+    if (!isToolEnabledByBaseVisibilityContract(normalized)) {
+      return false;
+    }
+    // PLNR-010: freeze tools/list to planner entry + control/support-plane only.
+    if (isPlannerEntryToolName(normalized)) {
+      if (
+        MCP_ENTRY_GOVERNANCE_STATE.enabled &&
+        normalized === MCP_ENTRY_GOVERNANCE_STATE.planner_alias_tool_name
+      ) {
+        return false;
+      }
+      return true;
+    }
+    return isControlSupportPlaneToolName(normalized);
+  }
+
+  isToolCallableByPolicy(name) {
+    const normalized = normalizeToolName(name);
+    if (!normalized) {
+      return false;
+    }
+    const exposedToolNameSet = this.getExposedToolNameSet();
+    if (!exposedToolNameSet.has(normalized)) {
+      return false;
+    }
+    return isToolEnabledByBaseVisibilityContract(normalized);
+  }
+
+  getEntryGovernanceState() {
+    return MCP_ENTRY_GOVERNANCE_STATE;
+  }
+
+  evaluateEntryGovernanceDecision(toolName) {
+    const normalized = normalizeToolName(toolName);
+    const state = MCP_ENTRY_GOVERNANCE_STATE;
+    if (!normalized) {
+      return {
+        mode: state.active_mode,
+        decision: "allow",
+        reason: "empty_tool_name",
+      };
+    }
+    if (!state.enabled) {
+      return {
+        mode: state.active_mode,
+        decision: "allow",
+        reason: "governance_disabled",
+      };
+    }
+    if (isPlannerEntryToolName(normalized)) {
+      return {
+        mode: state.active_mode,
+        decision: "allow",
+        reason: "planner_entry_tool",
+      };
+    }
+    if (MCP_LOCAL_STATIC_TOOL_NAME_SET.has(normalized)) {
+      return {
+        mode: state.active_mode,
+        decision: "allow",
+        reason: "control_support_plane_tool",
+      };
+    }
+    if (state.active_mode === ENTRY_MODE.REJECT) {
+      return {
+        mode: state.active_mode,
+        decision: "deny",
+        reason: "external_direct_runtime_rejected",
+      };
+    }
+    if (state.active_mode === ENTRY_MODE.OBSERVE) {
+      return {
+        mode: state.active_mode,
+        decision: "observe",
+        reason: "external_direct_runtime_observed",
+      };
+    }
+    return {
+      mode: state.active_mode,
+      decision: "allow",
+      reason: "legacy_mode_allow",
+    };
+  }
+
+  getVisibilityProfileState() {
+    return PLANNER_VISIBILITY_PROFILE_RUNTIME.getState();
+  }
+
+  getDirectCompatibilityState() {
+    return {
+      ...PLANNER_DIRECT_COMPATIBILITY_RUNTIME.getState(),
+      counters: PLANNER_DIRECT_COMPATIBILITY_RUNTIME.getDecisionMetricsSnapshot(),
+      planner_only_exposure: PLANNER_ONLY_EXPOSURE_POLICY.getSnapshot(),
+    };
+  }
+
+  getPlannerOnlyExposureState() {
+    return PLANNER_ONLY_EXPOSURE_POLICY.getSnapshot();
   }
 
   setupStdioHandlers() {
@@ -278,14 +592,110 @@ class UnityMcpServer {
     if (isToolLifecycleBlocked(normalizedName)) {
       throw new Error(`Tool removed in phase6: ${normalizedName}`);
     }
-    if (!this.isToolVisibleByPolicy(normalizedName)) {
+    if (!this.isToolCallableByPolicy(normalizedName)) {
       throw new Error(`Tool not enabled by visibility policy: ${normalizedName}`);
     }
-    return this.getCommandRegistry().dispatchMcpTool({
-      name: normalizedName,
+
+    const isExternalDirectRuntimeTool =
+      !isPlannerEntryToolName(normalizedName) &&
+      !isControlSupportPlaneToolName(normalizedName);
+    let entryGovernanceDecision = this.evaluateEntryGovernanceDecision(normalizedName);
+    // PLNR-011: remove callTool legacy passthrough branch. Under entry governance,
+    // external direct runtime calls always fail through one unified reject outlet.
+    if (MCP_ENTRY_GOVERNANCE_STATE.enabled && isExternalDirectRuntimeTool) {
+      entryGovernanceDecision = {
+        mode: MCP_ENTRY_GOVERNANCE_STATE.active_mode,
+        decision: "deny",
+        reason: "external_direct_runtime_rejected_unified",
+      };
+    }
+    const plannerOnlyExposureTracking = PLANNER_ONLY_EXPOSURE_POLICY.beginToolCall({
+      tool_name: normalizedName,
       args: args && typeof args === "object" ? args : {},
-      server: this,
+      entry_decision: entryGovernanceDecision,
     });
+    if (entryGovernanceDecision.decision === "deny") {
+      const rejectError =
+        PLANNER_ONLY_EXPOSURE_POLICY.getExternalDirectRejectError(
+          normalizedName
+        );
+      PLANNER_ONLY_EXPOSURE_POLICY.completeToolCall(plannerOnlyExposureTracking, {
+        error: true,
+        dispatch_result: {
+          status: "failed",
+          error_code:
+            rejectError &&
+            typeof rejectError.error_code === "string" &&
+            rejectError.error_code.trim()
+              ? rejectError.error_code.trim()
+              : "E_USE_PLANNER_ENTRY",
+        },
+      });
+      throw new Error(
+        rejectError &&
+          typeof rejectError.error_message === "string" &&
+          rejectError.error_message.trim()
+          ? rejectError.error_message.trim()
+          : `E_USE_PLANNER_ENTRY: external direct runtime tool is blocked by MCP entry governance: ${normalizedName}; use ${MCP_ENTRY_GOVERNANCE_STATE.planner_primary_tool_name}`
+      );
+    }
+
+    let directCompatibilityDecision = null;
+    if (entryGovernanceDecision.mode === ENTRY_MODE.LEGACY) {
+      directCompatibilityDecision =
+        PLANNER_DIRECT_COMPATIBILITY_RUNTIME.evaluateDirectCall(normalizedName);
+      PLANNER_DIRECT_COMPATIBILITY_RUNTIME.recordDecision(
+        directCompatibilityDecision
+      );
+      if (directCompatibilityDecision.mode === DIRECT_COMPATIBILITY_MODE.DENY) {
+        const familyKey = normalizeToolName(directCompatibilityDecision.family_key);
+        PLANNER_ONLY_EXPOSURE_POLICY.completeToolCall(plannerOnlyExposureTracking, {
+          error: true,
+          dispatch_result: {
+            status: "failed",
+            error_code: "E_PRECONDITION_FAILED",
+          },
+        });
+        throw new Error(
+          `Tool blocked by planner direct compatibility policy: ${normalizedName}` +
+            (familyKey ? ` (family=${familyKey})` : "")
+        );
+      }
+    }
+
+    let dispatchResult = null;
+    try {
+      dispatchResult = await this.getCommandRegistry().dispatchMcpTool({
+        name: normalizedName,
+        args: args && typeof args === "object" ? args : {},
+        server: this,
+      });
+
+      if (entryGovernanceDecision.decision === "observe") {
+        dispatchResult = attachEntryGovernanceObserveWarning(
+          dispatchResult,
+          buildEntryGovernanceObserveWarningPayload(normalizedName)
+        );
+      }
+      if (
+        directCompatibilityDecision &&
+        directCompatibilityDecision.mode === DIRECT_COMPATIBILITY_MODE.WARN
+      ) {
+        dispatchResult = attachDirectCompatibilityWarningToMcpResult(
+          dispatchResult,
+          buildDirectCompatibilityWarningPayload(directCompatibilityDecision)
+        );
+      }
+      PLANNER_ONLY_EXPOSURE_POLICY.completeToolCall(plannerOnlyExposureTracking, {
+        dispatch_result: dispatchResult,
+      });
+      return dispatchResult;
+    } catch (error) {
+      PLANNER_ONLY_EXPOSURE_POLICY.completeToolCall(plannerOnlyExposureTracking, {
+        error: true,
+      });
+      throw error;
+    }
   }
 
   async callToolByName(name, args) {

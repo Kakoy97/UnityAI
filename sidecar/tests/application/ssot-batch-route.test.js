@@ -2934,3 +2934,68 @@ test("ssot run_unity_tests route validates by SSOT schema then dispatches", asyn
   assert.equal(calls.length, 1);
   assert.equal(calls[0].scope, "all");
 });
+
+test("ssot planner_execute_mcp route validates by SSOT schema then dispatches", async () => {
+  const registry = getMcpCommandRegistry();
+  const calls = [];
+  const turnService = {
+    executePlannerEntryForMcp(payload) {
+      calls.push(payload);
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          query_type: "block.request",
+          data: {
+            block_id:
+              payload &&
+              payload.block_spec &&
+              typeof payload.block_spec.block_id === "string"
+                ? payload.block_spec.block_id
+                : "",
+            status: "succeeded",
+          },
+        },
+      };
+    },
+  };
+
+  const invalid = await dispatchBodyCommand(
+    registry,
+    "/mcp/planner_execute_mcp",
+    {
+      execution_context: {
+        shape: "single_step",
+      },
+    },
+    turnService
+  );
+  assert.equal(invalid.statusCode, 400);
+  assert.equal(invalid.body.error_code, "E_SSOT_SCHEMA_INVALID");
+
+  const valid = await dispatchBodyCommand(
+    registry,
+    "/mcp/planner_execute_mcp",
+    {
+      block_spec: {
+        block_id: "block_mcp_entry_001",
+        block_type: "READ_STATE",
+        intent_key: "read.snapshot_for_write",
+        input: {
+          scope_path: "Scene/Canvas",
+        },
+      },
+      execution_context: {
+        shape: "single_step",
+      },
+    },
+    turnService
+  );
+  assert.equal(valid.statusCode, 200);
+  assert.equal(valid.body.ok, true);
+  assert.equal(valid.body.query_type, "block.request");
+  assert.equal(valid.body.data.block_id, "block_mcp_entry_001");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].block_spec.intent_key, "read.snapshot_for_write");
+});

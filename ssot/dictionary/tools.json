@@ -4389,6 +4389,93 @@
       "scene_revision_capable": false
     },
     {
+      "name": "planner_execute_mcp",
+      "kind": "read",
+      "mixins": [
+        "read_envelope"
+      ],
+      "lifecycle": "experimental",
+      "description": "Execute one planner block spec through Router/Shape/Hook execution chain and return a structured block result envelope. This is planner-first entry for MVP migration and should be preferred over direct concrete-tool invocation when planner flow is required.",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "block_spec"
+        ],
+        "properties": {
+          "block_spec": {
+            "type": "object",
+            "minProperties": 1
+          },
+          "execution_context": {
+            "type": "object"
+          },
+          "plan_initial_read_token": {
+            "type": "string",
+            "minLength": 1
+          },
+          "previous_read_token_candidate": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transaction_read_token_candidate": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "examples": [
+        {
+          "name": "execute_block_spec_read_snapshot",
+          "request_business_only": {
+            "block_spec": {
+              "block_id": "block_read_snapshot_1",
+              "block_type": "READ_STATE",
+              "intent_key": "read.snapshot_for_write",
+              "input": {
+                "scope_path": "Scene/Canvas"
+              }
+            },
+            "execution_context": {
+              "shape": "single_step"
+            }
+          }
+        },
+        {
+          "name": "execute_block_spec_mutate_active",
+          "request_business_only": {
+            "block_spec": {
+              "block_id": "block_mutate_set_active_1",
+              "block_type": "MUTATE",
+              "intent_key": "mutate.set_active",
+              "input": {
+                "active": false
+              },
+              "target_anchor": {
+                "object_id": "GlobalObjectId_V1-target",
+                "path": "Scene/Canvas/Image"
+              },
+              "based_on_read_token": "ssot_rt_demo_token",
+              "write_envelope": {
+                "idempotency_key": "idp_block_001",
+                "write_anchor_object_id": "GlobalObjectId_V1-canvas",
+                "write_anchor_path": "Scene/Canvas",
+                "execution_mode": "execute"
+              }
+            },
+            "execution_context": {
+              "shape": "single_step"
+            }
+          }
+        }
+      ],
+      "tool_priority": "P1",
+      "must_configure": false,
+      "priority_score": 0.084,
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false
+    },
+    {
       "name": "get_unity_task_status",
       "kind": "read",
       "mixins": [

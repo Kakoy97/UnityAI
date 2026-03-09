@@ -6,7 +6,10 @@ const assert = require("node:assert/strict");
 const { TurnStore } = require("../../src/domain/turnStore");
 const { TurnService } = require("../../src/application/turnService");
 const {
+  BLOCK_ERROR_ALIAS_TO_CANONICAL,
+  RUNTIME_ERROR_CODE_ALIAS_TO_CANONICAL,
   SSOT_ERROR_CODE_ALIAS_TO_CANONICAL,
+  normalizeSsotErrorCodeForMcp,
 } = require("../../src/application/errorFeedback/ssotErrorCodeCanon");
 
 function createTurnServiceHarness() {
@@ -31,6 +34,52 @@ function createTurnServiceHarness() {
 
 test("ssot error-code closure keeps alias map deterministic", () => {
   assert.equal(
+    RUNTIME_ERROR_CODE_ALIAS_TO_CANONICAL.E_OBJECT_NOT_FOUND,
+    "E_TARGET_NOT_FOUND"
+  );
+  assert.equal(
+    RUNTIME_ERROR_CODE_ALIAS_TO_CANONICAL.E_SELECTION_EMPTY,
+    "E_SELECTION_UNAVAILABLE"
+  );
+  assert.equal(
+    RUNTIME_ERROR_CODE_ALIAS_TO_CANONICAL.E_QUERY_HANDLER_FAILED,
+    "E_SSOT_ROUTE_FAILED"
+  );
+
+  assert.equal(
+    BLOCK_ERROR_ALIAS_TO_CANONICAL.E_BLOCK_NOT_IMPLEMENTED,
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    BLOCK_ERROR_ALIAS_TO_CANONICAL.E_BLOCK_INTENT_KEY_UNSUPPORTED,
+    "E_SCHEMA_INVALID"
+  );
+  assert.equal(
+    BLOCK_ERROR_ALIAS_TO_CANONICAL.E_BLOCK_PIPELINE_DISABLED,
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    BLOCK_ERROR_ALIAS_TO_CANONICAL.E_BLOCK_SCHEMA_INVALID,
+    "E_SCHEMA_INVALID"
+  );
+  assert.equal(
+    BLOCK_ERROR_ALIAS_TO_CANONICAL.E_BLOCK_TYPE_UNSUPPORTED,
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    BLOCK_ERROR_ALIAS_TO_CANONICAL.E_BLOCK_CHANNEL_RESERVED,
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    BLOCK_ERROR_ALIAS_TO_CANONICAL.E_BLOCK_CHANNEL_UNSUPPORTED,
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    BLOCK_ERROR_ALIAS_TO_CANONICAL.E_BLOCK_VERIFY_FAILED,
+    "E_PRECONDITION_FAILED"
+  );
+
+  assert.equal(
     SSOT_ERROR_CODE_ALIAS_TO_CANONICAL.E_OBJECT_NOT_FOUND,
     "E_TARGET_NOT_FOUND"
   );
@@ -41,6 +90,73 @@ test("ssot error-code closure keeps alias map deterministic", () => {
   assert.equal(
     SSOT_ERROR_CODE_ALIAS_TO_CANONICAL.E_QUERY_HANDLER_FAILED,
     "E_SSOT_ROUTE_FAILED"
+  );
+  assert.equal(
+    SSOT_ERROR_CODE_ALIAS_TO_CANONICAL.E_BLOCK_NOT_IMPLEMENTED,
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    SSOT_ERROR_CODE_ALIAS_TO_CANONICAL.E_BLOCK_INTENT_KEY_UNSUPPORTED,
+    "E_SCHEMA_INVALID"
+  );
+  assert.equal(
+    SSOT_ERROR_CODE_ALIAS_TO_CANONICAL.E_BLOCK_PIPELINE_DISABLED,
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    SSOT_ERROR_CODE_ALIAS_TO_CANONICAL.E_BLOCK_SCHEMA_INVALID,
+    "E_SCHEMA_INVALID"
+  );
+  assert.equal(
+    SSOT_ERROR_CODE_ALIAS_TO_CANONICAL.E_BLOCK_TYPE_UNSUPPORTED,
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    SSOT_ERROR_CODE_ALIAS_TO_CANONICAL.E_BLOCK_CHANNEL_RESERVED,
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    SSOT_ERROR_CODE_ALIAS_TO_CANONICAL.E_BLOCK_CHANNEL_UNSUPPORTED,
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    SSOT_ERROR_CODE_ALIAS_TO_CANONICAL.E_BLOCK_VERIFY_FAILED,
+    "E_PRECONDITION_FAILED"
+  );
+});
+
+test("normalizeSsotErrorCodeForMcp canonicalizes block-level alias error codes", () => {
+  assert.equal(
+    normalizeSsotErrorCodeForMcp("E_BLOCK_NOT_IMPLEMENTED"),
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    normalizeSsotErrorCodeForMcp("E_BLOCK_INTENT_KEY_UNSUPPORTED"),
+    "E_SCHEMA_INVALID"
+  );
+  assert.equal(
+    normalizeSsotErrorCodeForMcp("E_BLOCK_PIPELINE_DISABLED"),
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    normalizeSsotErrorCodeForMcp("E_BLOCK_SCHEMA_INVALID"),
+    "E_SCHEMA_INVALID"
+  );
+  assert.equal(
+    normalizeSsotErrorCodeForMcp("E_BLOCK_TYPE_UNSUPPORTED"),
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    normalizeSsotErrorCodeForMcp("E_BLOCK_CHANNEL_RESERVED"),
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    normalizeSsotErrorCodeForMcp("E_BLOCK_CHANNEL_UNSUPPORTED"),
+    "E_PRECONDITION_FAILED"
+  );
+  assert.equal(
+    normalizeSsotErrorCodeForMcp("E_BLOCK_VERIFY_FAILED"),
+    "E_PRECONDITION_FAILED"
   );
 });
 
