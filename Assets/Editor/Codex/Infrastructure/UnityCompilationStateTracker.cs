@@ -31,6 +31,14 @@ namespace UnityAI.Editor.Codex.Infrastructure
             }
         }
 
+        public static bool HasCompilationStartedSince(long utcTicks)
+        {
+            lock (SyncRoot)
+            {
+                return _lastCompilationStartedUtcTicks > utcTicks;
+            }
+        }
+
         public static bool LastCompilationHadErrorsSince(long utcTicks)
         {
             lock (SyncRoot)

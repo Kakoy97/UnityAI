@@ -521,6 +521,12 @@ function validateGlobalDefinitions(definitions) {
     definitions.token_automation_contract,
     "_definitions.token_automation_contract"
   );
+  if (Object.prototype.hasOwnProperty.call(definitions, "planner_orchestration_contract")) {
+    validatePlannerOrchestrationContract(
+      definitions.planner_orchestration_contract,
+      "_definitions.planner_orchestration_contract"
+    );
+  }
 }
 
 function validateExamplesPositive(value, label) {
@@ -854,6 +860,276 @@ function validatePropertyPathRules(value, label) {
   }
   if (Object.prototype.hasOwnProperty.call(value, "nested_separator")) {
     assertNonEmptyString(value.nested_separator, `${label}.nested_separator`);
+  }
+}
+
+function validateTransactionCandidateRule(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  assertNonEmptyString(value.rule_id, `${label}.rule_id`);
+  assertBoolean(value.enabled, `${label}.enabled`);
+  assertPositiveInteger(value.priority, `${label}.priority`);
+  if (!isPlainObject(value.allow_when)) {
+    throw new Error(`${label}.allow_when must be an object`);
+  }
+  if (!isPlainObject(value.deny_when)) {
+    throw new Error(`${label}.deny_when must be an object`);
+  }
+  assertNonEmptyString(
+    value.reason_code_on_allow,
+    `${label}.reason_code_on_allow`
+  );
+  assertNonEmptyString(
+    value.reason_code_on_deny,
+    `${label}.reason_code_on_deny`
+  );
+
+  if (Object.prototype.hasOwnProperty.call(value.allow_when, "write_block_count")) {
+    const writeBlockCount = value.allow_when.write_block_count;
+    if (!isPlainObject(writeBlockCount)) {
+      throw new Error(`${label}.allow_when.write_block_count must be an object`);
+    }
+    assertPositiveInteger(
+      writeBlockCount.min,
+      `${label}.allow_when.write_block_count.min`
+    );
+    assertPositiveInteger(
+      writeBlockCount.max,
+      `${label}.allow_when.write_block_count.max`
+    );
+    if (Math.floor(Number(writeBlockCount.min)) > Math.floor(Number(writeBlockCount.max))) {
+      throw new Error(`${label}.allow_when.write_block_count.min must be <= max`);
+    }
+  }
+}
+
+function validateWorkflowTemplateStep(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  assertNonEmptyString(value.step_id, `${label}.step_id`);
+  assertEnum(
+    value.step_type,
+    ["submit_task", "wait_task_status"],
+    `${label}.step_type`
+  );
+  assertNonEmptyString(value.tool_name, `${label}.tool_name`);
+
+  if (value.step_type === "submit_task") {
+    assertEnum(
+      value.task_payload_slot,
+      ["file_actions", "visual_layer_actions"],
+      `${label}.task_payload_slot`
+    );
+    return;
+  }
+
+  assertPositiveInteger(value.poll_interval_ms, `${label}.poll_interval_ms`);
+  assertPositiveInteger(value.timeout_ms, `${label}.timeout_ms`);
+  assertStringArray(value.success_statuses, `${label}.success_statuses`);
+  assertStringArray(value.failure_statuses, `${label}.failure_statuses`);
+  if (value.success_statuses.length <= 0) {
+    throw new Error(`${label}.success_statuses must be non-empty`);
+  }
+  if (value.failure_statuses.length <= 0) {
+    throw new Error(`${label}.failure_statuses must be non-empty`);
+  }
+}
+
+function validateWorkflowTemplate(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  assertBoolean(value.enabled, `${label}.enabled`);
+  assertEnum(
+    value.workflow_type,
+    ["condition_wait_sequential"],
+    `${label}.workflow_type`
+  );
+  if (!isPlainObject(value.selection)) {
+    throw new Error(`${label}.selection must be an object`);
+  }
+  assertStringArray(value.selection.intent_keys, `${label}.selection.intent_keys`);
+  if (value.selection.intent_keys.length <= 0) {
+    throw new Error(`${label}.selection.intent_keys must be non-empty`);
+  }
+  assertStringArray(
+    value.selection.required_capabilities,
+    `${label}.selection.required_capabilities`
+  );
+  if (value.selection.required_capabilities.length <= 0) {
+    throw new Error(`${label}.selection.required_capabilities must be non-empty`);
+  }
+  if (!Array.isArray(value.steps) || value.steps.length <= 0) {
+    throw new Error(`${label}.steps must be a non-empty array`);
+  }
+  for (const [index, step] of value.steps.entries()) {
+    validateWorkflowTemplateStep(step, `${label}.steps[${index}]`);
+  }
+  if (!isPlainObject(value.error_mapping)) {
+    throw new Error(`${label}.error_mapping must be an object`);
+  }
+  const errorEntries = Object.entries(value.error_mapping);
+  if (errorEntries.length <= 0) {
+    throw new Error(`${label}.error_mapping must be non-empty`);
+  }
+  for (const [errorKey, errorCode] of errorEntries) {
+    assertNonEmptyString(errorKey, `${label}.error_mapping.<error_key>`);
+    assertNonEmptyString(errorCode, `${label}.error_mapping.${errorKey}`);
+  }
+}
+
+function validateReadWriteFoldingProfile(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  const allowedKeys = new Set([
+    "enabled",
+    "rollout_stage",
+    "selection",
+    "trace_contract",
+  ]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(
+        `${label}.${key} is not allowed (allowed: enabled, rollout_stage, selection, trace_contract)`
+      );
+    }
+  }
+  assertBoolean(value.enabled, `${label}.enabled`);
+  assertEnum(value.rollout_stage, ["pilot"], `${label}.rollout_stage`);
+
+  const selection = value.selection;
+  if (!isPlainObject(selection)) {
+    throw new Error(`${label}.selection must be an object`);
+  }
+  const allowedSelectionKeys = new Set([
+    "read_intent_keys",
+    "mutate_intent_keys",
+    "same_target_anchor",
+    "max_block_span",
+  ]);
+  for (const key of Object.keys(selection)) {
+    if (!allowedSelectionKeys.has(key)) {
+      throw new Error(
+        `${label}.selection.${key} is not allowed (allowed: read_intent_keys, mutate_intent_keys, same_target_anchor, max_block_span)`
+      );
+    }
+  }
+  assertStringArray(selection.read_intent_keys, `${label}.selection.read_intent_keys`);
+  if (selection.read_intent_keys.length <= 0) {
+    throw new Error(`${label}.selection.read_intent_keys must be non-empty`);
+  }
+  assertStringArray(
+    selection.mutate_intent_keys,
+    `${label}.selection.mutate_intent_keys`
+  );
+  if (selection.mutate_intent_keys.length <= 0) {
+    throw new Error(`${label}.selection.mutate_intent_keys must be non-empty`);
+  }
+  assertBoolean(selection.same_target_anchor, `${label}.selection.same_target_anchor`);
+  assertPositiveInteger(selection.max_block_span, `${label}.selection.max_block_span`);
+
+  const traceContract = value.trace_contract;
+  if (!isPlainObject(traceContract)) {
+    throw new Error(`${label}.trace_contract must be an object`);
+  }
+  const allowedTraceKeys = new Set(["required_fields"]);
+  for (const key of Object.keys(traceContract)) {
+    if (!allowedTraceKeys.has(key)) {
+      throw new Error(
+        `${label}.trace_contract.${key} is not allowed (allowed: required_fields)`
+      );
+    }
+  }
+  assertStringArray(traceContract.required_fields, `${label}.trace_contract.required_fields`);
+  if (traceContract.required_fields.length <= 0) {
+    throw new Error(`${label}.trace_contract.required_fields must be non-empty`);
+  }
+  const requiredFieldSet = new Set(
+    traceContract.required_fields.map((item) => String(item).trim())
+  );
+  for (const requiredField of [
+    "raw_read_block_id",
+    "raw_mutate_block_id",
+    "folding_rule_id",
+    "read_value_summary",
+    "computed_write_value_summary",
+    "token_source",
+    "synthesized_request_summary",
+  ]) {
+    if (!requiredFieldSet.has(requiredField)) {
+      throw new Error(
+        `${label}.trace_contract.required_fields must include '${requiredField}'`
+      );
+    }
+  }
+}
+
+function validatePlannerOrchestrationContract(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  const allowedKeys = new Set([
+    "schema_version",
+    "transaction_candidate_rules",
+    "workflow_templates",
+    "read_write_folding_profiles",
+  ]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(
+        `${label}.${key} is not allowed (allowed: schema_version, transaction_candidate_rules, workflow_templates, read_write_folding_profiles)`
+      );
+    }
+  }
+  assertNonEmptyString(value.schema_version, `${label}.schema_version`);
+  if (
+    !Array.isArray(value.transaction_candidate_rules) ||
+    value.transaction_candidate_rules.length <= 0
+  ) {
+    throw new Error(`${label}.transaction_candidate_rules must be a non-empty array`);
+  }
+  for (const [index, rule] of value.transaction_candidate_rules.entries()) {
+    validateTransactionCandidateRule(
+      rule,
+      `${label}.transaction_candidate_rules[${index}]`
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "workflow_templates")) {
+    if (!isPlainObject(value.workflow_templates)) {
+      throw new Error(`${label}.workflow_templates must be an object`);
+    }
+    for (const [templateName, templateDef] of Object.entries(
+      value.workflow_templates
+    )) {
+      assertNonEmptyString(
+        templateName,
+        `${label}.workflow_templates.<template_name>`
+      );
+      validateWorkflowTemplate(
+        templateDef,
+        `${label}.workflow_templates.${templateName}`
+      );
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "read_write_folding_profiles")) {
+    if (!isPlainObject(value.read_write_folding_profiles)) {
+      throw new Error(`${label}.read_write_folding_profiles must be an object`);
+    }
+    for (const [profileId, profileDef] of Object.entries(
+      value.read_write_folding_profiles
+    )) {
+      assertNonEmptyString(
+        profileId,
+        `${label}.read_write_folding_profiles.<profile_id>`
+      );
+      validateReadWriteFoldingProfile(
+        profileDef,
+        `${label}.read_write_folding_profiles.${profileId}`
+      );
+    }
   }
 }
 

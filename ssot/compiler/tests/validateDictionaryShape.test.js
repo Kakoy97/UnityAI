@@ -222,6 +222,79 @@ function buildDefinitions(overrides = {}) {
       },
       auto_retry_safe_family: ["write_requires_token"],
     },
+    planner_orchestration_contract: {
+      schema_version: "phase2a.v1",
+      transaction_candidate_rules: [
+        {
+          rule_id: "same_anchor_write_2_4_default",
+          enabled: true,
+          priority: 100,
+          allow_when: {
+            same_target_anchor: true,
+            write_block_count: {
+              min: 2,
+              max: 4,
+            },
+            all_steps_transaction_enabled: true,
+            dependencies_explicit: true,
+            disallow_async_wait_compile: true,
+          },
+          deny_when: {
+            token_source_unknown: true,
+            cross_object_dependency_inferred: true,
+            target_anchor_ambiguous: true,
+            contains_async_wait_compile_step: true,
+          },
+          reason_code_on_allow: "transaction_candidate_same_anchor_writes",
+          reason_code_on_deny:
+            "transaction_candidate_blocked_phase2a_constraints",
+        },
+      ],
+      workflow_templates: {
+        "script_create_compile_attach.v1": {
+          enabled: true,
+          workflow_type: "condition_wait_sequential",
+          selection: {
+            intent_keys: ["workflow.script.create_compile_attach"],
+            required_capabilities: [
+              "write.async_ops.submit_task",
+              "write.async_ops.get_task_status",
+              "write.component_lifecycle.add_component",
+            ],
+          },
+          steps: [
+            {
+              step_id: "create_script_task",
+              step_type: "submit_task",
+              tool_name: "submit_unity_task",
+              task_payload_slot: "file_actions",
+            },
+            {
+              step_id: "wait_compile_ready",
+              step_type: "wait_task_status",
+              tool_name: "get_unity_task_status",
+              poll_interval_ms: 1200,
+              timeout_ms: 180000,
+              success_statuses: ["completed"],
+              failure_statuses: ["failed", "cancelled", "timeout"],
+            },
+            {
+              step_id: "attach_component_task",
+              step_type: "submit_task",
+              tool_name: "submit_unity_task",
+              task_payload_slot: "visual_layer_actions",
+            },
+          ],
+          error_mapping: {
+            compile_failed: "workflow_script_compile_failed",
+            class_name_mismatch: "workflow_script_class_mismatch",
+            component_not_attachable: "workflow_component_not_attachable",
+            wait_timeout: "workflow_compile_wait_timeout",
+            task_cancelled: "workflow_task_cancelled",
+          },
+        },
+      },
+    },
     ...overrides,
   };
 }
@@ -882,6 +955,233 @@ test("validateDictionaryShape accepts planner ux_contract metadata", () => {
   };
 
   assert.equal(validateDictionaryShape(dictionary), true);
+});
+
+test("validateDictionaryShape accepts planner_orchestration_contract candidate rules", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions(),
+    tools: [buildTool()],
+  };
+
+  assert.equal(validateDictionaryShape(dictionary), true);
+});
+
+test("validateDictionaryShape rejects planner_orchestration_contract when write_block_count bounds are invalid", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions({
+      planner_orchestration_contract: {
+        schema_version: "phase2a.v1",
+        transaction_candidate_rules: [
+          {
+            rule_id: "invalid_bounds",
+            enabled: true,
+            priority: 100,
+            allow_when: {
+              write_block_count: {
+                min: 5,
+                max: 2,
+              },
+            },
+            deny_when: {},
+            reason_code_on_allow: "allow_invalid",
+            reason_code_on_deny: "deny_invalid",
+          },
+        ],
+      },
+    }),
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /allow_when\.write_block_count\.min must be <= max/
+  );
+});
+
+test("validateDictionaryShape rejects planner_orchestration_contract when unknown key is present", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions({
+      planner_orchestration_contract: {
+        schema_version: "phase2a.v1",
+        transaction_candidate_rules: [
+          {
+            rule_id: "valid_rule",
+            enabled: true,
+            priority: 100,
+            allow_when: {},
+            deny_when: {},
+            reason_code_on_allow: "allow",
+            reason_code_on_deny: "deny",
+          },
+        ],
+        workflow_templates: {},
+        unsupported_orchestration_key: {},
+      },
+    }),
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /unsupported_orchestration_key is not allowed/
+  );
+});
+
+test("validateDictionaryShape accepts planner_orchestration_contract read_write_folding_profiles whitelist", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions({
+      planner_orchestration_contract: {
+        schema_version: "phase2b.v1",
+        transaction_candidate_rules: [
+          {
+            rule_id: "valid_rule",
+            enabled: true,
+            priority: 100,
+            allow_when: {},
+            deny_when: {},
+            reason_code_on_allow: "allow",
+            reason_code_on_deny: "deny",
+          },
+        ],
+        workflow_templates: {},
+        read_write_folding_profiles: {
+          "same_anchor_numeric_delta_trial.v1": {
+            enabled: false,
+            rollout_stage: "pilot",
+            selection: {
+              read_intent_keys: ["read.unity_component_field"],
+              mutate_intent_keys: ["mutate.unity_component_field"],
+              same_target_anchor: true,
+              max_block_span: 2,
+            },
+            trace_contract: {
+              required_fields: [
+                "raw_read_block_id",
+                "raw_mutate_block_id",
+                "folding_rule_id",
+                "read_value_summary",
+                "computed_write_value_summary",
+                "token_source",
+                "synthesized_request_summary",
+              ],
+            },
+          },
+        },
+      },
+    }),
+    tools: [buildTool()],
+  };
+
+  assert.equal(validateDictionaryShape(dictionary), true);
+});
+
+test("validateDictionaryShape rejects read_write_folding_profile when trace fields are incomplete", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions({
+      planner_orchestration_contract: {
+        schema_version: "phase2b.v1",
+        transaction_candidate_rules: [
+          {
+            rule_id: "valid_rule",
+            enabled: true,
+            priority: 100,
+            allow_when: {},
+            deny_when: {},
+            reason_code_on_allow: "allow",
+            reason_code_on_deny: "deny",
+          },
+        ],
+        workflow_templates: {},
+        read_write_folding_profiles: {
+          "same_anchor_numeric_delta_trial.v1": {
+            enabled: false,
+            rollout_stage: "pilot",
+            selection: {
+              read_intent_keys: ["read.unity_component_field"],
+              mutate_intent_keys: ["mutate.unity_component_field"],
+              same_target_anchor: true,
+              max_block_span: 2,
+            },
+            trace_contract: {
+              required_fields: [
+                "raw_read_block_id",
+                "raw_mutate_block_id",
+                "folding_rule_id",
+                "read_value_summary",
+                "computed_write_value_summary",
+                "token_source",
+              ],
+            },
+          },
+        },
+      },
+    }),
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /trace_contract\.required_fields must include 'synthesized_request_summary'/
+  );
+});
+
+test("validateDictionaryShape rejects planner_orchestration_contract workflow template with invalid wait step", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions({
+      planner_orchestration_contract: {
+        schema_version: "phase2a.v1",
+        transaction_candidate_rules: [
+          {
+            rule_id: "valid_rule",
+            enabled: true,
+            priority: 100,
+            allow_when: {},
+            deny_when: {},
+            reason_code_on_allow: "allow",
+            reason_code_on_deny: "deny",
+          },
+        ],
+        workflow_templates: {
+          "script_create_compile_attach.v1": {
+            enabled: true,
+            workflow_type: "condition_wait_sequential",
+            selection: {
+              intent_keys: ["workflow.script.create_compile_attach"],
+              required_capabilities: [
+                "write.async_ops.submit_task",
+                "write.async_ops.get_task_status",
+              ],
+            },
+            steps: [
+              {
+                step_id: "wait_compile_ready",
+                step_type: "wait_task_status",
+                tool_name: "get_unity_task_status",
+                poll_interval_ms: 1200,
+                success_statuses: ["completed"],
+                failure_statuses: ["failed"],
+              },
+            ],
+            error_mapping: {
+              wait_timeout: "workflow_compile_wait_timeout",
+            },
+          },
+        },
+      },
+    }),
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /workflow_templates\.script_create_compile_attach\.v1\.steps\[0\]\.timeout_ms must be an integer >= 1/
+  );
 });
 
 test("validateDictionaryShape rejects planner ux_contract with invalid autofill strategy", () => {

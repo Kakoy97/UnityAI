@@ -96,6 +96,46 @@ function buildAsyncStatusBlockSpec(overrides = {}) {
   };
 }
 
+function buildScriptWorkflowBlockSpec(overrides = {}) {
+  return {
+    block_id: "block_entry_script_workflow_1",
+    block_type: BLOCK_TYPE.MUTATE,
+    intent_key: "workflow.script.create_compile_attach",
+    input: {
+      thread_id: "thread_script_workflow_1",
+      user_intent: "create script and attach component",
+      file_actions: [
+        {
+          action: "create_or_update_script",
+          path: "Assets/Scripts/PlannerUxStep3Sample.cs",
+          content:
+            "using UnityEngine; public class PlannerUxStep3Sample : MonoBehaviour {}",
+        },
+      ],
+      visual_layer_actions: [
+        {
+          action: "add_component",
+          target_object_id: "GlobalObjectId_V1-target",
+          target_path: "Scene/Canvas/Image",
+          component_type: "PlannerUxStep3Sample",
+        },
+      ],
+    },
+    target_anchor: {
+      object_id: "GlobalObjectId_V1-target",
+      path: "Scene/Canvas/Image",
+    },
+    based_on_read_token: "ssot_rt_workflow",
+    write_envelope: {
+      idempotency_key: "idp_entry_workflow_1",
+      write_anchor_object_id: "GlobalObjectId_V1-target",
+      write_anchor_path: "Scene/Canvas/Image",
+      execution_mode: "execute",
+    },
+    ...overrides,
+  };
+}
+
 test("S2B-T1 executeBlockSpecForMvp blocks when BLOCK_PIPELINE_ENABLED is false", async () => {
   const service = createService({
     blockPipelineEnabled: false,
@@ -363,9 +403,15 @@ test("Step8 executeBlockSpecForMvp records planner ux metrics for success and be
     metricEvents[0].normalization_meta.auto_filled_fields.length > 0,
     true
   );
+  assert.equal(typeof metricEvents[0].orchestration_meta, "object");
+  assert.equal(
+    metricEvents[0].orchestration_meta.auto_transaction_applied,
+    false
+  );
   assert.equal(metricEvents[1].success, false);
   assert.equal(metricEvents[1].failure_stage, "before_dispatch");
   assert.equal(metricEvents[1].error_code, "E_SCHEMA_INVALID");
+  assert.equal(typeof metricEvents[1].orchestration_meta, "object");
 });
 
 test("Step5 executeBlockSpecForMvp does not autofill based_on_read_token in phase1", async () => {
@@ -523,6 +569,8 @@ test("S2B-T1 executeBlockSpecForMvp propagates block execution failure envelope"
     true
   );
   assert.equal(outcome.body.suggested_action, "get_scene_snapshot_for_write");
+  assert.equal(outcome.body.data.planner_orchestration.failure_stage, "during_dispatch");
+  assert.equal(outcome.body.data.planner_orchestration.execution_shape, "single_step");
 });
 
 test("S2B-T1 executeBlockSpecForMvp forwards top-level plan_initial_read_token to transaction context", async () => {
@@ -860,6 +908,713 @@ test("S4-T4 BYPASS_ROUTER=true skips router/shape-decider and still keeps force 
   assert.equal(
     Object.prototype.hasOwnProperty.call(outcome.body.data, "route_result"),
     false
+  );
+});
+
+test("S6.1-T4 default transaction candidate auto-synthesizes execute_unity_transaction dispatch", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: false,
+  });
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        status: "succeeded",
+        data: {
+          scene_revision: "ssot_rev_s61_t4_txn",
+          read_token_candidate: "ssot_rt_s61_t4_txn",
+        },
+      },
+    };
+  };
+
+  const step1 = buildWriteBlockSpec({
+    block_id: "s61_t4_step_1",
+  });
+  const step2 = buildWriteBlockSpec({
+    block_id: "s61_t4_step_2",
+    input: {
+      active: false,
+    },
+    depends_on: ["s61_t4_step_1"],
+  });
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: step1,
+    execution_context: {
+      transaction_capable: true,
+      plan_initial_read_token: "ssot_rt_s61_t4_plan",
+      block_plan: {
+        plan_id: "plan_s61_t4_auto_txn",
+        blocks: [step1, step2],
+      },
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].toolName, "execute_unity_transaction");
+  assert.equal(calls[0].payload.transaction_id, "plan_s61_t4_auto_txn");
+  assert.equal(Array.isArray(calls[0].payload.steps), true);
+  assert.equal(calls[0].payload.steps.length, 2);
+  assert.equal(calls[0].payload.steps[0].tool_name, "set_active");
+  assert.equal(calls[0].payload.steps[1].tool_name, "set_active");
+  assert.equal(calls[0].payload.based_on_read_token, "ssot_rt_s61_t4_plan");
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      calls[0].payload.steps[0].payload,
+      "based_on_read_token"
+    ),
+    false
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.auto_transaction_applied,
+    true
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.execution_shape,
+    "transaction"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.dispatch_mode,
+    "transaction_synthesized"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.transaction_id,
+    "plan_s61_t4_auto_txn"
+  );
+  assert.equal(outcome.body.data.planner_orchestration.step_count, 2);
+  assert.equal(outcome.body.data.planner_orchestration.failure_stage, "none");
+});
+
+test("S6.1-T5 transaction synthesis blocked by missing read token preserves gate failure with trace", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+  });
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        status: "succeeded",
+        data: {
+          scene_revision: "ssot_rev_s61_t5_blocked",
+          read_token_candidate: "ssot_rt_s61_t5_blocked",
+        },
+      },
+    };
+  };
+
+  const step1 = buildWriteBlockSpec({
+    block_id: "s61_t5_step_1",
+  });
+  const step2 = buildWriteBlockSpec({
+    block_id: "s61_t5_step_2",
+    input: {
+      active: false,
+    },
+    depends_on: ["s61_t5_step_1"],
+  });
+  delete step1.based_on_read_token;
+  delete step2.based_on_read_token;
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: step1,
+    execution_context: {
+      shape: "transaction",
+      transaction_capable: true,
+      block_plan: {
+        plan_id: "plan_s61_t5_blocked",
+        blocks: [step1, step2],
+      },
+    },
+  });
+
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(calls.length, 0);
+  assert.equal(
+    outcome.body.data.planner_orchestration.auto_transaction_applied,
+    false
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.blocked_reason,
+    "transaction_read_token_missing"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.dispatch_mode,
+    "single_block_direct"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.transaction_id,
+    "plan_s61_t5_blocked"
+  );
+  assert.equal(outcome.body.data.planner_orchestration.step_count, 2);
+  assert.equal(
+    outcome.body.data.planner_orchestration.failure_stage,
+    "during_dispatch"
+  );
+  assert.equal(outcome.body.error_code, "E_SCHEMA_INVALID");
+});
+
+test("S6.1-T6 planner ux metrics receive transaction auto-applied and blocked orchestration signals", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+
+  const autoService = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: false,
+    plannerUxMetricsCollector: collector,
+  });
+  autoService.dispatchSsotToolForMcp = async () => ({
+    statusCode: 200,
+    body: {
+      ok: true,
+      status: "succeeded",
+      data: {
+        scene_revision: "ssot_rev_s61_t6_auto",
+        read_token_candidate: "ssot_rt_s61_t6_auto",
+      },
+    },
+  });
+  const autoStep1 = buildWriteBlockSpec({
+    block_id: "s61_t6_auto_step_1",
+  });
+  const autoStep2 = buildWriteBlockSpec({
+    block_id: "s61_t6_auto_step_2",
+    input: {
+      active: false,
+    },
+    depends_on: ["s61_t6_auto_step_1"],
+  });
+  const autoOutcome = await autoService.executeBlockSpecForMvp({
+    block_spec: autoStep1,
+    execution_context: {
+      transaction_capable: true,
+      plan_initial_read_token: "ssot_rt_s61_t6_auto_plan",
+      block_plan: {
+        plan_id: "plan_s61_t6_auto",
+        blocks: [autoStep1, autoStep2],
+      },
+    },
+  });
+  assert.equal(autoOutcome.statusCode, 200);
+
+  const blockedService = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+    plannerUxMetricsCollector: collector,
+  });
+  blockedService.dispatchSsotToolForMcp = async () => ({
+    statusCode: 200,
+    body: {
+      ok: true,
+      status: "succeeded",
+      data: {
+        scene_revision: "ssot_rev_s61_t6_blocked",
+        read_token_candidate: "ssot_rt_s61_t6_blocked",
+      },
+    },
+  });
+  const blockedStep1 = buildWriteBlockSpec({
+    block_id: "s61_t6_blocked_step_1",
+  });
+  const blockedStep2 = buildWriteBlockSpec({
+    block_id: "s61_t6_blocked_step_2",
+    input: {
+      active: false,
+    },
+    depends_on: ["s61_t6_blocked_step_1"],
+  });
+  delete blockedStep1.based_on_read_token;
+  delete blockedStep2.based_on_read_token;
+
+  const blockedOutcome = await blockedService.executeBlockSpecForMvp({
+    block_spec: blockedStep1,
+    execution_context: {
+      shape: "transaction",
+      transaction_capable: true,
+      block_plan: {
+        plan_id: "plan_s61_t6_blocked",
+        blocks: [blockedStep1, blockedStep2],
+      },
+    },
+  });
+  assert.equal(blockedOutcome.statusCode, 409);
+
+  assert.equal(metricEvents.length, 2);
+  assert.equal(metricEvents[0].success, true);
+  assert.equal(
+    metricEvents[0].orchestration_meta.auto_transaction_applied,
+    true
+  );
+  assert.equal(metricEvents[1].success, false);
+  assert.equal(
+    metricEvents[1].orchestration_meta.blocked_reason,
+    "transaction_read_token_missing"
+  );
+});
+
+test("S6.2-T3 executeBlockSpecForMvp composes script workflow without changing submit oneOf semantics", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+  });
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    if (toolName === "submit_unity_task") {
+      if (Array.isArray(payload.file_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              job_id: "job_workflow_step3_1",
+              status: "submitted",
+            },
+          },
+        };
+      }
+      if (Array.isArray(payload.visual_layer_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              status: "completed",
+            },
+          },
+        };
+      }
+    }
+    if (toolName === "get_unity_task_status") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: payload.job_id,
+            status: "completed",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in workflow test: ${toolName}`);
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: buildScriptWorkflowBlockSpec(),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0].toolName, "submit_unity_task");
+  assert.equal(calls[1].toolName, "get_unity_task_status");
+  assert.equal(calls[2].toolName, "submit_unity_task");
+  assert.equal(Array.isArray(calls[0].payload.file_actions), true);
+  assert.equal(typeof calls[0].payload.file_actions[0], "string");
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      calls[0].payload,
+      "visual_layer_actions"
+    ),
+    false
+  );
+  assert.equal(Array.isArray(calls[2].payload.visual_layer_actions), true);
+  assert.equal(typeof calls[2].payload.visual_layer_actions[0], "string");
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(calls[2].payload, "file_actions"),
+    false
+  );
+  const fileAction = JSON.parse(calls[0].payload.file_actions[0]);
+  assert.equal(fileAction.type, "write_file");
+  assert.equal(fileAction.path, "Assets/Scripts/PlannerUxStep3Sample.cs");
+  const visualAction = JSON.parse(calls[2].payload.visual_layer_actions[0]);
+  assert.equal(visualAction.type, "add_component");
+  assert.equal(
+    visualAction.component_assembly_qualified_name,
+    "PlannerUxStep3Sample"
+  );
+  assert.equal(visualAction.target_anchor.object_id, "GlobalObjectId_V1-target");
+  assert.equal(visualAction.target_anchor.path, "Scene/Canvas/Image");
+  assert.notEqual(
+    calls[0].payload.idempotency_key,
+    calls[2].payload.idempotency_key
+  );
+  assert.equal(
+    calls[0].payload.idempotency_key.endsWith("__create_script_task"),
+    true
+  );
+  assert.equal(
+    calls[2].payload.idempotency_key.endsWith("__attach_component_task"),
+    true
+  );
+  assert.equal(calls[1].payload.job_id, "job_workflow_step3_1");
+  assert.equal(
+    outcome.body.data.planner_orchestration.dispatch_mode,
+    "workflow_template"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_template_applied,
+    true
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_template_id,
+    "script_create_compile_attach.v1"
+  );
+  assert.equal(outcome.body.data.planner_orchestration.step_count, 3);
+  assert.equal(
+    outcome.body.data.output_data.workflow_orchestration.template_id,
+    "script_create_compile_attach.v1"
+  );
+  assert.equal(
+    outcome.body.data.output_data.workflow_orchestration.step_results.length,
+    3
+  );
+});
+
+test("S6.2-T4 workflow maps compile failure to explicit error code with direct guidance", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+  });
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    if (toolName === "submit_unity_task") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: "job_workflow_step4_compile_1",
+            status: "submitted",
+          },
+        },
+      };
+    }
+    if (toolName === "get_unity_task_status") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: payload.job_id,
+            status: "failed",
+            terminal_error_code: "E_SCRIPT_COMPILE_FAILED",
+            terminal_error_message: "CS0103: compile error",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in workflow compile test: ${toolName}`);
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: buildScriptWorkflowBlockSpec({
+      block_id: "block_entry_script_workflow_compile_failed_1",
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(outcome.body.error_code, "E_WORKFLOW_SCRIPT_COMPILE_FAILED");
+  assert.equal(outcome.body.suggested_action, "get_unity_task_status");
+  assert.equal(
+    String(outcome.body.fix_hint || "").toLowerCase().includes("compile"),
+    true
+  );
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].toolName, "submit_unity_task");
+  assert.equal(calls[1].toolName, "get_unity_task_status");
+  assert.equal(outcome.body.planner_dispatch_mode, "workflow_template");
+});
+
+test("S6.2-T4 workflow maps cancelled status to explicit cancellation guidance", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+  });
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    if (toolName === "submit_unity_task") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: "job_workflow_step4_cancelled_1",
+            status: "submitted",
+          },
+        },
+      };
+    }
+    if (toolName === "get_unity_task_status") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: payload.job_id,
+            status: "cancelled",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in workflow cancel test: ${toolName}`);
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: buildScriptWorkflowBlockSpec({
+      block_id: "block_entry_script_workflow_cancelled_1",
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(outcome.body.error_code, "E_WORKFLOW_TASK_CANCELLED");
+  assert.equal(outcome.body.suggested_action, "get_unity_task_status");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].toolName, "submit_unity_task");
+  assert.equal(calls[1].toolName, "get_unity_task_status");
+  assert.equal(outcome.body.planner_dispatch_mode, "workflow_template");
+});
+
+test("S6.2-T5 planner ux metrics capture workflow wait duration and success stage", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+    plannerUxMetricsCollector: collector,
+  });
+  const baseContract = service.getPlannerOrchestrationContract();
+  const customContract = JSON.parse(JSON.stringify(baseContract || {}));
+  if (
+    customContract &&
+    customContract.workflow_templates &&
+    customContract.workflow_templates["script_create_compile_attach.v1"] &&
+    Array.isArray(
+      customContract.workflow_templates["script_create_compile_attach.v1"].steps
+    )
+  ) {
+    customContract.workflow_templates["script_create_compile_attach.v1"].steps =
+      customContract.workflow_templates["script_create_compile_attach.v1"].steps.map(
+        (step) =>
+          step && step.step_type === "wait_task_status"
+            ? {
+                ...step,
+                poll_interval_ms: 5,
+                timeout_ms: 1500,
+              }
+            : step
+      );
+  }
+  service.plannerOrchestrationContract = customContract;
+
+  let statusPollCount = 0;
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    if (toolName === "submit_unity_task") {
+      if (Array.isArray(payload.file_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              job_id: "job_workflow_step5_success_1",
+              status: "submitted",
+            },
+          },
+        };
+      }
+      if (Array.isArray(payload.visual_layer_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              status: "completed",
+            },
+          },
+        };
+      }
+    }
+    if (toolName === "get_unity_task_status") {
+      statusPollCount += 1;
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: payload.job_id,
+            status: statusPollCount < 2 ? "running" : "completed",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in workflow metrics success test: ${toolName}`);
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: buildScriptWorkflowBlockSpec({
+      block_id: "block_entry_script_workflow_metrics_success_1",
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(metricEvents.length, 1);
+  assert.equal(metricEvents[0].success, true);
+  assert.equal(metricEvents[0].failure_stage, "none");
+  assert.equal(
+    metricEvents[0].orchestration_meta.dispatch_mode,
+    "workflow_template"
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_template_applied,
+    true
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_template_id,
+    "script_create_compile_attach.v1"
+  );
+  assert.equal(
+    Number.isFinite(
+      Number(metricEvents[0].orchestration_meta.workflow_compile_wait_duration_ms)
+    ),
+    true
+  );
+  assert.equal(
+    Number(metricEvents[0].orchestration_meta.workflow_compile_wait_duration_ms) >= 0,
+    true
+  );
+  assert.equal(
+    Number(outcome.body.data.planner_orchestration.workflow_compile_wait_duration_ms) >= 0,
+    true
+  );
+});
+
+test("S6.2-T5 planner ux metrics capture workflow failure stage and failed step", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+    plannerUxMetricsCollector: collector,
+  });
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    if (toolName === "submit_unity_task") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: "job_workflow_step5_failed_1",
+            status: "submitted",
+          },
+        },
+      };
+    }
+    if (toolName === "get_unity_task_status") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: payload.job_id,
+            status: "failed",
+            terminal_error_code: "E_SCRIPT_COMPILE_FAILED",
+            terminal_error_message: "CS0117: failure",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in workflow metrics failure test: ${toolName}`);
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: buildScriptWorkflowBlockSpec({
+      block_id: "block_entry_script_workflow_metrics_failed_1",
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(metricEvents.length, 1);
+  assert.equal(metricEvents[0].success, false);
+  assert.equal(metricEvents[0].failure_stage, "during_dispatch");
+  assert.equal(
+    metricEvents[0].orchestration_meta.dispatch_mode,
+    "workflow_template"
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_template_applied,
+    true
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_failed_step_id,
+    "wait_compile_ready"
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_step_count,
+    2
   );
 });
 

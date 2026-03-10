@@ -30,6 +30,18 @@ const FAILURE_DATA_KEYS = Object.freeze([
   "error_context_issued_at",
   "error_context_version",
   "requires_context_refresh",
+  "planner_failure_stage",
+  "planner_execution_shape",
+  "planner_execution_shape_reason",
+  "planner_shape_degraded",
+  "planner_original_shape",
+  "planner_degraded_reason",
+  "planner_auto_transaction_applied",
+  "planner_blocked_reason",
+  "planner_dispatch_mode",
+  "planner_source_shape_reason",
+  "planner_transaction_id",
+  "planner_step_count",
 ]);
 
 function normalizeString(value) {
@@ -93,6 +105,12 @@ function buildContextFingerprint(normalizedContext) {
     normalizeString(source.scene_revision_at_failure),
     normalizeString(source.path_candidate_object_id),
     normalizeString(source.object_id_candidate_object_id),
+    normalizeString(source.planner_failure_stage),
+    normalizeString(source.planner_execution_shape),
+    normalizeString(source.planner_blocked_reason),
+    typeof source.planner_auto_transaction_applied === "boolean"
+      ? String(source.planner_auto_transaction_applied)
+      : "",
   ];
   return parts.join("|");
 }
@@ -153,12 +171,20 @@ function normalizeFailureContext(options = {}) {
     normalizeString(rawData.nested_context_json) ||
     normalizeString(rawContext.nested_context_json);
   const nestedContext = parseJsonObject(nestedContextJsonRaw);
+  const plannerOrchestrationData = normalizeObject(rawData.planner_orchestration);
+  const plannerOrchestrationContext = normalizeObject(rawContext.planner_orchestration);
+  const plannerOrchestrationNested = normalizeObject(
+    nestedContext.planner_orchestration
+  );
 
   const normalized = {
     stage:
       normalizeString(rawContext.stage) ||
       normalizeString(rawData.stage) ||
       normalizeString(nestedContext.stage) ||
+      normalizeString(plannerOrchestrationData.failure_stage) ||
+      normalizeString(plannerOrchestrationContext.failure_stage) ||
+      normalizeString(plannerOrchestrationNested.failure_stage) ||
       "during_dispatch",
     previous_operation:
       normalizeString(rawContext.previous_operation) ||
@@ -266,6 +292,90 @@ function normalizeFailureContext(options = {}) {
       rawData.requires_context_refresh === true ||
       rawContext.requires_context_refresh === true ||
       nestedContext.requires_context_refresh === true,
+    planner_failure_stage:
+      normalizeString(rawData.planner_failure_stage) ||
+      normalizeString(rawContext.planner_failure_stage) ||
+      normalizeString(plannerOrchestrationData.failure_stage) ||
+      normalizeString(plannerOrchestrationContext.failure_stage) ||
+      normalizeString(plannerOrchestrationNested.failure_stage),
+    planner_execution_shape:
+      normalizeString(rawData.planner_execution_shape) ||
+      normalizeString(rawContext.planner_execution_shape) ||
+      normalizeString(plannerOrchestrationData.execution_shape) ||
+      normalizeString(plannerOrchestrationContext.execution_shape) ||
+      normalizeString(plannerOrchestrationNested.execution_shape),
+    planner_execution_shape_reason:
+      normalizeString(rawData.planner_execution_shape_reason) ||
+      normalizeString(rawContext.planner_execution_shape_reason) ||
+      normalizeString(plannerOrchestrationData.execution_shape_reason) ||
+      normalizeString(plannerOrchestrationContext.execution_shape_reason) ||
+      normalizeString(plannerOrchestrationNested.execution_shape_reason),
+    planner_shape_degraded:
+      typeof rawData.planner_shape_degraded === "boolean"
+        ? rawData.planner_shape_degraded
+        : typeof rawContext.planner_shape_degraded === "boolean"
+          ? rawContext.planner_shape_degraded
+          : typeof plannerOrchestrationData.shape_degraded === "boolean"
+            ? plannerOrchestrationData.shape_degraded
+            : typeof plannerOrchestrationContext.shape_degraded === "boolean"
+              ? plannerOrchestrationContext.shape_degraded
+              : typeof plannerOrchestrationNested.shape_degraded === "boolean"
+                ? plannerOrchestrationNested.shape_degraded
+                : null,
+    planner_original_shape:
+      normalizeString(rawData.planner_original_shape) ||
+      normalizeString(rawContext.planner_original_shape) ||
+      normalizeString(plannerOrchestrationData.original_shape) ||
+      normalizeString(plannerOrchestrationContext.original_shape) ||
+      normalizeString(plannerOrchestrationNested.original_shape),
+    planner_degraded_reason:
+      normalizeString(rawData.planner_degraded_reason) ||
+      normalizeString(rawContext.planner_degraded_reason) ||
+      normalizeString(plannerOrchestrationData.degraded_reason) ||
+      normalizeString(plannerOrchestrationContext.degraded_reason) ||
+      normalizeString(plannerOrchestrationNested.degraded_reason),
+    planner_auto_transaction_applied:
+      typeof rawData.planner_auto_transaction_applied === "boolean"
+        ? rawData.planner_auto_transaction_applied
+        : typeof rawContext.planner_auto_transaction_applied === "boolean"
+          ? rawContext.planner_auto_transaction_applied
+          : typeof plannerOrchestrationData.auto_transaction_applied === "boolean"
+            ? plannerOrchestrationData.auto_transaction_applied
+            : typeof plannerOrchestrationContext.auto_transaction_applied === "boolean"
+              ? plannerOrchestrationContext.auto_transaction_applied
+              : typeof plannerOrchestrationNested.auto_transaction_applied === "boolean"
+                ? plannerOrchestrationNested.auto_transaction_applied
+                : null,
+    planner_blocked_reason:
+      normalizeString(rawData.planner_blocked_reason) ||
+      normalizeString(rawContext.planner_blocked_reason) ||
+      normalizeString(plannerOrchestrationData.blocked_reason) ||
+      normalizeString(plannerOrchestrationContext.blocked_reason) ||
+      normalizeString(plannerOrchestrationNested.blocked_reason),
+    planner_dispatch_mode:
+      normalizeString(rawData.planner_dispatch_mode) ||
+      normalizeString(rawContext.planner_dispatch_mode) ||
+      normalizeString(plannerOrchestrationData.dispatch_mode) ||
+      normalizeString(plannerOrchestrationContext.dispatch_mode) ||
+      normalizeString(plannerOrchestrationNested.dispatch_mode),
+    planner_source_shape_reason:
+      normalizeString(rawData.planner_source_shape_reason) ||
+      normalizeString(rawContext.planner_source_shape_reason) ||
+      normalizeString(plannerOrchestrationData.source_shape_reason) ||
+      normalizeString(plannerOrchestrationContext.source_shape_reason) ||
+      normalizeString(plannerOrchestrationNested.source_shape_reason),
+    planner_transaction_id:
+      normalizeString(rawData.planner_transaction_id) ||
+      normalizeString(rawContext.planner_transaction_id) ||
+      normalizeString(plannerOrchestrationData.transaction_id) ||
+      normalizeString(plannerOrchestrationContext.transaction_id) ||
+      normalizeString(plannerOrchestrationNested.transaction_id),
+    planner_step_count:
+      normalizeNumberOrNull(rawData.planner_step_count) ??
+      normalizeNumberOrNull(rawContext.planner_step_count) ??
+      normalizeNumberOrNull(plannerOrchestrationData.step_count) ??
+      normalizeNumberOrNull(plannerOrchestrationContext.step_count) ??
+      normalizeNumberOrNull(plannerOrchestrationNested.step_count),
     l3_context: {
       ...normalizeObject(rawContext.l3_context),
       ...(Object.keys(nestedContext).length > 0

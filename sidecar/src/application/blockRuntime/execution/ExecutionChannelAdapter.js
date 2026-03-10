@@ -43,6 +43,8 @@ function normalizeExecutionContext(context) {
   const shape = normalizeString(source.shape) || DEFAULT_EXECUTION_SHAPE;
   const shapeReason = normalizeString(source.shape_reason);
   const shapeDegraded = source.shape_degraded === true;
+  const originalShape = normalizeString(source.original_shape);
+  const degradedReason = normalizeString(source.degraded_reason);
   const planInitialReadToken = normalizeString(source.plan_initial_read_token);
   const previousReadTokenCandidate = normalizeString(
     source.previous_read_token_candidate
@@ -50,11 +52,17 @@ function normalizeExecutionContext(context) {
   const transactionReadTokenCandidate = normalizeString(
     source.transaction_read_token_candidate
   );
+  const transactionOrchestration = isPlainObject(source.transaction_orchestration)
+    ? { ...source.transaction_orchestration }
+    : null;
   return {
     channel,
     shape,
     shape_reason: shapeReason,
     shape_degraded: shapeDegraded,
+    original_shape: originalShape,
+    degraded_reason: degradedReason,
+    transaction_orchestration: transactionOrchestration,
     plan_initial_read_token: planInitialReadToken,
     previous_read_token_candidate: previousReadTokenCandidate,
     transaction_read_token_candidate: transactionReadTokenCandidate,
@@ -196,6 +204,17 @@ function buildExecutionMeta({
   }
   if (normalizeString(executionContext.shape_reason)) {
     meta.shape_reason = normalizeString(executionContext.shape_reason);
+  }
+  if (normalizeString(executionContext.original_shape)) {
+    meta.original_shape = normalizeString(executionContext.original_shape);
+  }
+  if (normalizeString(executionContext.degraded_reason)) {
+    meta.degraded_reason = normalizeString(executionContext.degraded_reason);
+  }
+  if (isPlainObject(executionContext.transaction_orchestration)) {
+    meta.transaction_orchestration = {
+      ...executionContext.transaction_orchestration,
+    };
   }
   if (normalizeString(toolName)) {
     meta.tool_name = normalizeString(toolName);

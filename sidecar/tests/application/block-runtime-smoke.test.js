@@ -290,7 +290,7 @@ test("S6-T4 smoke router mode keeps single dispatch and manifest active channel 
   );
 });
 
-test("S4-T5 smoke router mode exposes transaction shape decision for transaction candidate plan", async () => {
+test("S4-T5 smoke router mode keeps single_step when cross-anchor plan is blocked by phase2a transaction rules", async () => {
   const service = createService({
     blockPipelineEnabled: true,
     blockBypassRouter: false,
@@ -340,13 +340,21 @@ test("S4-T5 smoke router mode exposes transaction shape decision for transaction
 
   assert.equal(outcome.statusCode, 200);
   assert.equal(outcome.body.data.status, "succeeded");
-  assert.equal(outcome.body.data.execution_meta.shape, "transaction");
+  assert.equal(outcome.body.data.execution_meta.shape, "single_step");
   assert.equal(
     outcome.body.data.execution_meta.shape_reason,
-    "transaction_candidate_confirmed"
+    "transaction_candidate_blocked_phase2a_constraints"
   );
   assert.equal(outcome.body.data.runtime_flags.bypass_router, false);
   assert.equal(outcome.body.data.route_result.channel_id, "execution");
+  assert.equal(
+    outcome.body.data.planner_orchestration.auto_transaction_applied,
+    false
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.dispatch_mode,
+    "single_block_direct"
+  );
   assert.equal(calls.length, 1);
   assert.equal(calls[0].toolName, "set_active");
   assert.equal(calls[0].payload.active, false);

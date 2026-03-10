@@ -191,6 +191,18 @@ function withMcpErrorFeedback(body) {
     !Array.isArray(source.context)
       ? source.context
       : {};
+  const plannerOrchestrationData =
+    sourceData.planner_orchestration &&
+    typeof sourceData.planner_orchestration === "object" &&
+    !Array.isArray(sourceData.planner_orchestration)
+      ? sourceData.planner_orchestration
+      : {};
+  const plannerOrchestrationContext =
+    sourceContext.planner_orchestration &&
+    typeof sourceContext.planner_orchestration === "object" &&
+    !Array.isArray(sourceContext.planner_orchestration)
+      ? sourceContext.planner_orchestration
+      : {};
   const errorCode = normalizeErrorCode(source.error_code, "E_INTERNAL");
   const isAutoCancelError = isAutoCancelErrorCode(errorCode);
   const incomingMessage =
@@ -359,6 +371,90 @@ function withMcpErrorFeedback(body) {
   const executionOrder = normalizeOptionalString(
     guidance.execution_order || source.execution_order
   );
+  const plannerFailureStage = firstNonEmptyString(
+    source.planner_failure_stage,
+    sourceData.planner_failure_stage,
+    sourceContext.planner_failure_stage,
+    plannerOrchestrationData.failure_stage,
+    plannerOrchestrationContext.failure_stage
+  );
+  const plannerExecutionShape = firstNonEmptyString(
+    source.planner_execution_shape,
+    sourceData.planner_execution_shape,
+    sourceContext.planner_execution_shape,
+    plannerOrchestrationData.execution_shape,
+    plannerOrchestrationContext.execution_shape
+  );
+  const plannerExecutionShapeReason = firstNonEmptyString(
+    source.planner_execution_shape_reason,
+    sourceData.planner_execution_shape_reason,
+    sourceContext.planner_execution_shape_reason,
+    plannerOrchestrationData.execution_shape_reason,
+    plannerOrchestrationContext.execution_shape_reason
+  );
+  const plannerShapeDegraded = firstOptionalBoolean(
+    source.planner_shape_degraded,
+    sourceData.planner_shape_degraded,
+    sourceContext.planner_shape_degraded,
+    plannerOrchestrationData.shape_degraded,
+    plannerOrchestrationContext.shape_degraded
+  );
+  const plannerOriginalShape = firstNonEmptyString(
+    source.planner_original_shape,
+    sourceData.planner_original_shape,
+    sourceContext.planner_original_shape,
+    plannerOrchestrationData.original_shape,
+    plannerOrchestrationContext.original_shape
+  );
+  const plannerDegradedReason = firstNonEmptyString(
+    source.planner_degraded_reason,
+    sourceData.planner_degraded_reason,
+    sourceContext.planner_degraded_reason,
+    plannerOrchestrationData.degraded_reason,
+    plannerOrchestrationContext.degraded_reason
+  );
+  const plannerAutoTransactionApplied = firstOptionalBoolean(
+    source.planner_auto_transaction_applied,
+    sourceData.planner_auto_transaction_applied,
+    sourceContext.planner_auto_transaction_applied,
+    plannerOrchestrationData.auto_transaction_applied,
+    plannerOrchestrationContext.auto_transaction_applied
+  );
+  const plannerBlockedReason = firstNonEmptyString(
+    source.planner_blocked_reason,
+    sourceData.planner_blocked_reason,
+    sourceContext.planner_blocked_reason,
+    plannerOrchestrationData.blocked_reason,
+    plannerOrchestrationContext.blocked_reason
+  );
+  const plannerDispatchMode = firstNonEmptyString(
+    source.planner_dispatch_mode,
+    sourceData.planner_dispatch_mode,
+    sourceContext.planner_dispatch_mode,
+    plannerOrchestrationData.dispatch_mode,
+    plannerOrchestrationContext.dispatch_mode
+  );
+  const plannerSourceShapeReason = firstNonEmptyString(
+    source.planner_source_shape_reason,
+    sourceData.planner_source_shape_reason,
+    sourceContext.planner_source_shape_reason,
+    plannerOrchestrationData.source_shape_reason,
+    plannerOrchestrationContext.source_shape_reason
+  );
+  const plannerTransactionId = firstNonEmptyString(
+    source.planner_transaction_id,
+    sourceData.planner_transaction_id,
+    sourceContext.planner_transaction_id,
+    plannerOrchestrationData.transaction_id,
+    plannerOrchestrationContext.transaction_id
+  );
+  const plannerStepCount = firstOptionalNumber(
+    source.planner_step_count,
+    sourceData.planner_step_count,
+    sourceContext.planner_step_count,
+    plannerOrchestrationData.step_count,
+    plannerOrchestrationContext.step_count
+  );
   const failureHandling = normalizeOptionalString(
     guidance.failure_handling || source.failure_handling
   );
@@ -465,6 +561,26 @@ function withMcpErrorFeedback(body) {
       : {}),
     ...(errorContextIssuedAt ? { error_context_issued_at: errorContextIssuedAt } : {}),
     ...(errorContextVersion ? { error_context_version: errorContextVersion } : {}),
+    ...(plannerFailureStage ? { planner_failure_stage: plannerFailureStage } : {}),
+    ...(plannerExecutionShape ? { planner_execution_shape: plannerExecutionShape } : {}),
+    ...(plannerExecutionShapeReason
+      ? { planner_execution_shape_reason: plannerExecutionShapeReason }
+      : {}),
+    ...(plannerShapeDegraded !== null
+      ? { planner_shape_degraded: plannerShapeDegraded }
+      : {}),
+    ...(plannerOriginalShape ? { planner_original_shape: plannerOriginalShape } : {}),
+    ...(plannerDegradedReason ? { planner_degraded_reason: plannerDegradedReason } : {}),
+    ...(plannerAutoTransactionApplied !== null
+      ? { planner_auto_transaction_applied: plannerAutoTransactionApplied }
+      : {}),
+    ...(plannerBlockedReason ? { planner_blocked_reason: plannerBlockedReason } : {}),
+    ...(plannerDispatchMode ? { planner_dispatch_mode: plannerDispatchMode } : {}),
+    ...(plannerSourceShapeReason
+      ? { planner_source_shape_reason: plannerSourceShapeReason }
+      : {}),
+    ...(plannerTransactionId ? { planner_transaction_id: plannerTransactionId } : {}),
+    ...(plannerStepCount !== null ? { planner_step_count: plannerStepCount } : {}),
     ...(retryPolicy ? { retry_policy: retryPolicy } : {}),
   };
 }

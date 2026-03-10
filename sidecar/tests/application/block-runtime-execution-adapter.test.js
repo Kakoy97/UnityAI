@@ -577,6 +577,60 @@ test("S2A-T4 ExecutionChannelAdapter returns succeeded BlockResult on runtime su
   assert.equal(schema.ok, true);
 });
 
+test("S6.1-T5 ExecutionChannelAdapter includes shape downgrade and transaction orchestration trace in execution_meta", async () => {
+  const adapter = createExecutionChannelAdapter({
+    runtimeBridge: {
+      async executeMappedToolPlan() {
+        return {
+          ok: true,
+          tool_name: "set_active",
+          status_code: 200,
+          output_data: {
+            target_object_id: "GlobalObjectId_V1-target",
+            active: true,
+          },
+          scene_revision: "ssot_rev_s61_t5_meta",
+          read_token_candidate: "ssot_rt_s61_t5_meta",
+        };
+      },
+    },
+  });
+
+  const result = await adapter.executeBlock(buildWriteBlockSpec(), {
+    channel: "execution",
+    shape: "single_step",
+    shape_reason: "transaction_capability_unavailable",
+    shape_degraded: true,
+    original_shape: "transaction",
+    degraded_reason: "transaction_capability_unavailable",
+    transaction_orchestration: {
+      auto_transaction_applied: false,
+      blocked_reason: "transaction_read_token_missing",
+      source_shape_reason: "transaction_candidate_confirmed",
+      transaction_id: "plan_s61_t5_meta",
+      step_count: 2,
+    },
+  });
+
+  assert.equal(result.status, "succeeded");
+  assert.equal(result.execution_meta.shape, "single_step");
+  assert.equal(result.execution_meta.shape_reason, "transaction_capability_unavailable");
+  assert.equal(result.execution_meta.shape_degraded, true);
+  assert.equal(result.execution_meta.original_shape, "transaction");
+  assert.equal(
+    result.execution_meta.degraded_reason,
+    "transaction_capability_unavailable"
+  );
+  assert.equal(
+    result.execution_meta.transaction_orchestration.auto_transaction_applied,
+    false
+  );
+  assert.equal(
+    result.execution_meta.transaction_orchestration.blocked_reason,
+    "transaction_read_token_missing"
+  );
+});
+
 test("F1 Read.Selection ExecutionChannelAdapter dispatches read.selection.by_component via runtime bridge", async () => {
   const calls = [];
   const adapter = createExecutionChannelAdapter({

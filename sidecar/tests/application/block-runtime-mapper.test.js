@@ -1972,6 +1972,66 @@ test("F14 Write.AsyncOps maps MUTATE write.async_ops families to async tools", (
   assert.equal(getStatusMissingJobId.error_code, "E_SCHEMA_INVALID");
 });
 
+test("F14 Write.AsyncOps normalizes submit_unity_task action aliases for Unity DTO bridge", () => {
+  const fileSubmit = mapBlockSpecToToolPlan({
+    block_id: "f14_async_alias_file_1",
+    block_type: BLOCK_TYPE.MUTATE,
+    intent_key: "write.async_ops.submit_task",
+    input: {
+      thread_id: "thread_mock_alias_1",
+      user_intent: "Create or update script file",
+      file_actions: [
+        {
+          action: "create_or_update_script",
+          path: "Assets/Scripts/PlannerUxAliasSample.cs",
+          content: "using UnityEngine; public class PlannerUxAliasSample : MonoBehaviour {}",
+        },
+      ],
+    },
+    based_on_read_token: "ssot_rt_alias_1",
+    write_envelope: buildWriteEnvelope(),
+  });
+  assert.equal(fileSubmit.ok, true);
+  assert.equal(fileSubmit.tool_name, "submit_unity_task");
+  assert.equal(Array.isArray(fileSubmit.payload.file_actions), true);
+  assert.equal(typeof fileSubmit.payload.file_actions[0], "string");
+  const fileAction = JSON.parse(fileSubmit.payload.file_actions[0]);
+  assert.equal(fileAction.type, "write_file");
+  assert.equal(fileAction.path, "Assets/Scripts/PlannerUxAliasSample.cs");
+
+  const visualSubmit = mapBlockSpecToToolPlan({
+    block_id: "f14_async_alias_visual_1",
+    block_type: BLOCK_TYPE.MUTATE,
+    intent_key: "write.async_ops.submit_task",
+    input: {
+      thread_id: "thread_mock_alias_2",
+      user_intent: "Attach script component",
+      visual_layer_actions: [
+        {
+          action: "add_component",
+          target_object_id: "GlobalObjectId_V1-target",
+          target_path: "Scene/Canvas/Image",
+          component_type: "PlannerUxAliasSample",
+        },
+      ],
+    },
+    based_on_read_token: "ssot_rt_alias_2",
+    write_envelope: buildWriteEnvelope(),
+  });
+  assert.equal(visualSubmit.ok, true);
+  assert.equal(visualSubmit.tool_name, "submit_unity_task");
+  assert.equal(Array.isArray(visualSubmit.payload.visual_layer_actions), true);
+  assert.equal(typeof visualSubmit.payload.visual_layer_actions[0], "string");
+  const visualAction = JSON.parse(visualSubmit.payload.visual_layer_actions[0]);
+  assert.equal(visualAction.type, "add_component");
+  assert.equal(
+    visualAction.component_assembly_qualified_name,
+    "PlannerUxAliasSample"
+  );
+  assert.equal(visualAction.target_anchor.object_id, "GlobalObjectId_V1-target");
+  assert.equal(visualAction.target_anchor.path, "Scene/Canvas/Image");
+});
+
 test("F14 Write.AsyncOps can be rollback-disabled by write.async_ops family prefix", () => {
   const denied = mapBlockSpecToToolPlan(
     {

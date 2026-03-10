@@ -38,6 +38,9 @@ const {
   getValidatorRegistrySingleton,
 } = require("./ssotRuntime/validatorRegistry");
 const {
+  getStaticToolCatalogSingleton,
+} = require("./ssotRuntime/staticToolCatalog");
+const {
   getSsotTokenRegistrySingleton,
 } = require("./ssotRuntime/ssotTokenRegistry");
 const {
@@ -76,7 +79,9 @@ const {
 } = require("./errorFeedback/failureContextNormalizer");
 const {
   createExecutionChannelAdapter,
+  mapWriteBlockToTransactionStep,
 } = require("./blockRuntime/execution");
+const { BLOCK_TYPE } = require("./blockRuntime/contracts");
 const {
   createTurnServiceRuntimePort,
 } = require("./blockRuntime/runtime");
@@ -114,6 +119,7 @@ const {
   MCP_PLANNER_DIRECT_COMPATIBILITY_POLICY_CONTRACT,
   MCP_PLANNER_EXIT_POLICY_CONTRACT,
   MCP_PLANNER_GENERIC_PROPERTY_FALLBACK_POLICY_CONTRACT,
+  MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT,
 } = require("../ports/contracts");
 
 const SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -169,6 +175,888 @@ function toNonNegativeMetric(value) {
   return Math.floor(n);
 }
 
+function normalizeString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function isPlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => normalizeString(entry))
+    .filter((entry) => !!entry);
+}
+
+function normalizePositiveInteger(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1) {
+    return Math.floor(Number(fallback) || 0);
+  }
+  return Math.floor(n);
+}
+
+function delayMs(ms) {
+  const durationMs = normalizePositiveInteger(ms, 0);
+  if (durationMs <= 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
+}
+
+function synthesizeWorkflowDispatch({ blockSpec, executionContext, orchestrationContract }) {
+  const block = isPlainObject(blockSpec) ? blockSpec : {};
+  const context = isPlainObject(executionContext) ? executionContext : {};
+  const intentKey = normalizeString(block.intent_key);
+  const buildNoopOutcome = (blockedReason = "") => ({
+    block_spec: blockSpec,
+    execution_context: {
+      ...context,
+      ...(blockedReason
+        ? {
+            workflow_orchestration: {
+              workflow_template_applied: false,
+              blocked_reason: blockedReason,
+            },
+          }
+        : {}),
+    },
+    applied: false,
+    blocked_reason: blockedReason,
+    workflow_template_id: "",
+    step_count: 0,
+    template: null,
+  });
+
+  if (!intentKey) {
+    return buildNoopOutcome();
+  }
+  const contract = isPlainObject(orchestrationContract) ? orchestrationContract : {};
+  const workflowTemplates = isPlainObject(contract.workflow_templates)
+    ? contract.workflow_templates
+    : {};
+
+  for (const [templateId, templateDefRaw] of Object.entries(workflowTemplates)) {
+    const templateDef = isPlainObject(templateDefRaw) ? templateDefRaw : {};
+    if (templateDef.enabled === false) {
+      continue;
+    }
+    const selection = isPlainObject(templateDef.selection) ? templateDef.selection : {};
+    const intentKeys = normalizeStringArray(selection.intent_keys);
+    if (intentKeys.length <= 0 || !intentKeys.includes(intentKey)) {
+      continue;
+    }
+    const steps = Array.isArray(templateDef.steps)
+      ? templateDef.steps.filter((step) => isPlainObject(step))
+      : [];
+    if (steps.length <= 0) {
+      return buildNoopOutcome("workflow_template_steps_missing");
+    }
+    return {
+      block_spec: blockSpec,
+      execution_context: {
+        ...context,
+        workflow_orchestration: {
+          workflow_template_applied: true,
+          workflow_template_id: normalizeString(templateId),
+          step_count: steps.length,
+        },
+      },
+      applied: true,
+      blocked_reason: "",
+      workflow_template_id: normalizeString(templateId),
+      step_count: steps.length,
+      template: {
+        ...templateDef,
+        steps,
+      },
+    };
+  }
+
+  return buildNoopOutcome();
+}
+
+function resolveWorkflowTaskStatusToken(blockResult) {
+  const result = isPlainObject(blockResult) ? blockResult : {};
+  const outputData = isPlainObject(result.output_data) ? result.output_data : {};
+  const candidate =
+    normalizeString(outputData.status) || normalizeString(outputData.state);
+  return candidate.toLowerCase();
+}
+
+function normalizeWorkflowErrorCode(value, fallbackCode) {
+  const fallback = normalizeString(fallbackCode) || "E_WORKFLOW_EXECUTION_FAILED";
+  const raw = normalizeString(value);
+  if (!raw) {
+    return fallback;
+  }
+  const normalized = raw
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+  if (!normalized) {
+    return fallback;
+  }
+  return normalized.startsWith("E_") ? normalized : `E_${normalized}`;
+}
+
+function normalizeWorkflowErrorMapping(rawMapping) {
+  const source = isPlainObject(rawMapping) ? rawMapping : {};
+  return {
+    compile_failed: normalizeWorkflowErrorCode(
+      source.compile_failed,
+      "E_WORKFLOW_SCRIPT_COMPILE_FAILED"
+    ),
+    class_name_mismatch: normalizeWorkflowErrorCode(
+      source.class_name_mismatch,
+      "E_WORKFLOW_SCRIPT_CLASS_MISMATCH"
+    ),
+    component_not_attachable: normalizeWorkflowErrorCode(
+      source.component_not_attachable,
+      "E_WORKFLOW_COMPONENT_NOT_ATTACHABLE"
+    ),
+    wait_timeout: normalizeWorkflowErrorCode(
+      source.wait_timeout,
+      "E_WORKFLOW_COMPILE_WAIT_TIMEOUT"
+    ),
+    task_cancelled: normalizeWorkflowErrorCode(
+      source.task_cancelled,
+      "E_WORKFLOW_TASK_CANCELLED"
+    ),
+  };
+}
+
+function resolveWorkflowWaitFailureCode({ statusToken, outputData, errorMapping }) {
+  const status = normalizeString(statusToken).toLowerCase();
+  const data = isPlainObject(outputData) ? outputData : {};
+  const mapping = isPlainObject(errorMapping) ? errorMapping : {};
+  if (status === "cancelled") {
+    return normalizeWorkflowErrorCode(
+      mapping.task_cancelled,
+      "E_WORKFLOW_TASK_CANCELLED"
+    );
+  }
+  if (status === "timeout") {
+    return normalizeWorkflowErrorCode(
+      mapping.wait_timeout,
+      "E_WORKFLOW_COMPILE_WAIT_TIMEOUT"
+    );
+  }
+
+  const terminalErrorCode = normalizeString(
+    data.terminal_error_code || data.error_code
+  ).toUpperCase();
+  const terminalErrorMessage = normalizeString(
+    data.terminal_error_message || data.error_message
+  ).toLowerCase();
+  const diagnostic = `${terminalErrorCode} ${terminalErrorMessage}`.toLowerCase();
+
+  if (terminalErrorCode.includes("CANCEL")) {
+    return normalizeWorkflowErrorCode(
+      mapping.task_cancelled,
+      "E_WORKFLOW_TASK_CANCELLED"
+    );
+  }
+  if (terminalErrorCode.includes("TIMEOUT")) {
+    return normalizeWorkflowErrorCode(
+      mapping.wait_timeout,
+      "E_WORKFLOW_COMPILE_WAIT_TIMEOUT"
+    );
+  }
+  if (
+    terminalErrorCode.includes("CLASS_MISMATCH") ||
+    (diagnostic.includes("class") &&
+      (diagnostic.includes("mismatch") || diagnostic.includes("file name")))
+  ) {
+    return normalizeWorkflowErrorCode(
+      mapping.class_name_mismatch,
+      "E_WORKFLOW_SCRIPT_CLASS_MISMATCH"
+    );
+  }
+  if (
+    terminalErrorCode.includes("COMPONENT") ||
+    (diagnostic.includes("component") &&
+      (diagnostic.includes("attach") || diagnostic.includes("monobehaviour")))
+  ) {
+    return normalizeWorkflowErrorCode(
+      mapping.component_not_attachable,
+      "E_WORKFLOW_COMPONENT_NOT_ATTACHABLE"
+    );
+  }
+  if (
+    terminalErrorCode.includes("COMPILE") ||
+    terminalErrorCode.includes("CS") ||
+    diagnostic.includes("compile") ||
+    diagnostic.includes("compiler error")
+  ) {
+    return normalizeWorkflowErrorCode(
+      mapping.compile_failed,
+      "E_WORKFLOW_SCRIPT_COMPILE_FAILED"
+    );
+  }
+
+  return "E_WORKFLOW_WAIT_STATUS_FAILED";
+}
+
+function resolveWorkflowSubmitFailureCode({ payloadSlot, blockResult, errorMapping }) {
+  const slot = normalizeString(payloadSlot);
+  if (slot !== "visual_layer_actions") {
+    return "";
+  }
+  const result = isPlainObject(blockResult) ? blockResult : {};
+  const error = isPlainObject(result.error) ? result.error : {};
+  const errorCode = normalizeString(error.error_code).toUpperCase();
+  if (!errorCode) {
+    return "";
+  }
+  if (
+    errorCode.includes("COMPONENT") ||
+    errorCode.includes("NOT_ATTACHABLE") ||
+    errorCode.includes("ADD_FAILED")
+  ) {
+    return normalizeWorkflowErrorCode(
+      errorMapping && errorMapping.component_not_attachable,
+      "E_WORKFLOW_COMPONENT_NOT_ATTACHABLE"
+    );
+  }
+  return "";
+}
+
+function buildWorkflowStepWriteEnvelope(blockSpec, stepId) {
+  const block = isPlainObject(blockSpec) ? blockSpec : {};
+  const baseEnvelope = isPlainObject(block.write_envelope)
+    ? { ...block.write_envelope }
+    : {};
+  const baseKey = normalizeString(baseEnvelope.idempotency_key);
+  const normalizedStepId = normalizeString(stepId);
+  if (baseKey && normalizedStepId) {
+    baseEnvelope.idempotency_key = `${baseKey}__${normalizedStepId}`;
+  }
+  return baseEnvelope;
+}
+
+function enrichWorkflowBlockResult({
+  blockResult,
+  blockSpec,
+  workflowDispatchOutcome,
+  stepResults,
+  finalStepId = "",
+}) {
+  const baseResult = isPlainObject(blockResult) ? blockResult : {};
+  const executionMeta = isPlainObject(baseResult.execution_meta)
+    ? { ...baseResult.execution_meta }
+    : {};
+  const outputData = isPlainObject(baseResult.output_data)
+    ? { ...baseResult.output_data }
+    : {};
+  const templateId =
+    normalizeString(workflowDispatchOutcome && workflowDispatchOutcome.workflow_template_id) ||
+    normalizeString(
+      executionMeta &&
+        executionMeta.workflow_orchestration &&
+        executionMeta.workflow_orchestration.workflow_template_id
+    );
+  const stepRecords = Array.isArray(stepResults) ? stepResults : [];
+  const jobIdFromRecords =
+    stepRecords
+      .map((item) =>
+        isPlainObject(item) ? normalizeString(item.job_id) : ""
+      )
+      .find((item) => !!item) || "";
+  const workflowMeta = {
+    workflow_template_applied: true,
+    workflow_template_id: templateId,
+    workflow_step_count: stepRecords.length,
+    ...(normalizeString(finalStepId) ? { workflow_final_step_id: normalizeString(finalStepId) } : {}),
+  };
+  const enriched = {
+    ...baseResult,
+    block_id: normalizeString(blockSpec && blockSpec.block_id) || baseResult.block_id,
+    output_data: {
+      ...outputData,
+      workflow_orchestration: {
+        template_id: templateId,
+        step_count: stepRecords.length,
+        step_results: stepRecords,
+        ...(jobIdFromRecords ? { job_id: jobIdFromRecords } : {}),
+      },
+    },
+    execution_meta: {
+      ...executionMeta,
+      ...workflowMeta,
+    },
+  };
+  return enriched;
+}
+
+function buildWorkflowFailureBlockResult({
+  blockSpec,
+  executionContext,
+  workflowDispatchOutcome,
+  errorCode,
+  errorMessage,
+  failedStepId = "",
+  stepResults = [],
+  outputData = {},
+}) {
+  const context = isPlainObject(executionContext) ? executionContext : {};
+  const templateId = normalizeString(
+    workflowDispatchOutcome && workflowDispatchOutcome.workflow_template_id
+  );
+  const result = {
+    block_id: normalizeString(blockSpec && blockSpec.block_id) || "unknown_block",
+    status: "failed",
+    output_data: {
+      ...(isPlainObject(outputData) ? outputData : {}),
+      workflow_orchestration: {
+        template_id: templateId,
+        step_count: Array.isArray(stepResults) ? stepResults.length : 0,
+        step_results: Array.isArray(stepResults) ? stepResults : [],
+      },
+    },
+    execution_meta: {
+      channel: normalizeString(context.channel) || "execution",
+      shape: normalizeString(context.shape) || "single_step",
+      workflow_template_applied: true,
+      workflow_template_id: templateId,
+      ...(normalizeString(failedStepId)
+        ? { workflow_failed_step_id: normalizeString(failedStepId) }
+        : {}),
+    },
+    error: {
+      error_code: normalizeString(errorCode) || "E_WORKFLOW_EXECUTION_FAILED",
+      error_message:
+        normalizeString(errorMessage) || "workflow template execution failed",
+    },
+  };
+  return result;
+}
+
+async function executeWorkflowTemplateDispatch({
+  blockSpec,
+  executionContext,
+  adapter,
+  workflowDispatchOutcome,
+  sleepMs,
+  nowMs,
+}) {
+  const block = isPlainObject(blockSpec) ? blockSpec : {};
+  const context = isPlainObject(executionContext) ? executionContext : {};
+  const template = isPlainObject(workflowDispatchOutcome && workflowDispatchOutcome.template)
+    ? workflowDispatchOutcome.template
+    : {};
+  const steps = Array.isArray(template.steps) ? template.steps : [];
+  const workflowErrorMapping = normalizeWorkflowErrorMapping(template.error_mapping);
+  const input = isPlainObject(block.input) ? block.input : {};
+  const sleep = typeof sleepMs === "function" ? sleepMs : delayMs;
+  const now = typeof nowMs === "function" ? nowMs : () => Date.now();
+  const sourceThreadId = normalizeString(input.thread_id);
+  const sourceUserIntent =
+    normalizeString(input.user_intent) || normalizeString(block.intent_key);
+  const stepResults = [];
+  let runningJobId = "";
+  let latestResult = null;
+
+  if (!sourceThreadId) {
+    return {
+      block_result: buildWorkflowFailureBlockResult({
+        blockSpec: block,
+        executionContext: context,
+        workflowDispatchOutcome,
+        errorCode: "E_SCHEMA_INVALID",
+        errorMessage:
+          "workflow script_create_compile_attach requires input.thread_id",
+      }),
+    };
+  }
+
+  for (const step of steps) {
+    const stepId = normalizeString(step.step_id) || "workflow_step";
+    const stepType = normalizeString(step.step_type);
+    const stepToolName = normalizeString(step.tool_name);
+    if (stepType === "submit_task") {
+      if (stepToolName !== "submit_unity_task") {
+        return {
+          block_result: buildWorkflowFailureBlockResult({
+            blockSpec: block,
+            executionContext: context,
+            workflowDispatchOutcome,
+            errorCode: "E_WORKFLOW_TEMPLATE_INVALID",
+            errorMessage: `workflow submit step requires submit_unity_task tool: ${stepId}`,
+            failedStepId: stepId,
+            stepResults,
+          }),
+        };
+      }
+      const payloadSlot = normalizeString(step.task_payload_slot);
+      const slotPayload = input[payloadSlot];
+      if (!Array.isArray(slotPayload)) {
+        return {
+          block_result: buildWorkflowFailureBlockResult({
+            blockSpec: block,
+            executionContext: context,
+            workflowDispatchOutcome,
+            errorCode: "E_SCHEMA_INVALID",
+            errorMessage: `workflow submit step requires input.${payloadSlot} (array)`,
+            failedStepId: stepId,
+            stepResults,
+          }),
+        };
+      }
+      const stepBlockSpec = {
+        block_id: `${normalizeString(block.block_id) || "workflow"}__${stepId}`,
+        block_type: BLOCK_TYPE.MUTATE,
+        intent_key: "write.async_ops.submit_task",
+        input: {
+          thread_id: sourceThreadId,
+          user_intent: sourceUserIntent || `workflow.${stepId}`,
+          [payloadSlot]: slotPayload,
+          ...(normalizeString(input.approval_mode)
+            ? { approval_mode: normalizeString(input.approval_mode) }
+            : {}),
+          ...(isPlainObject(input.context) ? { context: input.context } : {}),
+        },
+        based_on_read_token: normalizeString(block.based_on_read_token),
+        write_envelope: buildWorkflowStepWriteEnvelope(block, stepId),
+      };
+      latestResult = await adapter.executeBlock(stepBlockSpec, context);
+      const latestOutput = isPlainObject(latestResult && latestResult.output_data)
+        ? latestResult.output_data
+        : {};
+      const maybeJobId = normalizeString(latestOutput.job_id);
+      if (maybeJobId) {
+        runningJobId = maybeJobId;
+      }
+      stepResults.push({
+        step_id: stepId,
+        step_type: stepType,
+        tool_name: stepToolName,
+        status: normalizeString(latestResult && latestResult.status),
+        job_id: maybeJobId,
+      });
+      if (!latestResult || latestResult.status !== "succeeded") {
+        const workflowSubmitFailureCode = resolveWorkflowSubmitFailureCode({
+          payloadSlot,
+          blockResult: latestResult,
+          errorMapping: workflowErrorMapping,
+        });
+        if (workflowSubmitFailureCode) {
+          const latestError =
+            latestResult &&
+            latestResult.error &&
+            typeof latestResult.error === "object" &&
+            !Array.isArray(latestResult.error)
+              ? latestResult.error
+              : {};
+          const submitFailureMessage =
+            normalizeString(latestError.error_message) ||
+            `workflow submit step failed: ${stepId}`;
+          return {
+            block_result: buildWorkflowFailureBlockResult({
+              blockSpec: block,
+              executionContext: context,
+              workflowDispatchOutcome,
+              errorCode: workflowSubmitFailureCode,
+              errorMessage: submitFailureMessage,
+              failedStepId: stepId,
+              stepResults,
+              outputData: latestOutput,
+            }),
+          };
+        }
+        return {
+          block_result: enrichWorkflowBlockResult({
+            blockResult: latestResult,
+            blockSpec: block,
+            workflowDispatchOutcome,
+            stepResults,
+            finalStepId: stepId,
+          }),
+        };
+      }
+      continue;
+    }
+
+    if (stepType === "wait_task_status") {
+      if (stepToolName !== "get_unity_task_status") {
+        return {
+          block_result: buildWorkflowFailureBlockResult({
+            blockSpec: block,
+            executionContext: context,
+            workflowDispatchOutcome,
+            errorCode: "E_WORKFLOW_TEMPLATE_INVALID",
+            errorMessage: `workflow wait step requires get_unity_task_status tool: ${stepId}`,
+            failedStepId: stepId,
+            stepResults,
+          }),
+        };
+      }
+      if (!runningJobId) {
+        return {
+          block_result: buildWorkflowFailureBlockResult({
+            blockSpec: block,
+            executionContext: context,
+            workflowDispatchOutcome,
+            errorCode: "E_WORKFLOW_JOB_ID_MISSING",
+            errorMessage: "workflow wait step cannot resolve job_id from submit step",
+            failedStepId: stepId,
+            stepResults,
+          }),
+        };
+      }
+      const pollIntervalMs = normalizePositiveInteger(step.poll_interval_ms, 1200);
+      const timeoutMs = normalizePositiveInteger(step.timeout_ms, 180000);
+      const successStatuses = new Set(
+        normalizeStringArray(step.success_statuses).map((entry) => entry.toLowerCase())
+      );
+      const failureStatuses = new Set(
+        normalizeStringArray(step.failure_statuses).map((entry) => entry.toLowerCase())
+      );
+      const startedAtMs = Number(now());
+      let pollCount = 0;
+      while (true) {
+        pollCount += 1;
+        const pollBlockSpec = {
+          block_id: `${normalizeString(block.block_id) || "workflow"}__${stepId}__poll_${pollCount}`,
+          block_type: BLOCK_TYPE.MUTATE,
+          intent_key: "write.async_ops.get_task_status",
+          input: {
+            thread_id: sourceThreadId,
+            job_id: runningJobId,
+          },
+          based_on_read_token: normalizeString(block.based_on_read_token),
+          write_envelope: isPlainObject(block.write_envelope)
+            ? { ...block.write_envelope }
+            : {},
+        };
+        latestResult = await adapter.executeBlock(pollBlockSpec, context);
+        const latestOutput = isPlainObject(latestResult && latestResult.output_data)
+          ? latestResult.output_data
+          : {};
+        if (!latestResult || latestResult.status !== "succeeded") {
+          const elapsedMs = Math.max(0, Number(now()) - startedAtMs);
+          stepResults.push({
+            step_id: stepId,
+            step_type: stepType,
+            tool_name: stepToolName,
+            status: normalizeString(latestResult && latestResult.status) || "failed",
+            job_id: runningJobId,
+            elapsed_ms: elapsedMs,
+          });
+          return {
+            block_result: enrichWorkflowBlockResult({
+              blockResult: latestResult,
+              blockSpec: block,
+              workflowDispatchOutcome,
+              stepResults,
+              finalStepId: stepId,
+            }),
+          };
+        }
+        const statusToken = resolveWorkflowTaskStatusToken(latestResult);
+        if (successStatuses.has(statusToken)) {
+          const elapsedMs = Math.max(0, Number(now()) - startedAtMs);
+          stepResults.push({
+            step_id: stepId,
+            step_type: stepType,
+            tool_name: stepToolName,
+            status: "succeeded",
+            task_status: statusToken,
+            job_id: runningJobId,
+            poll_count: pollCount,
+            elapsed_ms: elapsedMs,
+          });
+          break;
+        }
+        if (failureStatuses.has(statusToken)) {
+          const workflowFailureCode = resolveWorkflowWaitFailureCode({
+            statusToken,
+            outputData: latestOutput,
+            errorMapping: workflowErrorMapping,
+          });
+          const elapsedMs = Math.max(0, Number(now()) - startedAtMs);
+          stepResults.push({
+            step_id: stepId,
+            step_type: stepType,
+            tool_name: stepToolName,
+            status: "failed",
+            task_status: statusToken,
+            job_id: runningJobId,
+            poll_count: pollCount,
+            elapsed_ms: elapsedMs,
+          });
+          return {
+            block_result: buildWorkflowFailureBlockResult({
+              blockSpec: block,
+              executionContext: context,
+              workflowDispatchOutcome,
+              errorCode: workflowFailureCode,
+              errorMessage: `workflow wait step reached terminal status: ${statusToken}`,
+              failedStepId: stepId,
+              stepResults,
+              outputData: latestOutput,
+            }),
+          };
+        }
+        const elapsedMs = Math.max(0, Number(now()) - startedAtMs);
+        if (elapsedMs >= timeoutMs) {
+          stepResults.push({
+            step_id: stepId,
+            step_type: stepType,
+            tool_name: stepToolName,
+            status: "failed",
+            task_status: statusToken || "unknown",
+            job_id: runningJobId,
+            poll_count: pollCount,
+            timeout_ms: timeoutMs,
+            elapsed_ms: elapsedMs,
+          });
+          return {
+            block_result: buildWorkflowFailureBlockResult({
+              blockSpec: block,
+              executionContext: context,
+              workflowDispatchOutcome,
+              errorCode: normalizeWorkflowErrorCode(
+                workflowErrorMapping.wait_timeout,
+                "E_WORKFLOW_COMPILE_WAIT_TIMEOUT"
+              ),
+              errorMessage: `workflow wait step timed out after ${timeoutMs} ms`,
+              failedStepId: stepId,
+              stepResults,
+              outputData: latestOutput,
+            }),
+          };
+        }
+        await sleep(pollIntervalMs);
+      }
+      continue;
+    }
+
+    return {
+      block_result: buildWorkflowFailureBlockResult({
+        blockSpec: block,
+        executionContext: context,
+        workflowDispatchOutcome,
+        errorCode: "E_WORKFLOW_TEMPLATE_INVALID",
+        errorMessage: `workflow step_type is not supported: ${stepType || "<empty>"}`,
+        failedStepId: stepId,
+        stepResults,
+      }),
+    };
+  }
+
+  return {
+    block_result: enrichWorkflowBlockResult({
+      blockResult: latestResult,
+      blockSpec: block,
+      workflowDispatchOutcome,
+      stepResults,
+      finalStepId:
+        steps.length > 0 ? normalizeString(steps[steps.length - 1].step_id) : "",
+    }),
+  };
+}
+
+function isWriteBlockSpec(blockSpec) {
+  const blockType = normalizeString(blockSpec && blockSpec.block_type);
+  return blockType === BLOCK_TYPE.CREATE || blockType === BLOCK_TYPE.MUTATE;
+}
+
+function extractTransactionWriteBlocks(blockPlan) {
+  const plan = isPlainObject(blockPlan) ? blockPlan : {};
+  const blocks = Array.isArray(plan.blocks) ? plan.blocks : [];
+  if (blocks.length < 2) {
+    return {
+      ok: false,
+      blocked_reason: "transaction_plan_requires_at_least_two_blocks",
+      write_blocks: [],
+    };
+  }
+  if (!blocks.every((block) => isWriteBlockSpec(block))) {
+    return {
+      ok: false,
+      blocked_reason: "transaction_plan_contains_non_write_block",
+      write_blocks: [],
+    };
+  }
+  return {
+    ok: true,
+    blocked_reason: "",
+    write_blocks: blocks,
+  };
+}
+
+function buildTransactionWriteEnvelope(writeBlocks, transactionId) {
+  const source = Array.isArray(writeBlocks) ? writeBlocks : [];
+  if (source.length <= 0) {
+    return {
+      ok: false,
+      blocked_reason: "transaction_plan_missing_write_blocks",
+      write_envelope: null,
+    };
+  }
+  const firstEnvelope = isPlainObject(source[0].write_envelope)
+    ? source[0].write_envelope
+    : {};
+  const executionMode = normalizeString(firstEnvelope.execution_mode);
+  const writeAnchorObjectId = normalizeString(firstEnvelope.write_anchor_object_id);
+  const writeAnchorPath = normalizeString(firstEnvelope.write_anchor_path);
+  if (!executionMode || !writeAnchorObjectId || !writeAnchorPath) {
+    return {
+      ok: false,
+      blocked_reason: "transaction_write_envelope_missing_required_fields",
+      write_envelope: null,
+    };
+  }
+  for (let index = 1; index < source.length; index += 1) {
+    const envelope = isPlainObject(source[index].write_envelope)
+      ? source[index].write_envelope
+      : {};
+    if (
+      normalizeString(envelope.execution_mode) !== executionMode ||
+      normalizeString(envelope.write_anchor_object_id) !== writeAnchorObjectId ||
+      normalizeString(envelope.write_anchor_path) !== writeAnchorPath
+    ) {
+      return {
+        ok: false,
+        blocked_reason: "transaction_write_envelope_not_uniform",
+        write_envelope: null,
+      };
+    }
+  }
+  const idempotencyKey =
+    normalizeString(firstEnvelope.idempotency_key) ||
+    `txn_auto_${normalizeString(transactionId) || "plan"}`;
+  return {
+    ok: true,
+    blocked_reason: "",
+    write_envelope: {
+      execution_mode: executionMode,
+      idempotency_key: idempotencyKey,
+      write_anchor_object_id: writeAnchorObjectId,
+      write_anchor_path: writeAnchorPath,
+    },
+  };
+}
+
+function resolveTransactionReadToken({ executionContext, blockPlan, writeBlocks }) {
+  const context = isPlainObject(executionContext) ? executionContext : {};
+  const plan = isPlainObject(blockPlan) ? blockPlan : {};
+  const writes = Array.isArray(writeBlocks) ? writeBlocks : [];
+  const candidates = [
+    normalizeString(context.plan_initial_read_token),
+    normalizeString(plan.initial_read_token),
+    normalizeString(writes[0] && writes[0].based_on_read_token),
+    normalizeString(context.transaction_read_token_candidate),
+    normalizeString(context.previous_read_token_candidate),
+  ];
+  for (const candidate of candidates) {
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return "";
+}
+
+function synthesizeTransactionDispatchBlock({ blockSpec, executionContext }) {
+  const context = isPlainObject(executionContext) ? executionContext : {};
+  const blockPlan = isPlainObject(context.block_plan) ? context.block_plan : null;
+  const candidateTransactionId = normalizeString(blockPlan && blockPlan.plan_id);
+  const candidateStepCount = Array.isArray(blockPlan && blockPlan.blocks)
+    ? blockPlan.blocks.length
+    : 0;
+  const buildNoopOutcome = (blockedReason = "") => ({
+    block_spec: blockSpec,
+    execution_context: {
+      ...context,
+      ...(blockedReason
+        ? {
+            transaction_orchestration: {
+              auto_transaction_applied: false,
+              blocked_reason: blockedReason,
+              source_shape_reason: normalizeString(context.shape_reason),
+            },
+          }
+        : {}),
+    },
+    applied: false,
+    blocked_reason: blockedReason,
+    transaction_id: candidateTransactionId,
+    step_count: candidateStepCount,
+  });
+  if (normalizeString(context.shape) !== "transaction") {
+    return buildNoopOutcome();
+  }
+  if (!blockPlan) {
+    return buildNoopOutcome("transaction_block_plan_missing");
+  }
+  const transactionId = normalizeString(blockPlan.plan_id);
+  if (!transactionId) {
+    return buildNoopOutcome("transaction_plan_id_missing");
+  }
+
+  const writeBlockOutcome = extractTransactionWriteBlocks(blockPlan);
+  if (!writeBlockOutcome.ok) {
+    return buildNoopOutcome(writeBlockOutcome.blocked_reason);
+  }
+  const writeBlocks = writeBlockOutcome.write_blocks;
+  const writeEnvelopeOutcome = buildTransactionWriteEnvelope(writeBlocks, transactionId);
+  if (!writeEnvelopeOutcome.ok) {
+    return buildNoopOutcome(writeEnvelopeOutcome.blocked_reason);
+  }
+  const basedOnReadToken = resolveTransactionReadToken({
+    executionContext: context,
+    blockPlan,
+    writeBlocks,
+  });
+  if (!basedOnReadToken) {
+    return buildNoopOutcome("transaction_read_token_missing");
+  }
+
+  const transactionSteps = [];
+  for (const writeBlock of writeBlocks) {
+    const stepOutcome = mapWriteBlockToTransactionStep(writeBlock);
+    if (!stepOutcome || stepOutcome.ok !== true) {
+      return buildNoopOutcome("transaction_step_mapping_failed");
+    }
+    transactionSteps.push(stepOutcome.step);
+  }
+  const transactionBlockSpec = {
+    block_id: normalizeString(blockSpec && blockSpec.block_id) || `${transactionId}_dispatch`,
+    block_type: BLOCK_TYPE.MUTATE,
+    intent_key: "write.transaction.execute",
+    input: {
+      transaction_id: transactionId,
+      steps: transactionSteps,
+    },
+    based_on_read_token: basedOnReadToken,
+    write_envelope: writeEnvelopeOutcome.write_envelope,
+  };
+  return {
+    block_spec: transactionBlockSpec,
+    execution_context: {
+      ...context,
+      transaction_orchestration: {
+        auto_transaction_applied: true,
+        transaction_id: transactionId,
+        source_shape_reason: normalizeString(context.shape_reason),
+        step_count: transactionSteps.length,
+      },
+    },
+    applied: true,
+    blocked_reason: "",
+    transaction_id: transactionId,
+    step_count: transactionSteps.length,
+  };
+}
+
 function mergeShapeDecisionIntoExecutionContext(executionContext, shapeDecision) {
   const context =
     executionContext &&
@@ -203,6 +1091,174 @@ function mergeShapeDecisionIntoExecutionContext(executionContext, shapeDecision)
     delete context.degraded_reason;
   }
   return context;
+}
+
+function buildPlannerOrchestrationBaseMeta({
+  executionContext,
+  transactionDispatchOutcome,
+  workflowDispatchOutcome,
+}) {
+  const context = isPlainObject(executionContext) ? executionContext : {};
+  const dispatchOutcome = isPlainObject(transactionDispatchOutcome)
+    ? transactionDispatchOutcome
+    : {};
+  const workflowOutcome = isPlainObject(workflowDispatchOutcome)
+    ? workflowDispatchOutcome
+    : {};
+  const transactionOrchestration = isPlainObject(context.transaction_orchestration)
+    ? context.transaction_orchestration
+    : {};
+  const workflowOrchestration = isPlainObject(context.workflow_orchestration)
+    ? context.workflow_orchestration
+    : {};
+  const workflowTemplateApplied =
+    workflowOutcome.applied === true ||
+    workflowOrchestration.workflow_template_applied === true;
+  const meta = {
+    auto_transaction_applied: dispatchOutcome.applied === true,
+    execution_shape: normalizeString(context.shape) || "single_step",
+    dispatch_mode:
+      workflowTemplateApplied
+        ? "workflow_template"
+        : dispatchOutcome.applied === true
+        ? "transaction_synthesized"
+        : "single_block_direct",
+    workflow_template_applied: workflowTemplateApplied,
+  };
+
+  const shapeReason = normalizeString(context.shape_reason);
+  if (shapeReason) {
+    meta.execution_shape_reason = shapeReason;
+  }
+  if (context.shape_degraded === true) {
+    meta.shape_degraded = true;
+  }
+  const originalShape = normalizeString(context.original_shape);
+  if (originalShape) {
+    meta.original_shape = originalShape;
+  }
+  const degradedReason = normalizeString(context.degraded_reason);
+  if (degradedReason) {
+    meta.degraded_reason = degradedReason;
+  }
+
+  const workflowBlockedReason =
+    normalizeString(workflowOutcome.blocked_reason) ||
+    normalizeString(workflowOrchestration.blocked_reason);
+  if (workflowBlockedReason) {
+    meta.workflow_blocked_reason = workflowBlockedReason;
+  }
+  const blockedReason =
+    workflowBlockedReason ||
+    normalizeString(dispatchOutcome.blocked_reason) ||
+    normalizeString(transactionOrchestration.blocked_reason);
+  if (blockedReason) {
+    meta.blocked_reason = blockedReason;
+  }
+  const sourceShapeReason = normalizeString(transactionOrchestration.source_shape_reason);
+  if (sourceShapeReason) {
+    meta.source_shape_reason = sourceShapeReason;
+  }
+  const transactionId =
+    normalizeString(dispatchOutcome.transaction_id) ||
+    normalizeString(transactionOrchestration.transaction_id);
+  if (transactionId) {
+    meta.transaction_id = transactionId;
+  }
+  const workflowTemplateId =
+    normalizeString(workflowOutcome.workflow_template_id) ||
+    normalizeString(workflowOrchestration.workflow_template_id);
+  if (workflowTemplateId) {
+    meta.workflow_template_id = workflowTemplateId;
+  }
+  const workflowStepCount = Number.isFinite(Number(workflowOutcome.step_count))
+    ? Math.max(0, Math.floor(Number(workflowOutcome.step_count)))
+    : Number.isFinite(Number(workflowOrchestration.step_count))
+      ? Math.max(0, Math.floor(Number(workflowOrchestration.step_count)))
+      : 0;
+  if (workflowStepCount > 0) {
+    meta.workflow_step_count = workflowStepCount;
+  }
+  const stepCount = Number.isFinite(Number(dispatchOutcome.step_count))
+    ? Math.max(0, Math.floor(Number(dispatchOutcome.step_count)))
+    : Number.isFinite(Number(transactionOrchestration.step_count))
+      ? Math.max(0, Math.floor(Number(transactionOrchestration.step_count)))
+      : 0;
+  if (workflowTemplateApplied && workflowStepCount > 0) {
+    meta.step_count = workflowStepCount;
+  } else if (stepCount > 0) {
+    meta.step_count = stepCount;
+  }
+
+  return meta;
+}
+
+function buildWorkflowRuntimeMetricMetaFromBlockResult(blockResult) {
+  const result = isPlainObject(blockResult) ? blockResult : {};
+  const executionMeta = isPlainObject(result.execution_meta)
+    ? result.execution_meta
+    : {};
+  const outputData = isPlainObject(result.output_data) ? result.output_data : {};
+  const workflowOutput = isPlainObject(outputData.workflow_orchestration)
+    ? outputData.workflow_orchestration
+    : {};
+  const stepResults = Array.isArray(workflowOutput.step_results)
+    ? workflowOutput.step_results
+    : [];
+  const workflowTemplateApplied =
+    executionMeta.workflow_template_applied === true || stepResults.length > 0;
+  if (!workflowTemplateApplied) {
+    return {};
+  }
+
+  const meta = {
+    workflow_template_applied: true,
+  };
+  const workflowTemplateId =
+    normalizeString(executionMeta.workflow_template_id) ||
+    normalizeString(workflowOutput.template_id);
+  if (workflowTemplateId) {
+    meta.workflow_template_id = workflowTemplateId;
+  }
+  if (stepResults.length > 0) {
+    meta.workflow_step_count = stepResults.length;
+    meta.step_count = stepResults.length;
+  }
+  const workflowFinalStepId = normalizeString(executionMeta.workflow_final_step_id);
+  if (workflowFinalStepId) {
+    meta.workflow_final_step_id = workflowFinalStepId;
+  }
+  const workflowFailedStepId = normalizeString(executionMeta.workflow_failed_step_id);
+  if (workflowFailedStepId) {
+    meta.workflow_failed_step_id = workflowFailedStepId;
+  }
+  let waitDurationMs = 0;
+  let hasWaitDuration = false;
+  for (const rawStep of stepResults) {
+    const step = isPlainObject(rawStep) ? rawStep : {};
+    const stepType = normalizeString(step.step_type);
+    if (stepType !== "wait_task_status") {
+      continue;
+    }
+    const elapsed = Number(step.elapsed_ms);
+    if (!Number.isFinite(elapsed) || elapsed < 0) {
+      continue;
+    }
+    waitDurationMs += Math.floor(elapsed);
+    hasWaitDuration = true;
+  }
+  if (hasWaitDuration) {
+    meta.workflow_compile_wait_duration_ms = Math.max(0, waitDurationMs);
+  }
+  return meta;
+}
+
+function withPlannerOrchestrationFailureStage(meta, failureStage) {
+  const source = isPlainObject(meta) ? meta : {};
+  return {
+    ...source,
+    failure_stage: normalizeString(failureStage) || "unknown",
+  };
 }
 
 function normalizeTokenAutomationEnvelope(source) {
@@ -437,6 +1493,7 @@ class TurnService {
       deps.plannerExitPolicy && typeof deps.plannerExitPolicy.evaluate === "function"
         ? deps.plannerExitPolicy
         : null;
+    this.plannerOrchestrationContract = null;
     this.captureCompositeRuntime = createCaptureCompositeRuntime({
       enabled: this.captureCompositeEnabled,
       fuseFailureThreshold: deps.captureCompositeFuseFailureThreshold,
@@ -562,6 +1619,26 @@ class TurnService {
     return this.blockRuntimeRouter;
   }
 
+  getPlannerOrchestrationContract() {
+    if (isPlainObject(this.plannerOrchestrationContract)) {
+      return this.plannerOrchestrationContract;
+    }
+    try {
+      const catalog = getStaticToolCatalogSingleton();
+      const globalContracts = isPlainObject(catalog && catalog.globalContracts)
+        ? catalog.globalContracts
+        : {};
+      const contract = isPlainObject(globalContracts.planner_orchestration_contract)
+        ? globalContracts.planner_orchestration_contract
+        : {};
+      this.plannerOrchestrationContract = contract;
+      return contract;
+    } catch (_error) {
+      this.plannerOrchestrationContract = {};
+      return this.plannerOrchestrationContract;
+    }
+  }
+
   getExecutionShapeDecider() {
     if (
       this.blockRuntimeShapeDecider &&
@@ -569,7 +1646,23 @@ class TurnService {
     ) {
       return this.blockRuntimeShapeDecider;
     }
-    this.blockRuntimeShapeDecider = createExecutionShapeDecider();
+    const orchestrationContract = this.getPlannerOrchestrationContract();
+    const transactionCandidateRules = Array.isArray(
+      orchestrationContract.transaction_candidate_rules
+    )
+      ? orchestrationContract.transaction_candidate_rules
+      : [];
+    const transactionEnabledToolNames = Array.isArray(
+      MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT &&
+        MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT
+          .transaction_enabled_write_tool_names
+    )
+      ? MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT.transaction_enabled_write_tool_names
+      : [];
+    this.blockRuntimeShapeDecider = createExecutionShapeDecider({
+      transactionCandidateRules,
+      transactionEnabledToolNames,
+    });
     return this.blockRuntimeShapeDecider;
   }
 
@@ -791,6 +1884,7 @@ class TurnService {
       generated_fields: [],
     };
     let plannerNormalizationMeta = { ...defaultPlannerNormalizationMeta };
+    let plannerOrchestrationMetricMeta = {};
     let plannerUxMetricRecorded = false;
     const recordPlannerUxMetricOnce = ({ success, failure_stage, error_code }) => {
       if (plannerUxMetricRecorded) {
@@ -802,6 +1896,7 @@ class TurnService {
           typeof failure_stage === "string" ? failure_stage : "unknown",
         error_code: typeof error_code === "string" ? error_code : "",
         normalization_meta: plannerNormalizationMeta,
+        orchestration_meta: plannerOrchestrationMetricMeta,
       });
       plannerUxMetricRecorded = true;
     };
@@ -1122,16 +2217,103 @@ class TurnService {
       );
     }
 
+    const orchestrationContract = this.getPlannerOrchestrationContract();
+    const workflowDispatchOutcome = synthesizeWorkflowDispatch({
+      blockSpec,
+      executionContext,
+      orchestrationContract,
+    });
+    executionContext =
+      workflowDispatchOutcome &&
+      isPlainObject(workflowDispatchOutcome.execution_context)
+        ? workflowDispatchOutcome.execution_context
+        : executionContext;
+    const transactionDispatchOutcome =
+      workflowDispatchOutcome && workflowDispatchOutcome.applied === true
+        ? {
+            block_spec: blockSpec,
+            execution_context: executionContext,
+            applied: false,
+            blocked_reason: "",
+            transaction_id: "",
+            step_count: 0,
+          }
+        : synthesizeTransactionDispatchBlock({
+            blockSpec,
+            executionContext,
+          });
+    const dispatchBlockSpec =
+      transactionDispatchOutcome &&
+      isPlainObject(transactionDispatchOutcome.block_spec)
+        ? transactionDispatchOutcome.block_spec
+        : blockSpec;
+    executionContext =
+      transactionDispatchOutcome &&
+      isPlainObject(transactionDispatchOutcome.execution_context)
+        ? transactionDispatchOutcome.execution_context
+        : executionContext;
+    const plannerOrchestrationMetaBase = buildPlannerOrchestrationBaseMeta({
+      executionContext,
+      transactionDispatchOutcome,
+      workflowDispatchOutcome,
+    });
+    let plannerOrchestrationResponseMeta = {
+      ...plannerOrchestrationMetaBase,
+    };
+    plannerOrchestrationMetricMeta = {
+      ...plannerOrchestrationMetaBase,
+    };
+    const plannerOrchestrationWithStage = (failureStage) =>
+      withPlannerOrchestrationFailureStage(
+        plannerOrchestrationResponseMeta,
+        failureStage
+      );
+
     try {
       const adapter = this.getBlockRuntimeExecutionAdapter();
-      let blockResult = await adapter.executeBlock(blockSpec, executionContext);
-      if (runtimeFlags.verify_recovery_enabled === true) {
-        blockResult = await this.runVerifyRecoveryHooksForBlock({
+      let blockResult = null;
+      if (workflowDispatchOutcome && workflowDispatchOutcome.applied === true) {
+        const workflowExecutionOutcome = await executeWorkflowTemplateDispatch({
           blockSpec,
           executionContext,
           adapter,
-          blockResult,
+          workflowDispatchOutcome,
         });
+        blockResult =
+          workflowExecutionOutcome &&
+          isPlainObject(workflowExecutionOutcome.block_result)
+            ? workflowExecutionOutcome.block_result
+            : buildWorkflowFailureBlockResult({
+                blockSpec,
+                executionContext,
+                workflowDispatchOutcome,
+                errorCode: "E_WORKFLOW_EXECUTION_FAILED",
+                errorMessage:
+                  "workflow execution outcome missing block_result payload",
+              });
+      } else {
+        blockResult = await adapter.executeBlock(dispatchBlockSpec, executionContext);
+        if (runtimeFlags.verify_recovery_enabled === true) {
+          blockResult = await this.runVerifyRecoveryHooksForBlock({
+            blockSpec: dispatchBlockSpec,
+            executionContext,
+            adapter,
+            blockResult,
+          });
+        }
+      }
+      const workflowRuntimeMetricMeta = buildWorkflowRuntimeMetricMetaFromBlockResult(
+        blockResult
+      );
+      if (Object.keys(workflowRuntimeMetricMeta).length > 0) {
+        plannerOrchestrationMetricMeta = {
+          ...plannerOrchestrationMetricMeta,
+          ...workflowRuntimeMetricMeta,
+        };
+        plannerOrchestrationResponseMeta = {
+          ...plannerOrchestrationResponseMeta,
+          ...workflowRuntimeMetricMeta,
+        };
       }
       if (blockResult && blockResult.status === "succeeded") {
         recordPlannerUxMetricOnce({
@@ -1148,6 +2330,7 @@ class TurnService {
             data: {
               ...blockResult,
               planner_entry_normalization: plannerNormalizationMeta,
+              planner_orchestration: plannerOrchestrationWithStage("none"),
               runtime_flags: runtimeFlags,
               ...(routeResult ? { route_result: routeResult } : {}),
             },
@@ -1166,6 +2349,7 @@ class TurnService {
           : null;
       const failureData = {
         planner_entry_normalization: plannerNormalizationMeta,
+        planner_orchestration: plannerOrchestrationWithStage("during_dispatch"),
         block_result: blockResult || {},
         runtime_flags: runtimeFlags,
         ...(routeResult ? { route_result: routeResult } : {}),
@@ -1229,6 +2413,7 @@ class TurnService {
                   !Array.isArray(escapeBody.data)
                     ? escapeBody.data
                     : escapeBody,
+                planner_orchestration: plannerOrchestrationWithStage("none"),
                 runtime_flags: runtimeFlags,
                 ...(routeResult ? { route_result: routeResult } : {}),
               },
@@ -1420,6 +2605,9 @@ class TurnService {
           tool_name: "planner_execute_mcp",
           data: {
             planner_entry_normalization: plannerNormalizationMeta,
+            planner_orchestration: plannerOrchestrationWithStage("during_dispatch"),
+            runtime_flags: runtimeFlags,
+            ...(routeResult ? { route_result: routeResult } : {}),
           },
           context: {
             stage: "during_dispatch",

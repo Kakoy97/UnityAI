@@ -4,8 +4,14 @@ const {
   BLOCK_TYPE,
   validateBlockPlan,
 } = require("../contracts");
+const {
+  resolveMappingByIntent,
+} = require("../execution/BlockToToolPlanMapper");
+const {
+  MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT,
+} = require("../../../ports/contracts");
 
-const EXECUTION_SHAPE_DECIDER_VERSION = "phase1_step4_t1_v1";
+const EXECUTION_SHAPE_DECIDER_VERSION = "phase2a_step4_t1_v1";
 
 const SHAPE = Object.freeze({
   SINGLE_STEP: "single_step",
@@ -24,6 +30,14 @@ function normalizeBoolean(value, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+function normalizeInteger(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+  return Math.floor(n);
+}
+
 function normalizeBlocksFromPlan(blockPlan) {
   return Array.isArray(blockPlan && blockPlan.blocks) ? blockPlan.blocks : [];
 }
@@ -32,8 +46,324 @@ function normalizeDependsOn(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function toToolNameSet(value) {
+  const source = Array.isArray(value) ? value : [];
+  const output = new Set();
+  for (const entry of source) {
+    const normalized = normalizeString(entry);
+    if (!normalized) {
+      continue;
+    }
+    output.add(normalized);
+  }
+  return output;
+}
+
+function normalizeTransactionEnabledToolSet(rawNames) {
+  const source = Array.isArray(rawNames)
+    ? rawNames
+    : Array.isArray(
+          MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT &&
+            MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT
+              .transaction_enabled_write_tool_names
+        )
+      ? MCP_TRANSACTION_STEP_POLICY_FREEZE_CONTRACT.transaction_enabled_write_tool_names
+      : [];
+  return toToolNameSet(source);
+}
+
+function normalizeTransactionCandidateRules(value) {
+  const source = Array.isArray(value) ? value : [];
+  const normalized = [];
+  for (let index = 0; index < source.length; index += 1) {
+    const entry = source[index];
+    if (!isPlainObject(entry)) {
+      continue;
+    }
+    normalized.push({
+      rule_id: normalizeString(entry.rule_id),
+      enabled: entry.enabled !== false,
+      priority: normalizeInteger(entry.priority, 0),
+      allow_when: isPlainObject(entry.allow_when) ? entry.allow_when : {},
+      deny_when: isPlainObject(entry.deny_when) ? entry.deny_when : {},
+      reason_code_on_allow: normalizeString(entry.reason_code_on_allow),
+      reason_code_on_deny: normalizeString(entry.reason_code_on_deny),
+      source_order: index,
+    });
+  }
+  normalized.sort((left, right) => {
+    if (left.priority !== right.priority) {
+      return right.priority - left.priority;
+    }
+    return left.source_order - right.source_order;
+  });
+  return normalized;
+}
+
 function isWriteBlockType(blockType) {
   return blockType === BLOCK_TYPE.CREATE || blockType === BLOCK_TYPE.MUTATE;
+}
+
+function normalizeAnchorKey(anchor) {
+  const source = isPlainObject(anchor) ? anchor : {};
+  const objectId = normalizeString(source.object_id);
+  const path = normalizeString(source.path);
+  if (!objectId || !path) {
+    return "";
+  }
+  return `${objectId}::${path}`;
+}
+
+function resolveToolNameForBlock(blockSpec) {
+  const outcome = resolveMappingByIntent(blockSpec);
+  if (!outcome || outcome.ok !== true) {
+    return "";
+  }
+  return normalizeString(outcome.tool_name);
+}
+
+function containsAsyncWaitCompileStep(blocks) {
+  const source = Array.isArray(blocks) ? blocks : [];
+  for (const block of source) {
+    const toolName = resolveToolNameForBlock(block);
+    if (toolName.startsWith("submit_unity_task")) {
+      return true;
+    }
+    if (toolName.startsWith("get_unity_task_status")) {
+      return true;
+    }
+    if (toolName.startsWith("cancel_unity_task")) {
+      return true;
+    }
+    const intentKey = normalizeString(block && block.intent_key).toLowerCase();
+    if (intentKey.includes(".async_") || intentKey.includes(".wait_")) {
+      return true;
+    }
+    if (intentKey.includes(".compile_") || intentKey.includes(".script_ops.")) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasCrossObjectDependencyInferred(blocks) {
+  const source = Array.isArray(blocks) ? blocks : [];
+  if (source.length <= 1) {
+    return false;
+  }
+  const blockById = new Map();
+  for (const block of source) {
+    const blockId = normalizeString(block && block.block_id);
+    if (blockId) {
+      blockById.set(blockId, block);
+    }
+  }
+  for (const block of source) {
+    const blockAnchor = normalizeAnchorKey(block && block.target_anchor);
+    const dependsOn = normalizeDependsOn(block && block.depends_on);
+    if (dependsOn.length <= 0) {
+      continue;
+    }
+    for (const dependencyIdRaw of dependsOn) {
+      const dependencyId = normalizeString(dependencyIdRaw);
+      if (!dependencyId) {
+        return true;
+      }
+      const dependencyBlock = blockById.get(dependencyId);
+      if (!dependencyBlock) {
+        return true;
+      }
+      const dependencyAnchor = normalizeAnchorKey(dependencyBlock.target_anchor);
+      if (!blockAnchor || !dependencyAnchor) {
+        return true;
+      }
+      if (blockAnchor !== dependencyAnchor) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function areDependenciesExplicit(writeBlocks, allBlockIds) {
+  const source = Array.isArray(writeBlocks) ? writeBlocks : [];
+  if (source.length <= 1) {
+    return false;
+  }
+  for (let index = 1; index < source.length; index += 1) {
+    const dependsOn = normalizeDependsOn(source[index] && source[index].depends_on);
+    if (dependsOn.length <= 0) {
+      return false;
+    }
+    let hasValidDependency = false;
+    for (const dependencyIdRaw of dependsOn) {
+      const dependencyId = normalizeString(dependencyIdRaw);
+      if (!dependencyId) {
+        continue;
+      }
+      if (allBlockIds.has(dependencyId)) {
+        hasValidDependency = true;
+      }
+    }
+    if (!hasValidDependency) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function buildRuleFacts(blocks, executionContext, transactionEnabledToolSet) {
+  const source = Array.isArray(blocks) ? blocks : [];
+  const writeBlocks = source.filter((block) =>
+    isWriteBlockType(normalizeString(block && block.block_type))
+  );
+  const blockIds = new Set(
+    source
+      .map((block) => normalizeString(block && block.block_id))
+      .filter((blockId) => !!blockId)
+  );
+  const writeAnchors = writeBlocks
+    .map((block) => normalizeAnchorKey(block && block.target_anchor))
+    .filter((anchorKey) => !!anchorKey);
+  const writeAnchorsKnown = writeAnchors.length === writeBlocks.length;
+  const sameTargetAnchor =
+    writeBlocks.length > 0 &&
+    writeAnchorsKnown &&
+    new Set(writeAnchors).size === 1;
+  const toolNames = source.map((block) => resolveToolNameForBlock(block));
+  const allStepsTransactionEnabled =
+    source.length > 0 &&
+    toolNames.length === source.length &&
+    toolNames.every(
+      (toolName) =>
+        !!toolName &&
+        transactionEnabledToolSet instanceof Set &&
+        transactionEnabledToolSet.has(toolName)
+    );
+  const planInitialReadToken = normalizeString(
+    executionContext && executionContext.plan_initial_read_token
+  );
+  const previousReadTokenCandidate = normalizeString(
+    executionContext && executionContext.previous_read_token_candidate
+  );
+  const transactionReadTokenCandidate = normalizeString(
+    executionContext && executionContext.transaction_read_token_candidate
+  );
+  const hasBlockReadToken = writeBlocks.some(
+    (block) => normalizeString(block && block.based_on_read_token).length > 0
+  );
+  const tokenSourceUnknown =
+    !planInitialReadToken &&
+    !previousReadTokenCandidate &&
+    !transactionReadTokenCandidate &&
+    !hasBlockReadToken;
+
+  return {
+    write_block_count: writeBlocks.length,
+    same_target_anchor: sameTargetAnchor,
+    all_steps_transaction_enabled: allStepsTransactionEnabled,
+    dependencies_explicit: areDependenciesExplicit(writeBlocks, blockIds),
+    disallow_async_wait_compile: !containsAsyncWaitCompileStep(source),
+    token_source_unknown: tokenSourceUnknown,
+    cross_object_dependency_inferred: hasCrossObjectDependencyInferred(source),
+    target_anchor_ambiguous:
+      writeBlocks.length > 0
+        ? writeBlocks.some(
+            (block) => normalizeAnchorKey(block && block.target_anchor).length <= 0
+          )
+        : true,
+    contains_async_wait_compile_step: containsAsyncWaitCompileStep(source),
+  };
+}
+
+function isAllowWhenMatched(allowWhen, facts) {
+  const conditions = isPlainObject(allowWhen) ? allowWhen : {};
+  for (const [key, value] of Object.entries(conditions)) {
+    if (key === "write_block_count") {
+      const range = isPlainObject(value) ? value : {};
+      const min = Number.isFinite(Number(range.min)) ? Number(range.min) : 0;
+      const max = Number.isFinite(Number(range.max)) ? Number(range.max) : Infinity;
+      if (
+        !Number.isFinite(facts.write_block_count) ||
+        facts.write_block_count < min ||
+        facts.write_block_count > max
+      ) {
+        return false;
+      }
+      continue;
+    }
+    if (typeof value !== "boolean") {
+      return false;
+    }
+    if (!Object.prototype.hasOwnProperty.call(facts, key)) {
+      return false;
+    }
+    if (facts[key] !== value) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isDenyWhenMatched(denyWhen, facts) {
+  const conditions = isPlainObject(denyWhen) ? denyWhen : {};
+  for (const [key, value] of Object.entries(conditions)) {
+    if (typeof value !== "boolean") {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(facts, key)) {
+      continue;
+    }
+    if (facts[key] === value) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function evaluateTransactionCandidateByRules({
+  rules,
+  blocks,
+  executionContext,
+  transactionEnabledToolSet,
+}) {
+  const normalizedRules = Array.isArray(rules) ? rules : [];
+  if (normalizedRules.length <= 0) {
+    return {
+      rule_mode: false,
+      candidate: false,
+      reason_code: "",
+    };
+  }
+  const facts = buildRuleFacts(blocks, executionContext, transactionEnabledToolSet);
+  for (const rule of normalizedRules) {
+    if (!rule || rule.enabled === false) {
+      continue;
+    }
+    if (isDenyWhenMatched(rule.deny_when, facts)) {
+      return {
+        rule_mode: true,
+        candidate: false,
+        reason_code:
+          normalizeString(rule.reason_code_on_deny) ||
+          "transaction_candidate_rule_denied",
+      };
+    }
+    if (isAllowWhenMatched(rule.allow_when, facts)) {
+      return {
+        rule_mode: true,
+        candidate: true,
+        reason_code:
+          normalizeString(rule.reason_code_on_allow) ||
+          "transaction_candidate_confirmed",
+      };
+    }
+  }
+  return {
+    rule_mode: true,
+    candidate: false,
+    reason_code: "transaction_candidate_rules_not_matched",
+  };
 }
 
 function buildShapeDecision({
@@ -114,6 +444,12 @@ function createExecutionShapeDecider(options = {}) {
     typeof input.validateBlockPlan === "function"
       ? input.validateBlockPlan
       : validateBlockPlan;
+  const transactionCandidateRules = normalizeTransactionCandidateRules(
+    input.transactionCandidateRules
+  );
+  const transactionEnabledToolSet = normalizeTransactionEnabledToolSet(
+    input.transactionEnabledToolNames
+  );
 
   return {
     decideExecutionShape(rawInput = {}) {
@@ -161,7 +497,20 @@ function createExecutionShapeDecider(options = {}) {
         });
       }
 
-      const candidate = isTransactionCandidate(blocks);
+      const ruleDecision = evaluateTransactionCandidateByRules({
+        rules: transactionCandidateRules,
+        blocks,
+        executionContext,
+        transactionEnabledToolSet,
+      });
+      const candidate = ruleDecision.rule_mode
+        ? ruleDecision.candidate
+        : isTransactionCandidate(blocks);
+      const candidateReason = ruleDecision.rule_mode
+        ? normalizeString(ruleDecision.reason_code)
+        : candidate
+          ? "transaction_candidate_confirmed"
+          : "insufficient_atomicity_requirements";
       const transactionCapable = normalizeBoolean(
         executionContext.transaction_capable,
         false
@@ -170,7 +519,7 @@ function createExecutionShapeDecider(options = {}) {
         if (transactionCapable) {
           return buildShapeDecision({
             shape: SHAPE.TRANSACTION,
-            shapeReason: "transaction_candidate_confirmed",
+            shapeReason: candidateReason || "transaction_candidate_confirmed",
           });
         }
         return buildShapeDecision({
@@ -184,7 +533,7 @@ function createExecutionShapeDecider(options = {}) {
 
       return buildShapeDecision({
         shape: SHAPE.SINGLE_STEP,
-        shapeReason: "insufficient_atomicity_requirements",
+        shapeReason: candidateReason || "insufficient_atomicity_requirements",
       });
     },
   };
@@ -195,4 +544,3 @@ module.exports = {
   SHAPE,
   createExecutionShapeDecider,
 };
-

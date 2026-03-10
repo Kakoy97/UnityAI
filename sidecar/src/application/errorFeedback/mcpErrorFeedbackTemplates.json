@@ -274,5 +274,37 @@
   "E_JOB_NOT_FOUND": {
     "recoverable": false,
     "suggestion": "Verify job_id and thread scope before polling or cancelling."
+  },
+  "E_WORKFLOW_TEMPLATE_INVALID": {
+    "recoverable": true,
+    "suggestion": "Workflow template is invalid for current planner request. Check workflow step definitions and retry planner_execute_mcp with a valid block_spec."
+  },
+  "E_WORKFLOW_JOB_ID_MISSING": {
+    "recoverable": true,
+    "suggestion": "Workflow cannot continue because job_id is missing from submit step. Re-run planner_execute_mcp and poll get_unity_task_status after submit."
+  },
+  "E_WORKFLOW_WAIT_STATUS_FAILED": {
+    "recoverable": true,
+    "suggestion": "Workflow task reached failed terminal status. Check get_unity_task_status terminal_error_code/terminal_error_message, fix payload, then retry planner_execute_mcp."
+  },
+  "E_WORKFLOW_SCRIPT_COMPILE_FAILED": {
+    "recoverable": true,
+    "suggestion": "Script compile failed during workflow. Inspect get_unity_task_status error details, fix script/compiler errors, then retry planner_execute_mcp."
+  },
+  "E_WORKFLOW_SCRIPT_CLASS_MISMATCH": {
+    "recoverable": true,
+    "suggestion": "Script class name/type mismatch. Ensure file name, class name, and component_type are consistent, then retry planner_execute_mcp."
+  },
+  "E_WORKFLOW_COMPONENT_NOT_ATTACHABLE": {
+    "recoverable": true,
+    "suggestion": "Compiled script/component is not attachable on current target. Verify target object and component type, then retry planner_execute_mcp."
+  },
+  "E_WORKFLOW_COMPILE_WAIT_TIMEOUT": {
+    "recoverable": true,
+    "suggestion": "Compile wait timed out. Poll get_unity_task_status, cancel_unity_task if still running, then retry planner_execute_mcp."
+  },
+  "E_WORKFLOW_TASK_CANCELLED": {
+    "recoverable": true,
+    "suggestion": "Workflow task was cancelled before completion. Check get_unity_task_status for terminal reason, then resubmit planner_execute_mcp."
   }
 }

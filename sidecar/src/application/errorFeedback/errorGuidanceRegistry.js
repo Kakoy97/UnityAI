@@ -46,6 +46,38 @@ function deriveStructuredGuidanceCodes() {
 }
 
 const STRUCTURED_GUIDANCE_ERROR_CODES = deriveStructuredGuidanceCodes();
+const WORKFLOW_GUIDANCE_FALLBACK_BY_CODE = Object.freeze({
+  E_WORKFLOW_SCRIPT_COMPILE_FAILED: Object.freeze({
+    suggested_action: "get_unity_task_status",
+    suggested_tool: "get_unity_task_status",
+    fix_hint:
+      "Script compile failed in workflow. Inspect terminal error details, fix script compilation issues, then retry planner_execute_mcp.",
+  }),
+  E_WORKFLOW_SCRIPT_CLASS_MISMATCH: Object.freeze({
+    suggested_action: "get_write_contract_bundle",
+    suggested_tool: "get_write_contract_bundle",
+    fix_hint:
+      "Script class/type mismatch. Verify file name, class name and component_type contract, then retry planner_execute_mcp.",
+  }),
+  E_WORKFLOW_COMPONENT_NOT_ATTACHABLE: Object.freeze({
+    suggested_action: "get_gameobject_components",
+    suggested_tool: "get_gameobject_components",
+    fix_hint:
+      "Target object cannot attach this component. Inspect target components/type constraints, then retry planner_execute_mcp.",
+  }),
+  E_WORKFLOW_COMPILE_WAIT_TIMEOUT: Object.freeze({
+    suggested_action: "get_unity_task_status",
+    suggested_tool: "get_unity_task_status",
+    fix_hint:
+      "Compile wait timed out. Check task status, cancel running task if needed, then retry planner_execute_mcp.",
+  }),
+  E_WORKFLOW_TASK_CANCELLED: Object.freeze({
+    suggested_action: "get_unity_task_status",
+    suggested_tool: "get_unity_task_status",
+    fix_hint:
+      "Workflow task was cancelled. Inspect terminal reason and resubmit planner_execute_mcp with corrected payload.",
+  }),
+});
 
 function mergeMissingFields(...items) {
   const output = [];
@@ -117,15 +149,29 @@ function resolveErrorGuidance(options = {}) {
     warningParts.push(plan.plan_error_message || plan.plan_error_code);
   }
   const warning = warningParts.join("; ");
+  const workflowFallback =
+    toolName === "planner_execute_mcp"
+      ? WORKFLOW_GUIDANCE_FALLBACK_BY_CODE[errorCode] || null
+      : null;
+  const fallbackSuggestedAction = normalizeString(
+    workflowFallback && workflowFallback.suggested_action
+  );
+  const fallbackSuggestedTool = normalizeString(
+    workflowFallback && workflowFallback.suggested_tool
+  );
+  const fallbackFixHint = normalizeString(
+    workflowFallback && workflowFallback.fix_hint
+  );
 
   return {
     recoverable: template.recoverable === true,
     suggestion:
       typeof template.suggestion === "string" ? template.suggestion : "",
     retry_policy: retryPolicy,
-    suggested_action: plan.suggested_action,
-    suggested_tool: plan.suggested_tool,
-    fix_hint: plan.fix_hint,
+    suggested_action:
+      normalizeString(plan.suggested_action) || fallbackSuggestedAction,
+    suggested_tool: normalizeString(plan.suggested_tool) || fallbackSuggestedTool,
+    fix_hint: normalizeString(plan.fix_hint) || fallbackFixHint,
     contextual_hint: plan.contextual_hint,
     fix_steps: Array.isArray(plan.fix_steps) ? plan.fix_steps : [],
     execution_order: plan.execution_order,

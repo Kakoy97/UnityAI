@@ -37,6 +37,13 @@ const EXECUTION_BACKEND_ROLE = Object.freeze({
   INTERNAL_DIRECT_RUNTIME: "internal_direct_runtime_backend",
   LOCAL_VERIFY_RUNTIME: "local_verify_runtime",
 });
+const TRANSACTION_STEP_RESERVED_PAYLOAD_FIELDS = new Set([
+  "execution_mode",
+  "idempotency_key",
+  "based_on_read_token",
+  "write_anchor_object_id",
+  "write_anchor_path",
+]);
 
 function normalizeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -52,6 +59,15 @@ function hasFiniteNumber(value) {
 
 function hasBoolean(value) {
   return typeof value === "boolean";
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => normalizeString(entry))
+    .filter((entry) => !!entry);
 }
 
 function normalizeCsvSet(value) {
@@ -1177,6 +1193,200 @@ function mapWriteScenePersistenceSavePrefab(blockSpec) {
   };
 }
 
+const FILE_ACTION_TYPE_ALIAS = Object.freeze({
+  create_or_update_script: "write_file",
+  create_script: "create_file",
+  update_script: "update_file",
+  delete_script: "delete_file",
+  rename_script: "rename_file",
+  move_script: "move_file",
+});
+
+function normalizeActionTypeWithAlias(rawType) {
+  const normalizedType = normalizeString(rawType);
+  if (!normalizedType) {
+    return "";
+  }
+  const aliasKey = normalizedType.toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(FILE_ACTION_TYPE_ALIAS, aliasKey)) {
+    return FILE_ACTION_TYPE_ALIAS[aliasKey];
+  }
+  return normalizedType;
+}
+
+function stringifySubmitTaskActionItem(item, label, index) {
+  try {
+    const text = JSON.stringify(item);
+    if (!normalizeString(text)) {
+      return {
+        ok: false,
+        error: buildMapperError({
+          error_code: "E_SCHEMA_INVALID",
+          block_error_code: "",
+          error_message: `${label}[${index}] cannot be stringified to JSON`,
+        }),
+      };
+    }
+    return {
+      ok: true,
+      value: text,
+    };
+  } catch (_error) {
+    return {
+      ok: false,
+      error: buildMapperError({
+        error_code: "E_SCHEMA_INVALID",
+        block_error_code: "",
+        error_message: `${label}[${index}] contains non-serializable data`,
+      }),
+    };
+  }
+}
+
+function normalizeSubmitTaskFileActionItem(rawItem, index) {
+  if (typeof rawItem === "string") {
+    const normalized = normalizeString(rawItem);
+    if (!normalized) {
+      return {
+        ok: false,
+        error: buildMapperError({
+          error_code: "E_SCHEMA_INVALID",
+          block_error_code: "",
+          error_message: `input.file_actions[${index}] must not be empty`,
+        }),
+      };
+    }
+    return {
+      ok: true,
+      value: normalized,
+    };
+  }
+  if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) {
+    return {
+      ok: false,
+      error: buildMapperError({
+        error_code: "E_SCHEMA_INVALID",
+        block_error_code: "",
+        error_message: `input.file_actions[${index}] must be object or JSON string`,
+      }),
+    };
+  }
+  const source = normalizeObject(rawItem);
+  const actionType =
+    normalizeActionTypeWithAlias(source.type) ||
+    normalizeActionTypeWithAlias(source.action);
+  const normalized = {
+    ...source,
+  };
+  if (actionType) {
+    normalized.type = actionType;
+  }
+  const stringified = stringifySubmitTaskActionItem(
+    normalized,
+    "input.file_actions",
+    index
+  );
+  if (!stringified.ok) {
+    return stringified;
+  }
+  return {
+    ok: true,
+    value: stringified.value,
+  };
+}
+
+function normalizeSubmitTaskVisualActionItem(rawItem, index) {
+  if (typeof rawItem === "string") {
+    const normalized = normalizeString(rawItem);
+    if (!normalized) {
+      return {
+        ok: false,
+        error: buildMapperError({
+          error_code: "E_SCHEMA_INVALID",
+          block_error_code: "",
+          error_message: `input.visual_layer_actions[${index}] must not be empty`,
+        }),
+      };
+    }
+    return {
+      ok: true,
+      value: normalized,
+    };
+  }
+  if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) {
+    return {
+      ok: false,
+      error: buildMapperError({
+        error_code: "E_SCHEMA_INVALID",
+        block_error_code: "",
+        error_message:
+          `input.visual_layer_actions[${index}] must be object or JSON string`,
+      }),
+    };
+  }
+
+  const source = normalizeObject(rawItem);
+  const actionType = normalizeString(source.type) || normalizeString(source.action);
+  const componentAssemblyQualifiedName =
+    normalizeString(source.component_assembly_qualified_name) ||
+    normalizeString(source.component_type);
+  const sourceTargetAnchor = normalizeObject(source.target_anchor);
+  const targetAnchorObjectId =
+    normalizeString(sourceTargetAnchor.object_id) ||
+    normalizeString(source.target_object_id);
+  const targetAnchorPath =
+    normalizeString(sourceTargetAnchor.path) || normalizeString(source.target_path);
+
+  const normalized = {
+    ...source,
+  };
+  if (actionType) {
+    normalized.type = actionType;
+  }
+  if (componentAssemblyQualifiedName) {
+    normalized.component_assembly_qualified_name = componentAssemblyQualifiedName;
+  }
+  if (targetAnchorObjectId || targetAnchorPath) {
+    normalized.target_anchor = {
+      ...(targetAnchorObjectId ? { object_id: targetAnchorObjectId } : {}),
+      ...(targetAnchorPath ? { path: targetAnchorPath } : {}),
+    };
+  }
+
+  const stringified = stringifySubmitTaskActionItem(
+    normalized,
+    "input.visual_layer_actions",
+    index
+  );
+  if (!stringified.ok) {
+    return stringified;
+  }
+  return {
+    ok: true,
+    value: stringified.value,
+  };
+}
+
+function normalizeSubmitTaskActions(rawActions, fieldName) {
+  const values = Array.isArray(rawActions) ? rawActions : [];
+  const output = [];
+  const isVisual = fieldName === "visual_layer_actions";
+  for (let index = 0; index < values.length; index += 1) {
+    const item = values[index];
+    const outcome = isVisual
+      ? normalizeSubmitTaskVisualActionItem(item, index)
+      : normalizeSubmitTaskFileActionItem(item, index);
+    if (!outcome.ok) {
+      return outcome;
+    }
+    output.push(outcome.value);
+  }
+  return {
+    ok: true,
+    values: output,
+  };
+}
+
 function mapWriteAsyncOpsSubmitTask(blockSpec) {
   const block = normalizeObject(blockSpec);
   const input = normalizeObject(block.input);
@@ -1233,7 +1443,14 @@ function mapWriteAsyncOpsSubmitTask(blockSpec) {
         }),
       };
     }
-    payload.file_actions = input.file_actions;
+    const normalizedFileActions = normalizeSubmitTaskActions(
+      input.file_actions,
+      "file_actions"
+    );
+    if (!normalizedFileActions.ok) {
+      return normalizedFileActions;
+    }
+    payload.file_actions = normalizedFileActions.values;
   } else {
     if (!Array.isArray(input.visual_layer_actions)) {
       return {
@@ -1246,7 +1463,14 @@ function mapWriteAsyncOpsSubmitTask(blockSpec) {
         }),
       };
     }
-    payload.visual_layer_actions = input.visual_layer_actions;
+    const normalizedVisualActions = normalizeSubmitTaskActions(
+      input.visual_layer_actions,
+      "visual_layer_actions"
+    );
+    if (!normalizedVisualActions.ok) {
+      return normalizedVisualActions;
+    }
+    payload.visual_layer_actions = normalizedVisualActions.values;
   }
 
   if (Object.prototype.hasOwnProperty.call(input, "approval_mode")) {
@@ -1724,6 +1948,76 @@ function mapBlockSpecToToolPlan(blockSpec, options = {}) {
   };
 }
 
+function projectTransactionStepPayload(payload) {
+  const source = normalizeObject(payload);
+  const output = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (TRANSACTION_STEP_RESERVED_PAYLOAD_FIELDS.has(key)) {
+      continue;
+    }
+    output[key] = value;
+  }
+  return output;
+}
+
+function mapWriteBlockToTransactionStep(blockSpec, options = {}) {
+  const block = normalizeObject(blockSpec);
+  const blockType = normalizeString(block.block_type);
+  if (blockType !== BLOCK_TYPE.CREATE && blockType !== BLOCK_TYPE.MUTATE) {
+    return {
+      ok: false,
+      error: buildMapperError({
+        error_code: "E_SCHEMA_INVALID",
+        block_error_code: "",
+        error_message: "transaction step synthesis requires CREATE/MUTATE block",
+      }),
+    };
+  }
+  const mappingOutcome = mapBlockSpecToToolPlan(blockSpec, options);
+  if (!mappingOutcome.ok) {
+    return {
+      ok: false,
+      error: mappingOutcome,
+    };
+  }
+  const toolName = normalizeString(mappingOutcome.tool_name);
+  if (!toolName || toolName === "execute_unity_transaction") {
+    return {
+      ok: false,
+      error: buildMapperError({
+        error_code: "E_PRECONDITION_FAILED",
+        block_error_code: "E_BLOCK_NOT_IMPLEMENTED",
+        error_message: "transaction step synthesis cannot include nested transaction tool",
+      }),
+    };
+  }
+  const stepId = normalizeString(block.block_id);
+  if (!stepId) {
+    return {
+      ok: false,
+      error: buildMapperError({
+        error_code: "E_SCHEMA_INVALID",
+        block_error_code: "",
+        error_message: "transaction step synthesis requires block_id",
+      }),
+    };
+  }
+  const dependsOn = normalizeStringArray(block.depends_on);
+  const step = {
+    step_id: stepId,
+    tool_name: toolName,
+    payload: projectTransactionStepPayload(mappingOutcome.payload),
+  };
+  if (dependsOn.length > 0) {
+    step.depends_on = dependsOn;
+  }
+  return {
+    ok: true,
+    step,
+    mapping_meta: normalizeObject(mappingOutcome.mapping_meta),
+  };
+}
+
 module.exports = {
   FAMILY_TOOL_MIGRATION_MATRIX,
   FAMILY_KEY_TO_TOOL_BY_BLOCK_TYPE,
@@ -1735,6 +2029,7 @@ module.exports = {
   VERIFY_LOCAL_TOOL_NAME,
   EXECUTION_BACKEND_ROLE,
   mapBlockSpecToToolPlan,
+  mapWriteBlockToTransactionStep,
   resolveMappingByIntent,
   isLegacyConcreteKeyCompatEnabled,
   resolveDisabledFamilyKeySet,

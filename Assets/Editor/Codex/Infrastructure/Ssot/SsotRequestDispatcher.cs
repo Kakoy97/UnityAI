@@ -125,6 +125,21 @@ namespace UnityAI.Editor.Codex.Infrastructure.Ssot
     [Serializable]
     public sealed class SsotDispatchResultData
     {
+        public string job_id;
+        public string status;
+        public string state;
+        public string stage;
+        public string phase;
+        public string progress_message;
+        public string message;
+        public string task_kind;
+        public bool compile_started;
+        public bool compile_finished;
+        public int compile_error_count;
+        public bool cancelled;
+        public bool idempotent_replay;
+        public string terminal_error_code;
+        public string terminal_error_message;
         public string scene_revision;
         public string prefab_path;
         public int max_depth;

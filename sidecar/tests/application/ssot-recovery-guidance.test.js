@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 
 const {
   normalizeFailureContext,
+  projectFailureDataFromContext,
 } = require("../../src/application/errorFeedback/failureContextNormalizer");
 const {
   planRecoveryAction,
@@ -351,6 +352,90 @@ test("failure context hydrates nested_context_json and canonicalizes nested erro
     typeof normalized.context.l3_context.nested_context,
     "object"
   );
+});
+
+test("failure context normalizes planner orchestration trace fields from planner_execute_mcp failure data", () => {
+  const normalized = normalizeFailureContext({
+    errorCode: "E_BLOCK_EXECUTION_FAILED",
+    data: {
+      planner_orchestration: {
+        failure_stage: "during_dispatch",
+        execution_shape: "transaction",
+        execution_shape_reason: "transaction_candidate_confirmed",
+        auto_transaction_applied: false,
+        blocked_reason: "transaction_read_token_missing",
+        dispatch_mode: "single_block_direct",
+        source_shape_reason: "transaction_candidate_confirmed",
+        transaction_id: "plan_recovery_trace",
+        step_count: 2,
+      },
+    },
+    context: {
+      previous_operation: "execute_planner_entry_for_mcp",
+    },
+    globalContracts: {
+      recovery_action_contract: {
+        context_validity: {
+          ttl_seconds: 300,
+        },
+      },
+    },
+  });
+
+  assert.equal(normalized.context.stage, "during_dispatch");
+  assert.equal(normalized.context.planner_failure_stage, "during_dispatch");
+  assert.equal(normalized.context.planner_execution_shape, "transaction");
+  assert.equal(
+    normalized.context.planner_execution_shape_reason,
+    "transaction_candidate_confirmed"
+  );
+  assert.equal(normalized.context.planner_auto_transaction_applied, false);
+  assert.equal(
+    normalized.context.planner_blocked_reason,
+    "transaction_read_token_missing"
+  );
+  assert.equal(normalized.context.planner_dispatch_mode, "single_block_direct");
+  assert.equal(normalized.context.planner_transaction_id, "plan_recovery_trace");
+  assert.equal(normalized.context.planner_step_count, 2);
+
+  const projected = projectFailureDataFromContext(normalized.context);
+  assert.equal(projected.planner_failure_stage, "during_dispatch");
+  assert.equal(projected.planner_blocked_reason, "transaction_read_token_missing");
+});
+
+test("mcp error feedback surfaces planner orchestration trace fields for direct debugging", () => {
+  const feedback = withMcpErrorFeedback({
+    error_code: "E_BLOCK_EXECUTION_FAILED",
+    message: "planner dispatch failed",
+    tool_name: "planner_execute_mcp",
+    data: {
+      planner_orchestration: {
+        failure_stage: "during_dispatch",
+        execution_shape: "transaction",
+        execution_shape_reason: "transaction_candidate_confirmed",
+        auto_transaction_applied: false,
+        blocked_reason: "transaction_read_token_missing",
+        dispatch_mode: "single_block_direct",
+        transaction_id: "plan_feedback_trace",
+        step_count: 2,
+      },
+    },
+    context: {
+      stage: "during_dispatch",
+    },
+  });
+
+  assert.equal(feedback.planner_failure_stage, "during_dispatch");
+  assert.equal(feedback.planner_execution_shape, "transaction");
+  assert.equal(
+    feedback.planner_execution_shape_reason,
+    "transaction_candidate_confirmed"
+  );
+  assert.equal(feedback.planner_auto_transaction_applied, false);
+  assert.equal(feedback.planner_blocked_reason, "transaction_read_token_missing");
+  assert.equal(feedback.planner_dispatch_mode, "single_block_direct");
+  assert.equal(feedback.planner_transaction_id, "plan_feedback_trace");
+  assert.equal(feedback.planner_step_count, 2);
 });
 
 test("recovery planner resolves numeric depends_on indexes to step_id", () => {

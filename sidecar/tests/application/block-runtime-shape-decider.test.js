@@ -55,6 +55,32 @@ function buildMutateBlock(id, options = {}) {
   };
 }
 
+function buildPhase2CandidateRule() {
+  return {
+    rule_id: "same_anchor_write_2_4_default",
+    enabled: true,
+    priority: 100,
+    allow_when: {
+      same_target_anchor: true,
+      write_block_count: {
+        min: 2,
+        max: 4,
+      },
+      all_steps_transaction_enabled: true,
+      dependencies_explicit: true,
+      disallow_async_wait_compile: true,
+    },
+    deny_when: {
+      token_source_unknown: true,
+      cross_object_dependency_inferred: true,
+      target_anchor_ambiguous: true,
+      contains_async_wait_compile_step: true,
+    },
+    reason_code_on_allow: "transaction_candidate_same_anchor_writes",
+    reason_code_on_deny: "transaction_candidate_blocked_phase2a_constraints",
+  };
+}
+
 function assertShapeDecisionContract(decision) {
   assert.equal(typeof decision, "object");
   assert.equal(
@@ -341,4 +367,74 @@ test("S4-T2 custom validateBlockPlan injection is honored", () => {
   assert.equal(decision.shape, SHAPE.SINGLE_STEP);
   assert.equal(decision.shape_reason, "validation_failed");
   assert.equal(decision.shape_degraded, true);
+});
+
+test("S6.1-T4 rule-driven candidate confirms transaction on same-anchor write plan", () => {
+  const decider = createExecutionShapeDecider({
+    transactionCandidateRules: [buildPhase2CandidateRule()],
+    transactionEnabledToolNames: ["create_object", "set_active"],
+  });
+  const anchor = {
+    object_id: "GlobalObjectId_V1-canvas",
+    path: "Scene/Canvas",
+  };
+  const decision = decider.decideExecutionShape({
+    block_spec: buildCreateBlock("rule_tx_entry", { target_anchor: anchor }),
+    execution_context: {
+      transaction_capable: true,
+      plan_initial_read_token: "ssot_rt_plan_rule_1",
+      block_plan: {
+        plan_id: "plan_shape_rule_txn_1",
+        blocks: [
+          buildCreateBlock("rule_txn_create_1", {
+            target_anchor: anchor,
+          }),
+          buildMutateBlock("rule_txn_mutate_1", {
+            target_anchor: anchor,
+            depends_on: ["rule_txn_create_1"],
+          }),
+        ],
+      },
+    },
+  });
+  assertShapeDecisionContract(decision);
+  assert.equal(decision.shape, SHAPE.TRANSACTION);
+  assert.equal(decision.shape_reason, "transaction_candidate_same_anchor_writes");
+  assert.equal(decision.shape_degraded, false);
+});
+
+test("S6.1-T4 rule-driven candidate denies transaction when token source is unknown", () => {
+  const decider = createExecutionShapeDecider({
+    transactionCandidateRules: [buildPhase2CandidateRule()],
+    transactionEnabledToolNames: ["create_object", "set_active"],
+  });
+  const anchor = {
+    object_id: "GlobalObjectId_V1-canvas",
+    path: "Scene/Canvas",
+  };
+  const decision = decider.decideExecutionShape({
+    block_spec: buildCreateBlock("rule_tx_deny_entry", { target_anchor: anchor }),
+    execution_context: {
+      transaction_capable: true,
+      block_plan: {
+        plan_id: "plan_shape_rule_txn_deny_1",
+        blocks: [
+          buildCreateBlock("rule_deny_create_1", {
+            target_anchor: anchor,
+          }),
+          buildMutateBlock("rule_deny_mutate_1", {
+            target_anchor: anchor,
+            depends_on: ["rule_deny_create_1"],
+          }),
+        ],
+      },
+    },
+  });
+  assertShapeDecisionContract(decision);
+  assert.equal(decision.shape, SHAPE.SINGLE_STEP);
+  assert.equal(
+    decision.shape_reason,
+    "transaction_candidate_blocked_phase2a_constraints"
+  );
+  assert.equal(decision.shape_degraded, false);
 });

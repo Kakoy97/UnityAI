@@ -27,3 +27,32 @@ test("emitDispatcherBindingsCs marks local_static tools as unsupported in L3", (
     /CreateExecutorBinding<ModifyUiLayoutRequestDto, ModifyUiLayoutSsotExecutor>/
   );
 });
+
+test("emitDispatcherBindingsCs emits executor bindings for async workflow task tools", () => {
+  const output = emitDispatcherBindingsCs({
+    version: 1,
+    tools: [
+      { name: "submit_unity_task" },
+      { name: "get_unity_task_status" },
+      { name: "cancel_unity_task" },
+      { name: "apply_script_actions" },
+    ],
+  });
+
+  assert.match(
+    output,
+    /CreateExecutorBinding<SubmitUnityTaskRequestDto, SubmitUnityTaskSsotExecutor>/
+  );
+  assert.match(
+    output,
+    /CreateExecutorBinding<GetUnityTaskStatusRequestDto, GetUnityTaskStatusSsotExecutor>/
+  );
+  assert.match(
+    output,
+    /CreateExecutorBinding<CancelUnityTaskRequestDto, CancelUnityTaskSsotExecutor>/
+  );
+  assert.match(
+    output,
+    /CreateUnsupportedBinding\(ApplyScriptActionsRequestDto\.ToolName\);/
+  );
+});

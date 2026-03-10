@@ -395,6 +395,7 @@ function projectGlobalContracts(definitions) {
     "create_family",
     "error_feedback_contract",
     "token_automation_contract",
+    "planner_orchestration_contract",
   ]) {
     if (!Object.prototype.hasOwnProperty.call(source, key)) {
       continue;

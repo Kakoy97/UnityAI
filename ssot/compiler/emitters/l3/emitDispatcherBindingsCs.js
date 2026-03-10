@@ -4,9 +4,6 @@ const { LOCAL_STATIC_TOOL_NAMES } = require("../../shared/localStaticToolNames")
 
 const UNSUPPORTED_TOOL_NAMES = new Set([
   "instantiate_prefab",
-  "get_unity_task_status",
-  "cancel_unity_task",
-  "submit_unity_task",
   "apply_script_actions",
 ]);
 

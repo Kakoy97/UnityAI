@@ -22,9 +22,7 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                 "setup_cursor_mcp",
                 "verify_mcp_setup",
                 "run_unity_tests",
-                "get_unity_task_status",
-                "cancel_unity_task",
-                "submit_unity_task",
+                "planner_execute_mcp",
                 "apply_script_actions",
             };
 
@@ -67,6 +65,10 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                     string.Equals(
                         normalizedToolName,
                         RunUnityTestsRequestDto.ToolName,
+                        StringComparison.Ordinal) ||
+                    string.Equals(
+                        normalizedToolName,
+                        PlannerExecuteMcpRequestDto.ToolName,
                         StringComparison.Ordinal))
                 {
                     Assert.AreEqual(

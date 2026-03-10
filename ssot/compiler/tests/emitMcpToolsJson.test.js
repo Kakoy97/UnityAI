@@ -188,6 +188,53 @@ test("emitMcpToolsJson projects v2 global contracts from _definitions", () => {
         },
         auto_retry_safe_family: ["write_requires_token"],
       },
+      planner_orchestration_contract: {
+        schema_version: "phase2a.v1",
+        transaction_candidate_rules: [
+          {
+            rule_id: "same_anchor_write_2_4_default",
+            enabled: true,
+            priority: 100,
+            allow_when: {
+              same_target_anchor: true,
+              write_block_count: {
+                min: 2,
+                max: 4,
+              },
+            },
+            deny_when: {
+              token_source_unknown: true,
+            },
+            reason_code_on_allow: "transaction_candidate_same_anchor_writes",
+            reason_code_on_deny:
+              "transaction_candidate_blocked_phase2a_constraints",
+          },
+        ],
+        workflow_templates: {},
+        read_write_folding_profiles: {
+          "same_anchor_numeric_delta_trial.v1": {
+            enabled: false,
+            rollout_stage: "pilot",
+            selection: {
+              read_intent_keys: ["read.unity_component_field"],
+              mutate_intent_keys: ["mutate.unity_component_field"],
+              same_target_anchor: true,
+              max_block_span: 2,
+            },
+            trace_contract: {
+              required_fields: [
+                "raw_read_block_id",
+                "raw_mutate_block_id",
+                "folding_rule_id",
+                "read_value_summary",
+                "computed_write_value_summary",
+                "token_source",
+                "synthesized_request_summary",
+              ],
+            },
+          },
+        },
+      },
       mixins: {
         write_envelope: {
           input: {
@@ -223,6 +270,20 @@ test("emitMcpToolsJson projects v2 global contracts from _definitions", () => {
   assert.equal(
     emitted.global_contracts.token_automation_contract.issuance_authority,
     "l2_sidecar"
+  );
+  assert.equal(
+    emitted.global_contracts.planner_orchestration_contract.schema_version,
+    "phase2a.v1"
+  );
+  assert.equal(
+    emitted.global_contracts.planner_orchestration_contract
+      .transaction_candidate_rules[0].rule_id,
+    "same_anchor_write_2_4_default"
+  );
+  assert.equal(
+    emitted.global_contracts.planner_orchestration_contract
+      .read_write_folding_profiles["same_anchor_numeric_delta_trial.v1"].rollout_stage,
+    "pilot"
   );
   assert.equal(
     Object.prototype.hasOwnProperty.call(emitted.global_contracts, "mixins"),

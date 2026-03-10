@@ -1,62 +1,45 @@
 # Unity MCP Planner-Only 执行规则（Phase1 Step6）
 
-## 0. 目标（必须）
-- MCP 外部入口只使用 `planner_execute_mcp`。
-- 外部 direct runtime 调用占比必须为 `0`。
-- 不再使用旧别名入口 `execute_block_spec_mvp`。
-
-## 1. 单入口硬规则（必须遵守）
+## 0. 核心原则
 - 所有 Unity runtime 读写请求，统一走 `planner_execute_mcp`。
 - 禁止从客户端直接调用 runtime 工具（如 `set_*`、`add_component`、`execute_unity_transaction`、`get_scene_roots` 等）。
-- 若收到 `E_USE_PLANNER_ENTRY`，立即改为 `planner_execute_mcp`，不要重试 direct 调用。
-- 禁止在提示词、示例、脚本中继续使用 `execute_block_spec_mvp`。
+- Control/support-plane 工具：可直接调用，用于查询约束/契约，不用于替代 Planner runtime 执行。
 
-## 2. 允许直调的工具范围（仅 control/support-plane）
-- `get_tool_schema`
-- `get_write_contract_bundle`
-- `preflight_validate_write_payload`
-- `run_unity_tests`
-- `setup_cursor_mcp`
-- `verify_mcp_setup`
-
-说明：以上用于“查约束/查契约/环境治理”，不用于替代 Planner runtime 执行。
-
-## 3. 推荐执行流程（默认）
+## 1. 推荐执行流程（默认）
 1. 先判断是否需要 schema/contract 信息。
 2. 需要时先调 `get_write_contract_bundle`，再按需调 `get_tool_schema`。
 3. 组装 `planner_execute_mcp` 的 `block_spec` 并提交。
-4. 依据 `BlockResult` 决定后续步骤，不绕过 Planner 直调 runtime 工具。
+4. 依据 `BlockResult` 决定后续步骤。
 
-## 4. block_spec 约束（优先口径）
+## 2. block_spec 约束
 - 优先使用 family 语义键（`family_key` / family intent），不要新增 legacy concrete key 依赖。
 - `block_spec` 必须包含：`block_id`、`block_type`、`intent_key`（或可映射 family key）、`input`。
 - 写入请求必须保证 `write_envelope` 与锚点信息完整、可追溯。
-
-## 4.1 自动补全规则（Phase1）
 - 提供 `target_anchor` 时，`write_envelope` 字段自动补全；`based_on_read_token` 需手动传递。
 
-## 5. 事务使用规则（必须遵守）
+## 3. 事务使用规则
 - **多个写操作必须使用事务**：当需要执行 2 个或以上写操作（`MUTATE`/`CREATE`）时，必须使用 `write.transaction.execute` intent_key 组合为单个事务。
 - 事务格式：使用 `intent_key: "write.transaction.execute"`，在 `input.steps[]` 中定义多个步骤。
 - 禁止将多个写操作拆分为独立的 `block_spec` 分别执行（除非操作间无依赖且允许部分失败）。
-- 事务优势：原子性保证、单次场景版本更新、统一错误处理。
 
-## 6. 错误处理（最多一轮修复）
-- `E_SCHEMA_INVALID`：先查 schema/contract，再修 payload。
+## 4. 错误处理（最多一轮修复）
+- `E_SCHEMA_INVALID`：
+  - **优先检查错误响应的 `details` 字段**：如果包含 `supported_family_keys`、`supported_legacy_concrete_keys` 等直接可用的修复信息，优先使用这些信息修复 payload。
+  - 如果错误响应中没有直接可用的修复信息，再查 schema/contract（`get_write_contract_bundle` 或 `get_tool_schema`），然后修 payload。
+  - 禁止跳过错误响应直接去代码库搜索。
 - `E_PRECONDITION_FAILED`：先补前置读或锚点，再重试一次。
 - `E_USE_PLANNER_ENTRY`：只允许改走 `planner_execute_mcp`，禁止 direct fallback。
 - 同一错误禁止盲目多轮重试；二次失败后返回阻塞点与最小修复建议。
 
-## 7. 迁移/验收门禁（发布前）
-- 必跑并通过：
-  - `npm --prefix sidecar run metrics:planner:stepcd:gate:ci`
-  - `npm --prefix sidecar run metrics:planner:alias-retire:gate:ci`
-  - `npm --prefix sidecar run metrics:planner:cutover:gate:ci`
-- 仅当真实窗口数据满足门禁时，才可宣告 Step6 完成。
-
-## 8. 禁止项
-- 禁止新增或恢复“双入口”逻辑。
-- 禁止新增同类入口治理开关，唯一口径保持：
-  - `MCP_ENTRY_GOVERNANCE_ENABLED`
-  - `MCP_ENTRY_MODE`
-- 禁止让模型自行决定是否绕过 Planner 走 direct runtime。
+## 5. Script Workflow Hard Rules (minimal)
+**⚠️ 场景识别：创建脚本 + 附加组件 → 必须使用此规则**
+- For "create script + wait compile + attach component", always use `planner_execute_mcp` with:
+  - `block_type: MUTATE`
+  - `intent_key: workflow.script.create_compile_attach`
+- `input.thread_id` is required.
+- Do not ask user to wait for C# compile manually; workflow must handle waiting internally.
+- Keep `submit_unity_task` oneOf semantics:
+  - file step uses `file_actions` only
+  - attach step uses `visual_layer_actions` only
+- Success must include `planner_orchestration.workflow_template_applied === true`.
+- If `workflow_template_applied !== true`, treat as incomplete and continue fixing (do not end task as success).

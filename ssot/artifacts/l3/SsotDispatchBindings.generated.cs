@@ -406,13 +406,28 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
                 SsotDispatchBindingFactory.CreateUnsupportedBinding(PlannerExecuteMcpRequestDto.ToolName);
 
             bindings[GetUnityTaskStatusRequestDto.ToolName] =
-                SsotDispatchBindingFactory.CreateUnsupportedBinding(GetUnityTaskStatusRequestDto.ToolName);
+                SsotDispatchBindingFactory.CreateExecutorBinding<GetUnityTaskStatusRequestDto, GetUnityTaskStatusSsotExecutor>(
+                    GetUnityTaskStatusRequestDto.ToolName,
+                    executorFactory,
+                    () => new GetUnityTaskStatusSsotExecutor(),
+                    (executor, request) => executor.Execute(request),
+                    "SSOT request type mismatch for get_unity_task_status.");
 
             bindings[CancelUnityTaskRequestDto.ToolName] =
-                SsotDispatchBindingFactory.CreateUnsupportedBinding(CancelUnityTaskRequestDto.ToolName);
+                SsotDispatchBindingFactory.CreateExecutorBinding<CancelUnityTaskRequestDto, CancelUnityTaskSsotExecutor>(
+                    CancelUnityTaskRequestDto.ToolName,
+                    executorFactory,
+                    () => new CancelUnityTaskSsotExecutor(),
+                    (executor, request) => executor.Execute(request),
+                    "SSOT request type mismatch for cancel_unity_task.");
 
             bindings[SubmitUnityTaskRequestDto.ToolName] =
-                SsotDispatchBindingFactory.CreateUnsupportedBinding(SubmitUnityTaskRequestDto.ToolName);
+                SsotDispatchBindingFactory.CreateExecutorBinding<SubmitUnityTaskRequestDto, SubmitUnityTaskSsotExecutor>(
+                    SubmitUnityTaskRequestDto.ToolName,
+                    executorFactory,
+                    () => new SubmitUnityTaskSsotExecutor(),
+                    (executor, request) => executor.Execute(request),
+                    "SSOT request type mismatch for submit_unity_task.");
 
             bindings[ApplyScriptActionsRequestDto.ToolName] =
                 SsotDispatchBindingFactory.CreateUnsupportedBinding(ApplyScriptActionsRequestDto.ToolName);
