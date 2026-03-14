@@ -72,6 +72,41 @@ test("contract bundle cache key changes when scenario context changes", () => {
   assert.notEqual(keyA, keyB);
 });
 
+test("contract bundle cache key changes when error_context.error_code changes", () => {
+  const keyA = buildContractBundleCacheKey({
+    catalogVersion: "v1",
+    toolName: "submit_unity_task",
+    actionType: "",
+    budgetChars: 12000,
+    includeErrorFixMap: true,
+    includeCanonicalExamples: true,
+    includeRelated: true,
+    includeEnhanced: true,
+    includeLegacy: false,
+    scenario: "workflow_candidate_script_create_compile_attach",
+    previousTool: "planner_execute_mcp",
+    errorCode: "E_SCHEMA_INVALID",
+    failedPropertyPath: "",
+  });
+  const keyB = buildContractBundleCacheKey({
+    catalogVersion: "v1",
+    toolName: "submit_unity_task",
+    actionType: "",
+    budgetChars: 12000,
+    includeErrorFixMap: true,
+    includeCanonicalExamples: true,
+    includeRelated: true,
+    includeEnhanced: true,
+    includeLegacy: false,
+    scenario: "workflow_candidate_script_create_compile_attach",
+    previousTool: "planner_execute_mcp",
+    errorCode: "E_BLOCK_INTENT_KEY_UNSUPPORTED",
+    failedPropertyPath: "",
+  });
+
+  assert.notEqual(keyA, keyB);
+});
+
 test("contract bundle cache evicts oldest entry when max size reached", () => {
   const cache = new ContractBundleCache({ maxEntries: 1 });
   cache.set("a", { body: { ok: true } });

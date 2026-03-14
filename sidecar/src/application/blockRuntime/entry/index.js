@@ -33,6 +33,12 @@ const {
   EXIT_REASON_TO_ERROR_CODE,
   createPlannerExitPolicy,
 } = require("./PlannerExitPolicy");
+const {
+  WORKFLOW_ROUTING_ADVISOR_VERSION,
+  CANDIDATE_CONFIDENCE,
+  GATING_ACTION,
+  createWorkflowRoutingAdvisor,
+} = require("./WorkflowRoutingAdvisor");
 
 module.exports = {
   PLANNER_ENTRY_TRANSLATOR_VERSION,
@@ -56,4 +62,8 @@ module.exports = {
   EXIT_REASON,
   EXIT_REASON_TO_ERROR_CODE,
   createPlannerExitPolicy,
+  WORKFLOW_ROUTING_ADVISOR_VERSION,
+  CANDIDATE_CONFIDENCE,
+  GATING_ACTION,
+  createWorkflowRoutingAdvisor,
 };

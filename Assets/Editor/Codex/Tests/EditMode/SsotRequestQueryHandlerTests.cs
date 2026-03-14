@@ -300,30 +300,52 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                     parent_path = parentPath,
                     new_object_name = childName,
                     object_kind = "empty",
-                    set_active = true
-                };
-                var envelope = new SsotToolEnvelopeDto
-                {
-                    tool_name = CreateObjectRequestDto.ToolName,
-                    payload_json = JsonUtility.ToJson(request)
-                };
-                var pulledQuery = new UnityPulledQuery
-                {
-                    query_type = UnityQueryTypes.SsotRequest,
-                    request_id = "req_ssot_create_object_name_collision_test",
-                    query_payload_json = JsonUtility.ToJson(envelope)
+                    set_active = true,
+                    name_collision_policy = "fail"
                 };
 
-                var handler = new SsotRequestQueryHandler();
-                var result = handler.ExecuteAsync(pulledQuery, BuildExecutionContext())
-                    .GetAwaiter()
-                    .GetResult();
+                SsotDispatchResponse ExecuteCreateObject(string requestId)
+                {
+                    var envelope = new SsotToolEnvelopeDto
+                    {
+                        tool_name = CreateObjectRequestDto.ToolName,
+                        payload_json = JsonUtility.ToJson(request)
+                    };
+                    var pulledQuery = new UnityPulledQuery
+                    {
+                        query_type = UnityQueryTypes.SsotRequest,
+                        request_id = requestId,
+                        query_payload_json = JsonUtility.ToJson(envelope)
+                    };
 
-                Assert.NotNull(result);
-                var payload = result.Payload as SsotDispatchResponse;
-                Assert.NotNull(payload);
-                Assert.IsFalse(payload.ok);
-                Assert.AreEqual("E_NAME_COLLISION_DETECTED", payload.error_code);
+                    var handler = new SsotRequestQueryHandler();
+                    var result = handler.ExecuteAsync(pulledQuery, BuildExecutionContext())
+                        .GetAwaiter()
+                        .GetResult();
+
+                    Assert.NotNull(result);
+                    var payload = result.Payload as SsotDispatchResponse;
+                    Assert.NotNull(payload);
+                    return payload;
+                }
+
+                var firstPayload = ExecuteCreateObject("req_ssot_create_object_name_collision_test_attempt_1");
+                var secondPayload = ExecuteCreateObject("req_ssot_create_object_name_collision_test_attempt_2");
+
+                Assert.IsFalse(firstPayload.ok);
+                Assert.AreEqual("E_NAME_COLLISION_DETECTED", firstPayload.error_code);
+                Assert.NotNull(firstPayload.data);
+                Assert.AreEqual("fail", firstPayload.data.applied_policy);
+                Assert.AreEqual(1, firstPayload.data.existing_candidates_count);
+
+                Assert.IsFalse(secondPayload.ok);
+                Assert.AreEqual("E_NAME_COLLISION_DETECTED", secondPayload.error_code);
+                Assert.NotNull(secondPayload.data);
+                Assert.AreEqual("fail", secondPayload.data.applied_policy);
+                Assert.AreEqual(1, secondPayload.data.existing_candidates_count);
+                Assert.AreEqual(
+                    firstPayload.data.existing_candidate_path,
+                    secondPayload.data.existing_candidate_path);
 
                 var duplicateCount = 0;
                 for (var i = 0; i < root.transform.childCount; i += 1)
@@ -442,30 +464,47 @@ namespace UnityAI.Editor.Codex.Tests.EditMode
                     set_active = true,
                     name_collision_policy = "reuse"
                 };
-                var envelope = new SsotToolEnvelopeDto
-                {
-                    tool_name = CreateObjectRequestDto.ToolName,
-                    payload_json = JsonUtility.ToJson(request)
-                };
-                var pulledQuery = new UnityPulledQuery
-                {
-                    query_type = UnityQueryTypes.SsotRequest,
-                    request_id = "req_ssot_create_object_name_collision_reuse_test",
-                    query_payload_json = JsonUtility.ToJson(envelope)
-                };
 
-                var handler = new SsotRequestQueryHandler();
-                var result = handler.ExecuteAsync(pulledQuery, BuildExecutionContext())
-                    .GetAwaiter()
-                    .GetResult();
+                SsotDispatchResponse ExecuteCreateObject(string requestId)
+                {
+                    var envelope = new SsotToolEnvelopeDto
+                    {
+                        tool_name = CreateObjectRequestDto.ToolName,
+                        payload_json = JsonUtility.ToJson(request)
+                    };
+                    var pulledQuery = new UnityPulledQuery
+                    {
+                        query_type = UnityQueryTypes.SsotRequest,
+                        request_id = requestId,
+                        query_payload_json = JsonUtility.ToJson(envelope)
+                    };
 
-                Assert.NotNull(result);
-                var payload = result.Payload as SsotDispatchResponse;
-                Assert.NotNull(payload);
-                Assert.IsTrue(payload.ok);
-                Assert.NotNull(payload.data);
-                Assert.AreEqual("reuse", payload.data.applied_policy);
-                Assert.AreEqual(existingObjectId, payload.data.target_object_id);
+                    var handler = new SsotRequestQueryHandler();
+                    var result = handler.ExecuteAsync(pulledQuery, BuildExecutionContext())
+                        .GetAwaiter()
+                        .GetResult();
+
+                    Assert.NotNull(result);
+                    var payload = result.Payload as SsotDispatchResponse;
+                    Assert.NotNull(payload);
+                    return payload;
+                }
+
+                var firstPayload = ExecuteCreateObject("req_ssot_create_object_name_collision_reuse_test_attempt_1");
+                var secondPayload = ExecuteCreateObject("req_ssot_create_object_name_collision_reuse_test_attempt_2");
+
+                Assert.IsTrue(firstPayload.ok);
+                Assert.NotNull(firstPayload.data);
+                Assert.AreEqual("reuse", firstPayload.data.applied_policy);
+                Assert.AreEqual(existingObjectId, firstPayload.data.target_object_id);
+
+                Assert.IsTrue(secondPayload.ok);
+                Assert.NotNull(secondPayload.data);
+                Assert.AreEqual("reuse", secondPayload.data.applied_policy);
+                Assert.AreEqual(existingObjectId, secondPayload.data.target_object_id);
+                Assert.AreEqual(
+                    firstPayload.data.target_object_id,
+                    secondPayload.data.target_object_id);
 
                 var duplicateCount = 0;
                 for (var i = 0; i < root.transform.childCount; i += 1)

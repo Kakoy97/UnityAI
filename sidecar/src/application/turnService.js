@@ -102,7 +102,13 @@ const {
   getPlannerUxMetricsCollectorSingleton,
   createInternalToolInvoker,
   createPlannerExitPolicy,
+  GATING_ACTION,
+  createWorkflowRoutingAdvisor,
 } = require("./blockRuntime/entry");
+const { executeEnsureTargetStep } = require("./workflow/ensureTargetStepAdapter");
+const {
+  bindResolvedTargetForAttachVisualActions,
+} = require("./workflow/resolvedTargetBinder");
 const {
   resolveBlockRuntimeFlags,
   applyBlockRuntimeFlagsToExecutionContext,
@@ -210,23 +216,33 @@ function delayMs(ms) {
   });
 }
 
+function mergeWorkflowOrchestrationContext(executionContext, patch) {
+  const context = isPlainObject(executionContext) ? executionContext : {};
+  const patchObject = isPlainObject(patch) ? patch : {};
+  const workflowOrchestration = isPlainObject(context.workflow_orchestration)
+    ? context.workflow_orchestration
+    : {};
+  return {
+    ...context,
+    workflow_orchestration: {
+      ...workflowOrchestration,
+      ...patchObject,
+    },
+  };
+}
+
 function synthesizeWorkflowDispatch({ blockSpec, executionContext, orchestrationContract }) {
   const block = isPlainObject(blockSpec) ? blockSpec : {};
   const context = isPlainObject(executionContext) ? executionContext : {};
   const intentKey = normalizeString(block.intent_key);
   const buildNoopOutcome = (blockedReason = "") => ({
     block_spec: blockSpec,
-    execution_context: {
-      ...context,
-      ...(blockedReason
-        ? {
-            workflow_orchestration: {
-              workflow_template_applied: false,
-              blocked_reason: blockedReason,
-            },
-          }
-        : {}),
-    },
+    execution_context: blockedReason
+      ? mergeWorkflowOrchestrationContext(context, {
+          workflow_template_applied: false,
+          blocked_reason: blockedReason,
+        })
+      : context,
     applied: false,
     blocked_reason: blockedReason,
     workflow_template_id: "",
@@ -260,14 +276,12 @@ function synthesizeWorkflowDispatch({ blockSpec, executionContext, orchestration
     }
     return {
       block_spec: blockSpec,
-      execution_context: {
-        ...context,
-        workflow_orchestration: {
-          workflow_template_applied: true,
-          workflow_template_id: normalizeString(templateId),
-          step_count: steps.length,
-        },
-      },
+      execution_context: mergeWorkflowOrchestrationContext(context, {
+        workflow_template_applied: true,
+        workflow_template_id: normalizeString(templateId),
+        step_count: steps.length,
+        blocked_reason: "",
+      }),
       applied: true,
       blocked_reason: "",
       workflow_template_id: normalizeString(templateId),
@@ -442,12 +456,49 @@ function buildWorkflowStepWriteEnvelope(blockSpec, stepId) {
   return baseEnvelope;
 }
 
+function normalizeWorkflowResolvedTarget(rawTarget) {
+  const target = isPlainObject(rawTarget) ? rawTarget : {};
+  const resolvedTargetId = normalizeString(target.resolved_target_id);
+  const resolvedTargetPath = normalizeString(target.resolved_target_path);
+  if (!resolvedTargetId || !resolvedTargetPath) {
+    return null;
+  }
+  const normalized = {
+    resolved_target_id: resolvedTargetId,
+    resolved_target_path: resolvedTargetPath,
+  };
+  const createdOrReused = normalizeString(target.created_or_reused).toLowerCase();
+  if (createdOrReused === "created" || createdOrReused === "reused") {
+    normalized.created_or_reused = createdOrReused;
+  }
+  const collisionPolicyUsed = normalizeCollisionPolicyToken(target.collision_policy_used);
+  if (collisionPolicyUsed) {
+    normalized.collision_policy_used = collisionPolicyUsed;
+  }
+  const existingCandidatesCount = normalizeOptionalNonNegativeInteger(
+    target.existing_candidates_count
+  );
+  if (existingCandidatesCount !== null) {
+    normalized.existing_candidates_count = existingCandidatesCount;
+  }
+  const existingCandidatePath = normalizeString(target.existing_candidate_path);
+  if (existingCandidatePath) {
+    normalized.existing_candidate_path = existingCandidatePath;
+  }
+  const ensureTargetStepId = normalizeString(target.ensure_target_step_id);
+  if (ensureTargetStepId) {
+    normalized.ensure_target_step_id = ensureTargetStepId;
+  }
+  return normalized;
+}
+
 function enrichWorkflowBlockResult({
   blockResult,
   blockSpec,
   workflowDispatchOutcome,
   stepResults,
   finalStepId = "",
+  resolvedTarget = null,
 }) {
   const baseResult = isPlainObject(blockResult) ? blockResult : {};
   const executionMeta = isPlainObject(baseResult.execution_meta)
@@ -464,6 +515,7 @@ function enrichWorkflowBlockResult({
         executionMeta.workflow_orchestration.workflow_template_id
     );
   const stepRecords = Array.isArray(stepResults) ? stepResults : [];
+  const normalizedResolvedTarget = normalizeWorkflowResolvedTarget(resolvedTarget);
   const jobIdFromRecords =
     stepRecords
       .map((item) =>
@@ -485,6 +537,9 @@ function enrichWorkflowBlockResult({
         template_id: templateId,
         step_count: stepRecords.length,
         step_results: stepRecords,
+        ...(normalizedResolvedTarget
+          ? { resolved_target: normalizedResolvedTarget }
+          : {}),
         ...(jobIdFromRecords ? { job_id: jobIdFromRecords } : {}),
       },
     },
@@ -505,11 +560,13 @@ function buildWorkflowFailureBlockResult({
   failedStepId = "",
   stepResults = [],
   outputData = {},
+  resolvedTarget = null,
 }) {
   const context = isPlainObject(executionContext) ? executionContext : {};
   const templateId = normalizeString(
     workflowDispatchOutcome && workflowDispatchOutcome.workflow_template_id
   );
+  const normalizedResolvedTarget = normalizeWorkflowResolvedTarget(resolvedTarget);
   const result = {
     block_id: normalizeString(blockSpec && blockSpec.block_id) || "unknown_block",
     status: "failed",
@@ -519,6 +576,9 @@ function buildWorkflowFailureBlockResult({
         template_id: templateId,
         step_count: Array.isArray(stepResults) ? stepResults.length : 0,
         step_results: Array.isArray(stepResults) ? stepResults : [],
+        ...(normalizedResolvedTarget
+          ? { resolved_target: normalizedResolvedTarget }
+          : {}),
       },
     },
     execution_meta: {
@@ -563,6 +623,7 @@ async function executeWorkflowTemplateDispatch({
   const stepResults = [];
   let runningJobId = "";
   let latestResult = null;
+  let workflowResolvedTarget = null;
 
   if (!sourceThreadId) {
     return {
@@ -573,6 +634,7 @@ async function executeWorkflowTemplateDispatch({
         errorCode: "E_SCHEMA_INVALID",
         errorMessage:
           "workflow script_create_compile_attach requires input.thread_id",
+        resolvedTarget: workflowResolvedTarget,
       }),
     };
   }
@@ -581,6 +643,65 @@ async function executeWorkflowTemplateDispatch({
     const stepId = normalizeString(step.step_id) || "workflow_step";
     const stepType = normalizeString(step.step_type);
     const stepToolName = normalizeString(step.tool_name);
+    if (stepType === "ensure_target") {
+      const ensureTargetStepOutcome = await executeEnsureTargetStep({
+        step,
+        stepId,
+        blockSpec: block,
+        executionContext: context,
+        adapter,
+        sourceUserIntent,
+      });
+      if (
+        ensureTargetStepOutcome &&
+        isPlainObject(ensureTargetStepOutcome.stepResult)
+      ) {
+        stepResults.push(ensureTargetStepOutcome.stepResult);
+      } else {
+        stepResults.push({
+          step_id: stepId,
+          step_type: stepType,
+          tool_name: stepToolName,
+          status: "failed",
+        });
+      }
+      if (!ensureTargetStepOutcome || ensureTargetStepOutcome.ok !== true) {
+        const fallbackEnsureTargetFailureCode = normalizeWorkflowErrorCode(
+          workflowErrorMapping.ensure_target_failed,
+          "E_WORKFLOW_ENSURE_TARGET_FAILED"
+        );
+        const ensureTargetFailureCode = normalizeWorkflowErrorCode(
+          normalizeString(ensureTargetStepOutcome && ensureTargetStepOutcome.errorCode) ||
+            fallbackEnsureTargetFailureCode,
+          fallbackEnsureTargetFailureCode
+        );
+        const ensureTargetFailureMessage =
+          normalizeString(ensureTargetStepOutcome && ensureTargetStepOutcome.errorMessage) ||
+          `workflow ensure_target step failed: ${stepId}`;
+        return {
+          block_result: buildWorkflowFailureBlockResult({
+            blockSpec: block,
+            executionContext: context,
+            workflowDispatchOutcome,
+            errorCode: ensureTargetFailureCode,
+            errorMessage: ensureTargetFailureMessage,
+            failedStepId: stepId,
+            stepResults,
+            outputData:
+              ensureTargetStepOutcome &&
+              isPlainObject(ensureTargetStepOutcome.outputData)
+                ? ensureTargetStepOutcome.outputData
+                : {},
+            resolvedTarget: workflowResolvedTarget,
+          }),
+        };
+      }
+      workflowResolvedTarget = normalizeWorkflowResolvedTarget(
+        ensureTargetStepOutcome.resolvedTarget
+      );
+      continue;
+    }
+
     if (stepType === "submit_task") {
       if (stepToolName !== "submit_unity_task") {
         return {
@@ -592,11 +713,12 @@ async function executeWorkflowTemplateDispatch({
             errorMessage: `workflow submit step requires submit_unity_task tool: ${stepId}`,
             failedStepId: stepId,
             stepResults,
+            resolvedTarget: workflowResolvedTarget,
           }),
         };
       }
       const payloadSlot = normalizeString(step.task_payload_slot);
-      const slotPayload = input[payloadSlot];
+      let slotPayload = input[payloadSlot];
       if (!Array.isArray(slotPayload)) {
         return {
           block_result: buildWorkflowFailureBlockResult({
@@ -607,8 +729,51 @@ async function executeWorkflowTemplateDispatch({
             errorMessage: `workflow submit step requires input.${payloadSlot} (array)`,
             failedStepId: stepId,
             stepResults,
+            resolvedTarget: workflowResolvedTarget,
           }),
         };
+      }
+      if (payloadSlot === "visual_layer_actions" && workflowResolvedTarget) {
+        const bindOutcome = bindResolvedTargetForAttachVisualActions({
+          visualLayerActions: slotPayload,
+          resolvedTarget: workflowResolvedTarget,
+          blockTargetAnchor: isPlainObject(block.target_anchor)
+            ? block.target_anchor
+            : {},
+        });
+        if (!bindOutcome.ok) {
+          stepResults.push({
+            step_id: stepId,
+            step_type: stepType,
+            tool_name: stepToolName,
+            status: "failed",
+          });
+          return {
+            block_result: buildWorkflowFailureBlockResult({
+              blockSpec: block,
+              executionContext: context,
+              workflowDispatchOutcome,
+              errorCode: normalizeWorkflowErrorCode(
+                bindOutcome.errorCode,
+                "E_WORKFLOW_RESOLVED_TARGET_CONFLICT"
+              ),
+              errorMessage:
+                normalizeString(bindOutcome.errorMessage) ||
+                `workflow attach step resolved_target binding failed: ${stepId}`,
+              failedStepId: stepId,
+              stepResults,
+              resolvedTarget: workflowResolvedTarget,
+            }),
+          };
+        }
+        slotPayload = bindOutcome.visualLayerActions;
+      }
+      const stepWriteEnvelope = buildWorkflowStepWriteEnvelope(block, stepId);
+      if (payloadSlot === "visual_layer_actions" && workflowResolvedTarget) {
+        stepWriteEnvelope.write_anchor_object_id =
+          workflowResolvedTarget.resolved_target_id;
+        stepWriteEnvelope.write_anchor_path =
+          workflowResolvedTarget.resolved_target_path;
       }
       const stepBlockSpec = {
         block_id: `${normalizeString(block.block_id) || "workflow"}__${stepId}`,
@@ -624,7 +789,7 @@ async function executeWorkflowTemplateDispatch({
           ...(isPlainObject(input.context) ? { context: input.context } : {}),
         },
         based_on_read_token: normalizeString(block.based_on_read_token),
-        write_envelope: buildWorkflowStepWriteEnvelope(block, stepId),
+        write_envelope: stepWriteEnvelope,
       };
       latestResult = await adapter.executeBlock(stepBlockSpec, context);
       const latestOutput = isPlainObject(latestResult && latestResult.output_data)
@@ -668,6 +833,7 @@ async function executeWorkflowTemplateDispatch({
               failedStepId: stepId,
               stepResults,
               outputData: latestOutput,
+              resolvedTarget: workflowResolvedTarget,
             }),
           };
         }
@@ -678,6 +844,7 @@ async function executeWorkflowTemplateDispatch({
             workflowDispatchOutcome,
             stepResults,
             finalStepId: stepId,
+            resolvedTarget: workflowResolvedTarget,
           }),
         };
       }
@@ -695,6 +862,7 @@ async function executeWorkflowTemplateDispatch({
             errorMessage: `workflow wait step requires get_unity_task_status tool: ${stepId}`,
             failedStepId: stepId,
             stepResults,
+            resolvedTarget: workflowResolvedTarget,
           }),
         };
       }
@@ -708,6 +876,7 @@ async function executeWorkflowTemplateDispatch({
             errorMessage: "workflow wait step cannot resolve job_id from submit step",
             failedStepId: stepId,
             stepResults,
+            resolvedTarget: workflowResolvedTarget,
           }),
         };
       }
@@ -757,6 +926,7 @@ async function executeWorkflowTemplateDispatch({
               workflowDispatchOutcome,
               stepResults,
               finalStepId: stepId,
+              resolvedTarget: workflowResolvedTarget,
             }),
           };
         }
@@ -802,6 +972,7 @@ async function executeWorkflowTemplateDispatch({
               failedStepId: stepId,
               stepResults,
               outputData: latestOutput,
+              resolvedTarget: workflowResolvedTarget,
             }),
           };
         }
@@ -831,6 +1002,7 @@ async function executeWorkflowTemplateDispatch({
               failedStepId: stepId,
               stepResults,
               outputData: latestOutput,
+              resolvedTarget: workflowResolvedTarget,
             }),
           };
         }
@@ -848,6 +1020,7 @@ async function executeWorkflowTemplateDispatch({
         errorMessage: `workflow step_type is not supported: ${stepType || "<empty>"}`,
         failedStepId: stepId,
         stepResults,
+        resolvedTarget: workflowResolvedTarget,
       }),
     };
   }
@@ -860,6 +1033,7 @@ async function executeWorkflowTemplateDispatch({
       stepResults,
       finalStepId:
         steps.length > 0 ? normalizeString(steps[steps.length - 1].step_id) : "",
+      resolvedTarget: workflowResolvedTarget,
     }),
   };
 }
@@ -1093,6 +1267,90 @@ function mergeShapeDecisionIntoExecutionContext(executionContext, shapeDecision)
   return context;
 }
 
+function mergeWorkflowCandidateIntoExecutionContext(
+  executionContext,
+  workflowCandidateDecision
+) {
+  const context =
+    executionContext &&
+    typeof executionContext === "object" &&
+    !Array.isArray(executionContext)
+      ? { ...executionContext }
+      : {};
+  const decision =
+    workflowCandidateDecision &&
+    typeof workflowCandidateDecision === "object" &&
+    !Array.isArray(workflowCandidateDecision)
+      ? workflowCandidateDecision
+      : null;
+  if (!decision) {
+    return context;
+  }
+  const patch = {
+    workflow_candidate_hit: decision.candidate_hit === true,
+    workflow_candidate_confidence:
+      normalizeString(decision.confidence) || "none",
+  };
+  const matchedRuleId = normalizeString(decision.matched_rule_id);
+  if (matchedRuleId) {
+    patch.workflow_candidate_rule_id = matchedRuleId;
+  }
+  const reasonCode = normalizeString(decision.reason_code);
+  if (reasonCode) {
+    patch.workflow_candidate_reason_code = reasonCode;
+  }
+  const recommendedTemplateId = normalizeString(
+    decision.recommended_workflow_template_id
+  );
+  if (recommendedTemplateId) {
+    patch.recommended_workflow_template_id = recommendedTemplateId;
+  }
+  return mergeWorkflowOrchestrationContext(context, patch);
+}
+
+function mergeWorkflowIntentGatingIntoExecutionContext(
+  executionContext,
+  workflowIntentGatingDecision
+) {
+  const context =
+    executionContext &&
+    typeof executionContext === "object" &&
+    !Array.isArray(executionContext)
+      ? { ...executionContext }
+      : {};
+  const decision =
+    workflowIntentGatingDecision &&
+    typeof workflowIntentGatingDecision === "object" &&
+    !Array.isArray(workflowIntentGatingDecision)
+      ? workflowIntentGatingDecision
+      : null;
+  if (!decision) {
+    return context;
+  }
+  const action = normalizeString(decision.action).toLowerCase();
+  if (!action) {
+    return context;
+  }
+  const patch = {
+    workflow_gating_action: action,
+  };
+  const matchedRuleId = normalizeString(decision.matched_rule_id);
+  if (matchedRuleId) {
+    patch.workflow_gating_rule_id = matchedRuleId;
+  }
+  const reasonCode = normalizeString(decision.reason_code);
+  if (reasonCode) {
+    patch.workflow_gating_reason_code = reasonCode;
+  }
+  const recommendedTemplateId = normalizeString(
+    decision.recommended_workflow_template_id
+  );
+  if (recommendedTemplateId) {
+    patch.recommended_workflow_template_id = recommendedTemplateId;
+  }
+  return mergeWorkflowOrchestrationContext(context, patch);
+}
+
 function buildPlannerOrchestrationBaseMeta({
   executionContext,
   transactionDispatchOutcome,
@@ -1124,7 +1382,51 @@ function buildPlannerOrchestrationBaseMeta({
         ? "transaction_synthesized"
         : "single_block_direct",
     workflow_template_applied: workflowTemplateApplied,
+    workflow_candidate_hit: workflowOrchestration.workflow_candidate_hit === true,
+    workflow_candidate_confidence:
+      normalizeString(workflowOrchestration.workflow_candidate_confidence) ||
+      "none",
   };
+  const workflowCandidateRuleId = normalizeString(
+    workflowOrchestration.workflow_candidate_rule_id
+  );
+  if (workflowCandidateRuleId) {
+    meta.workflow_candidate_rule_id = workflowCandidateRuleId;
+  }
+  const workflowCandidateReasonCode = normalizeString(
+    workflowOrchestration.workflow_candidate_reason_code
+  );
+  if (workflowCandidateReasonCode) {
+    meta.workflow_candidate_reason_code = workflowCandidateReasonCode;
+  }
+  const recommendedWorkflowTemplateId = normalizeString(
+    workflowOrchestration.recommended_workflow_template_id
+  );
+  if (recommendedWorkflowTemplateId) {
+    meta.recommended_workflow_template_id = recommendedWorkflowTemplateId;
+  }
+  const workflowGatingAction =
+    normalizeString(workflowOrchestration.workflow_gating_action).toLowerCase() ||
+    GATING_ACTION.ALLOW;
+  meta.workflow_gating_action = workflowGatingAction;
+  if (workflowGatingAction === GATING_ACTION.WARN) {
+    meta.workflow_gating_warned = true;
+  }
+  if (workflowGatingAction === GATING_ACTION.REJECT) {
+    meta.workflow_gating_rejected = true;
+  }
+  const workflowGatingRuleId = normalizeString(
+    workflowOrchestration.workflow_gating_rule_id
+  );
+  if (workflowGatingRuleId) {
+    meta.workflow_gating_rule_id = workflowGatingRuleId;
+  }
+  const workflowGatingReasonCode = normalizeString(
+    workflowOrchestration.workflow_gating_reason_code
+  );
+  if (workflowGatingReasonCode) {
+    meta.workflow_gating_reason_code = workflowGatingReasonCode;
+  }
 
   const shapeReason = normalizeString(context.shape_reason);
   if (shapeReason) {
@@ -1202,6 +1504,8 @@ function buildWorkflowRuntimeMetricMetaFromBlockResult(blockResult) {
   const workflowOutput = isPlainObject(outputData.workflow_orchestration)
     ? outputData.workflow_orchestration
     : {};
+  const workflowError = isPlainObject(result.error) ? result.error : {};
+  const workflowErrorCode = normalizeString(workflowError.error_code).toUpperCase();
   const stepResults = Array.isArray(workflowOutput.step_results)
     ? workflowOutput.step_results
     : [];
@@ -1234,9 +1538,23 @@ function buildWorkflowRuntimeMetricMetaFromBlockResult(blockResult) {
   }
   let waitDurationMs = 0;
   let hasWaitDuration = false;
+  let ensureTargetStepObserved = false;
+  let ensureTargetInvoked = false;
+  let ensureTargetFailedByStep = false;
   for (const rawStep of stepResults) {
     const step = isPlainObject(rawStep) ? rawStep : {};
     const stepType = normalizeString(step.step_type);
+    if (stepType === "ensure_target") {
+      ensureTargetStepObserved = true;
+      const stepStatus = normalizeString(step.status).toLowerCase();
+      if (stepStatus && stepStatus !== "skipped") {
+        ensureTargetInvoked = true;
+      }
+      if (stepStatus === "failed") {
+        ensureTargetFailedByStep = true;
+      }
+      continue;
+    }
     if (stepType !== "wait_task_status") {
       continue;
     }
@@ -1249,6 +1567,83 @@ function buildWorkflowRuntimeMetricMetaFromBlockResult(blockResult) {
   }
   if (hasWaitDuration) {
     meta.workflow_compile_wait_duration_ms = Math.max(0, waitDurationMs);
+  }
+  if (ensureTargetInvoked) {
+    meta.ensure_target_invoked = true;
+  }
+  if (ensureTargetFailedByStep) {
+    meta.ensure_target_failed = true;
+  }
+  const ensureTargetFailureByCode = workflowErrorCode.startsWith(
+    "E_WORKFLOW_ENSURE_TARGET"
+  );
+  if (ensureTargetFailureByCode) {
+    meta.ensure_target_failed = true;
+    if (ensureTargetStepObserved) {
+      meta.ensure_target_invoked = true;
+    }
+  }
+  if (workflowErrorCode === "E_WORKFLOW_ENSURE_TARGET_AMBIGUOUS_REUSE") {
+    meta.ensure_target_ambiguous_reuse = true;
+    if (ensureTargetStepObserved) {
+      meta.ensure_target_invoked = true;
+    }
+  }
+  const resolvedTarget = isPlainObject(workflowOutput.resolved_target)
+    ? workflowOutput.resolved_target
+    : {};
+  const createdOrReused = normalizeString(resolvedTarget.created_or_reused).toLowerCase();
+  if (meta.ensure_target_invoked === true && meta.ensure_target_failed !== true) {
+    if (createdOrReused === "created") {
+      meta.ensure_target_created = true;
+    } else if (createdOrReused === "reused") {
+      meta.ensure_target_reused = true;
+    }
+  }
+  return meta;
+}
+
+function normalizeCollisionPolicyToken(value) {
+  const token = normalizeString(value).toLowerCase();
+  if (token === "fail" || token === "reuse" || token === "suffix") {
+    return token;
+  }
+  return "";
+}
+
+function normalizeOptionalNonNegativeInteger(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) {
+    return null;
+  }
+  return Math.floor(n);
+}
+
+function buildCollisionPolicyMetricMetaFromBlockResult(blockResult) {
+  const result = isPlainObject(blockResult) ? blockResult : {};
+  const outputData = isPlainObject(result.output_data) ? result.output_data : {};
+  const collisionPolicyUsed = normalizeCollisionPolicyToken(outputData.applied_policy);
+  const existingCandidatesCount = normalizeOptionalNonNegativeInteger(
+    outputData.existing_candidates_count
+  );
+  const existingCandidatePath = normalizeString(outputData.existing_candidate_path);
+  const preCheckExisting =
+    typeof outputData.pre_check_existing === "boolean"
+      ? outputData.pre_check_existing
+      : null;
+
+  const meta = {};
+  if (collisionPolicyUsed) {
+    meta.collision_policy_used = collisionPolicyUsed;
+  }
+  if (existingCandidatesCount !== null) {
+    meta.existing_candidates_count = existingCandidatesCount;
+  }
+  if (existingCandidatePath) {
+    meta.existing_candidate_path = existingCandidatePath;
+  }
+  if (typeof preCheckExisting === "boolean") {
+    meta.pre_check_existing = preCheckExisting;
   }
   return meta;
 }
@@ -1482,6 +1877,11 @@ class TurnService {
     this.plannerEntryTranslator = null;
     this.plannerEntryNormalizer = null;
     this.plannerEntryErrorHintBuilder = null;
+    this.workflowRoutingAdvisor =
+      deps.workflowRoutingAdvisor &&
+      typeof deps.workflowRoutingAdvisor.detectCandidate === "function"
+        ? deps.workflowRoutingAdvisor
+        : null;
     this.plannerUxMetricsCollector =
       deps.plannerUxMetricsCollector &&
       typeof deps.plannerUxMetricsCollector.recordAttempt === "function" &&
@@ -1666,6 +2066,17 @@ class TurnService {
     return this.blockRuntimeShapeDecider;
   }
 
+  getWorkflowRoutingAdvisor() {
+    if (
+      this.workflowRoutingAdvisor &&
+      typeof this.workflowRoutingAdvisor.detectCandidate === "function"
+    ) {
+      return this.workflowRoutingAdvisor;
+    }
+    this.workflowRoutingAdvisor = createWorkflowRoutingAdvisor();
+    return this.workflowRoutingAdvisor;
+  }
+
   getBlockRuntimeVerifyHook() {
     if (
       this.blockRuntimeVerifyHook &&
@@ -1741,6 +2152,12 @@ class TurnService {
         typeof source.error_details === "object" &&
         !Array.isArray(source.error_details)
           ? source.error_details
+          : {},
+      workflow_orchestration:
+        source.workflow_orchestration &&
+        typeof source.workflow_orchestration === "object" &&
+        !Array.isArray(source.workflow_orchestration)
+          ? source.workflow_orchestration
           : {},
     });
     if (!hints || typeof hints !== "object" || Array.isArray(hints)) {
@@ -1899,6 +2316,35 @@ class TurnService {
         orchestration_meta: plannerOrchestrationMetricMeta,
       });
       plannerUxMetricRecorded = true;
+    };
+    const applyWorkflowRecommendationMetricMeta = (feedbackBody) => {
+      const body = isPlainObject(feedbackBody) ? feedbackBody : {};
+      const workflowRecommendation = isPlainObject(body.workflow_recommendation)
+        ? body.workflow_recommendation
+        : null;
+      if (!workflowRecommendation) {
+        return;
+      }
+      const metricPatch = {
+        workflow_recommendation_suggested: true,
+      };
+      const sourceRuleId = normalizeString(workflowRecommendation.source_rule_id);
+      if (sourceRuleId) {
+        metricPatch.workflow_recommendation_source_rule_id = sourceRuleId;
+      }
+      const recommendedTemplateId = normalizeString(
+        workflowRecommendation.workflow_template_id
+      );
+      if (
+        recommendedTemplateId &&
+        !normalizeString(plannerOrchestrationMetricMeta.recommended_workflow_template_id)
+      ) {
+        metricPatch.recommended_workflow_template_id = recommendedTemplateId;
+      }
+      plannerOrchestrationMetricMeta = {
+        ...plannerOrchestrationMetricMeta,
+        ...metricPatch,
+      };
     };
     if (!runtimeFlags || runtimeFlags.pipeline_enabled !== true) {
       recordPlannerUxMetricOnce({
@@ -2218,6 +2664,109 @@ class TurnService {
     }
 
     const orchestrationContract = this.getPlannerOrchestrationContract();
+    const workflowRoutingAdvisor = this.getWorkflowRoutingAdvisor();
+    let workflowCandidateDecision = null;
+    if (
+      workflowRoutingAdvisor &&
+      typeof workflowRoutingAdvisor.detectCandidate === "function"
+    ) {
+      try {
+        workflowCandidateDecision = workflowRoutingAdvisor.detectCandidate({
+          block_spec: blockSpec,
+          execution_context: executionContext,
+          orchestration_contract: orchestrationContract,
+        });
+        executionContext = mergeWorkflowCandidateIntoExecutionContext(
+          executionContext,
+          workflowCandidateDecision
+        );
+      } catch (_error) {
+        executionContext = mergeWorkflowCandidateIntoExecutionContext(
+          executionContext,
+          {
+            candidate_hit: false,
+            confidence: "none",
+            reason_code: "workflow_candidate_detection_failed",
+          }
+        );
+      }
+    }
+    if (
+      workflowRoutingAdvisor &&
+      typeof workflowRoutingAdvisor.evaluateIntentGating === "function"
+    ) {
+      try {
+        const workflowIntentGatingDecision =
+          workflowRoutingAdvisor.evaluateIntentGating({
+            block_spec: blockSpec,
+            execution_context: executionContext,
+            orchestration_contract: orchestrationContract,
+            candidate_decision: workflowCandidateDecision,
+          });
+        executionContext = mergeWorkflowIntentGatingIntoExecutionContext(
+          executionContext,
+          workflowIntentGatingDecision
+        );
+      } catch (_error) {
+        executionContext = mergeWorkflowIntentGatingIntoExecutionContext(
+          executionContext,
+          {
+            action: GATING_ACTION.ALLOW,
+            reason_code: "workflow_gating_evaluation_failed",
+          }
+        );
+      }
+    }
+    const workflowOrchestration = isPlainObject(executionContext.workflow_orchestration)
+      ? executionContext.workflow_orchestration
+      : {};
+    const workflowGatingAction = normalizeString(
+      workflowOrchestration.workflow_gating_action
+    ).toLowerCase();
+    if (workflowGatingAction === GATING_ACTION.REJECT) {
+      const plannerOrchestrationMeta = buildPlannerOrchestrationBaseMeta({
+        executionContext,
+        transactionDispatchOutcome: null,
+        workflowDispatchOutcome: null,
+      });
+      plannerOrchestrationMetricMeta = {
+        ...plannerOrchestrationMeta,
+      };
+      const rejectedReasonCode =
+        normalizeString(workflowOrchestration.workflow_gating_reason_code) ||
+        "workflow_gating_reject_rule_matched";
+      const feedbackBody = withMcpErrorFeedback({
+        status: "failed",
+        error_code: "E_WORKFLOW_GATING_REJECTED",
+        message:
+          "Workflow intent gating rejected this request; switch to recommended workflow template.",
+        tool_name: "planner_execute_mcp",
+        data: {
+          planner_entry_normalization: plannerNormalizationMeta,
+          planner_orchestration: withPlannerOrchestrationFailureStage(
+            plannerOrchestrationMeta,
+            "before_dispatch"
+          ),
+          runtime_flags: runtimeFlags,
+          ...(routeResult ? { route_result: routeResult } : {}),
+          workflow_gating_reason_code: rejectedReasonCode,
+        },
+        context: {
+          stage: "before_dispatch",
+          previous_operation: "workflow_intent_gating",
+        },
+      });
+      applyWorkflowRecommendationMetricMeta(feedbackBody);
+      recordPlannerUxMetricOnce({
+        success: false,
+        failure_stage: "before_dispatch",
+        error_code: "E_WORKFLOW_GATING_REJECTED",
+      });
+      return {
+        statusCode: 409,
+        body: feedbackBody,
+      };
+    }
     const workflowDispatchOutcome = synthesizeWorkflowDispatch({
       blockSpec,
       executionContext,
@@ -2313,6 +2862,19 @@ class TurnService {
         plannerOrchestrationResponseMeta = {
           ...plannerOrchestrationResponseMeta,
           ...workflowRuntimeMetricMeta,
+        };
+      }
+      const collisionPolicyMetricMeta = buildCollisionPolicyMetricMetaFromBlockResult(
+        blockResult
+      );
+      if (Object.keys(collisionPolicyMetricMeta).length > 0) {
+        plannerOrchestrationMetricMeta = {
+          ...plannerOrchestrationMetricMeta,
+          ...collisionPolicyMetricMeta,
+        };
+        plannerOrchestrationResponseMeta = {
+          ...plannerOrchestrationResponseMeta,
+          ...collisionPolicyMetricMeta,
         };
       }
       if (blockResult && blockResult.status === "succeeded") {
@@ -2538,11 +3100,7 @@ class TurnService {
         error_code: errorCode,
         error_message: message,
         error_details: blockErrorDetails,
-      });
-      recordPlannerUxMetricOnce({
-        success: false,
-        failure_stage: "during_dispatch",
-        error_code: errorCode,
+        workflow_orchestration: plannerOrchestrationWithStage("during_dispatch"),
       });
       if (
         typeof blockError.block_error_code === "string" &&
@@ -2550,37 +3108,44 @@ class TurnService {
       ) {
         failureData.block_error_code = blockError.block_error_code.trim();
       }
+      const feedbackBody = withMcpErrorFeedback({
+        status: "failed",
+        error_code: errorCode,
+        message,
+        tool_name: "planner_execute_mcp",
+        ...plannerRepairOverlay.feedback_fields,
+        ...(failureData.block_error_code
+          ? { block_error_code: failureData.block_error_code }
+          : {}),
+        data: {
+          ...failureData,
+          ...plannerRepairOverlay.repair_data,
+        },
+        context: {
+          stage: "during_dispatch",
+          previous_operation: "execute_planner_entry_for_mcp",
+          failed_block_id:
+            blockResult && typeof blockResult.block_id === "string"
+              ? blockResult.block_id
+              : "",
+          failed_tool_name:
+            blockResult &&
+            blockResult.execution_meta &&
+            typeof blockResult.execution_meta === "object" &&
+            typeof blockResult.execution_meta.tool_name === "string"
+              ? blockResult.execution_meta.tool_name
+              : "",
+        },
+      });
+      applyWorkflowRecommendationMetricMeta(feedbackBody);
+      recordPlannerUxMetricOnce({
+        success: false,
+        failure_stage: "during_dispatch",
+        error_code: errorCode,
+      });
       return {
         statusCode: 409,
-        body: withMcpErrorFeedback({
-          status: "failed",
-          error_code: errorCode,
-          message,
-          tool_name: "planner_execute_mcp",
-          ...plannerRepairOverlay.feedback_fields,
-          ...(failureData.block_error_code
-            ? { block_error_code: failureData.block_error_code }
-            : {}),
-          data: {
-            ...failureData,
-            ...plannerRepairOverlay.repair_data,
-          },
-          context: {
-            stage: "during_dispatch",
-            previous_operation: "execute_planner_entry_for_mcp",
-            failed_block_id:
-              blockResult && typeof blockResult.block_id === "string"
-                ? blockResult.block_id
-                : "",
-            failed_tool_name:
-              blockResult &&
-              blockResult.execution_meta &&
-              typeof blockResult.execution_meta === "object" &&
-              typeof blockResult.execution_meta.tool_name === "string"
-                ? blockResult.execution_meta.tool_name
-                : "",
-          },
-        }),
+        body: feedbackBody,
       };
     } catch (error) {
       const errorCode =

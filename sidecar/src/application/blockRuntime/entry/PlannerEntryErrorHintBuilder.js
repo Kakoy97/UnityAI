@@ -7,6 +7,7 @@ const {
 const PLANNER_ENTRY_ERROR_HINT_BUILDER_VERSION =
   "phase1_step7_planner_entry_error_hint_builder_v1";
 const PLANNER_ENTRY_TOOL_NAME = "planner_execute_mcp";
+const WORKFLOW_RECOMMENDATION_SOURCE = "planner_orchestration_contract";
 
 function normalizeString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
@@ -62,6 +63,137 @@ function resolvePlannerUxContract(options = {}) {
     return null;
   }
   return null;
+}
+
+function resolvePlannerOrchestrationContract(options = {}) {
+  const source = normalizeObject(options);
+  if (source.orchestrationContract && typeof source.orchestrationContract === "object") {
+    return cloneJson(source.orchestrationContract);
+  }
+  if (typeof source.loadOrchestrationContract === "function") {
+    const loaded = source.loadOrchestrationContract();
+    if (loaded && typeof loaded === "object" && !Array.isArray(loaded)) {
+      return cloneJson(loaded);
+    }
+    return {};
+  }
+  try {
+    const catalog = getStaticToolCatalogSingleton();
+    const globalContracts =
+      catalog && typeof catalog.globalContracts === "object"
+        ? catalog.globalContracts
+        : {};
+    const contract =
+      globalContracts &&
+      typeof globalContracts.planner_orchestration_contract === "object" &&
+      !Array.isArray(globalContracts.planner_orchestration_contract)
+        ? globalContracts.planner_orchestration_contract
+        : {};
+    return cloneJson(contract);
+  } catch (_error) {
+    return {};
+  }
+}
+
+function resolveWorkflowIntentKey(templateDef) {
+  const template = normalizeObject(templateDef);
+  const selection = normalizeObject(template.selection);
+  const intentKeys = normalizeStringArray(selection.intent_keys);
+  return intentKeys[0] || "workflow.script.create_compile_attach";
+}
+
+function collectWorkflowTaskPayloadSlots(templateDef) {
+  const template = normalizeObject(templateDef);
+  const steps = Array.isArray(template.steps) ? template.steps : [];
+  const output = new Set();
+  for (const step of steps) {
+    const currentStep = normalizeObject(step);
+    if (normalizeString(currentStep.step_type) !== "submit_task") {
+      continue;
+    }
+    const slot = normalizeString(currentStep.task_payload_slot);
+    if (slot) {
+      output.add(slot);
+    }
+  }
+  return output;
+}
+
+function shouldIncludeEnsureTargetInput(templateDef) {
+  const template = normalizeObject(templateDef);
+  const steps = Array.isArray(template.steps) ? template.steps : [];
+  for (const rawStep of steps) {
+    const step = normalizeObject(rawStep);
+    if (normalizeString(step.step_type) === "ensure_target") {
+      return true;
+    }
+  }
+  return resolveWorkflowIntentKey(templateDef) === "workflow.script.create_compile_attach";
+}
+
+function buildWorkflowMinimalTemplate(templateId, templateDef) {
+  const slots = collectWorkflowTaskPayloadSlots(templateDef);
+  const input = {
+    thread_id: "__thread_id__",
+    user_intent: "__user_intent__",
+  };
+  if (shouldIncludeEnsureTargetInput(templateDef)) {
+    input.ensure_target = {
+      enabled: false,
+      parent_anchor: {
+        object_id: "__parent_object_id__",
+        path: "__parent_path__",
+      },
+      new_object_name: "__new_object_name__",
+      object_kind: "__object_kind__",
+      set_active: true,
+      name_collision_policy: "fail",
+    };
+  }
+  if (slots.has("file_actions")) {
+    input.file_actions = [
+      {
+        action: "create_or_update_script",
+        path: "Assets/Scripts/__ScriptName__.cs",
+        content:
+          "using UnityEngine; public class __ScriptName__ : MonoBehaviour {}",
+      },
+    ];
+  }
+  if (slots.has("visual_layer_actions")) {
+    input.visual_layer_actions = [
+      {
+        action: "add_component",
+        target_object_id: "__target_object_id__",
+        target_path: "__target_path__",
+        component_type: "__ComponentType__",
+      },
+    ];
+  }
+  return {
+    block_spec: {
+      block_id: "__workflow_block_id__",
+      block_type: "MUTATE",
+      intent_key: resolveWorkflowIntentKey(templateDef),
+      input,
+      target_anchor: {
+        object_id: "__target_object_id__",
+        path: "__target_path__",
+      },
+      based_on_read_token: "__based_on_read_token__",
+      write_envelope: {
+        idempotency_key: "__idempotency_key__",
+        write_anchor_object_id: "__target_object_id__",
+        write_anchor_path: "__target_path__",
+        execution_mode: "execute",
+      },
+    },
+    execution_context: {
+      shape: "single_step",
+    },
+    suggested_tool: PLANNER_ENTRY_TOOL_NAME,
+    workflow_template_id: templateId,
+  };
 }
 
 function normalizePlannerFieldPath(rawField) {
@@ -227,6 +359,42 @@ function buildEnumHints(errorDetails, uxContract) {
 
 function createPlannerEntryErrorHintBuilder(options = {}) {
   const uxContract = resolvePlannerUxContract(options);
+  const plannerOrchestrationContract = resolvePlannerOrchestrationContract(options);
+
+  function buildWorkflowRecommendation(input = {}) {
+    const source = normalizeObject(input);
+    const workflowOrchestration = normalizeObject(
+      source.workflow_orchestration || source.planner_orchestration
+    );
+    const templateId = normalizeString(
+      workflowOrchestration.recommended_workflow_template_id
+    );
+    if (!templateId) {
+      return null;
+    }
+    const templates = normalizeObject(plannerOrchestrationContract.workflow_templates);
+    const templateDef = normalizeObject(templates[templateId]);
+    if (Object.keys(templateDef).length <= 0 || templateDef.enabled === false) {
+      return null;
+    }
+    const sourceRuleId = normalizeString(
+      workflowOrchestration.workflow_misroute_recovery_rule_id
+    ) || normalizeString(
+      workflowOrchestration.workflow_candidate_rule_id
+    );
+    const reasonCode =
+      normalizeString(workflowOrchestration.workflow_misroute_recovery_reason_code) ||
+      normalizeString(workflowOrchestration.workflow_gating_reason_code) ||
+      normalizeString(workflowOrchestration.workflow_candidate_reason_code);
+    return {
+      source: WORKFLOW_RECOMMENDATION_SOURCE,
+      ...(sourceRuleId ? { source_rule_id: sourceRuleId } : {}),
+      ...(reasonCode ? { reason_code: reasonCode } : {}),
+      suggested_tool: PLANNER_ENTRY_TOOL_NAME,
+      workflow_template_id: templateId,
+      minimal_valid_template: buildWorkflowMinimalTemplate(templateId, templateDef),
+    };
+  }
 
   function buildHints(input = {}) {
     const source = normalizeObject(input);
@@ -259,6 +427,17 @@ function createPlannerEntryErrorHintBuilder(options = {}) {
         ? "auto_fill_candidate_if_preconditions_match"
         : "must_be_explicit",
     }));
+    const workflowOrchestration = normalizeObject(source.workflow_orchestration);
+    const workflowGatingAction = normalizeString(
+      workflowOrchestration.workflow_gating_action
+    ).toLowerCase();
+    const workflowRecommendation = buildWorkflowRecommendation({
+      workflow_orchestration: workflowOrchestration,
+    });
+    const workflowWarnRecommendationActive =
+      workflowGatingAction === "warn" &&
+      workflowRecommendation &&
+      typeof workflowRecommendation === "object";
 
     const repairPayload = {
       hint_builder_version: PLANNER_ENTRY_ERROR_HINT_BUILDER_VERSION,
@@ -282,42 +461,72 @@ function createPlannerEntryErrorHintBuilder(options = {}) {
           : {},
       enum_hints: enumHints,
       missing_field_hints: missingFieldHints,
+      ...(workflowWarnRecommendationActive
+        ? { workflow_recommendation: workflowRecommendation }
+        : {}),
       ...(aliasConflict ? { alias_conflict: aliasConflict } : {}),
     };
 
+    const defaultFixHint = buildFixHint({
+      message: errorMessage,
+      missingFields,
+      enumHints,
+      aliasConflict,
+    });
+    const defaultContextualHint = buildContextualHint({
+      missingFields,
+      autoFilledFieldSet,
+    });
+    const workflowFixHint =
+      "Workflow candidate matched. Use planner_entry_repair.workflow_recommendation.minimal_valid_template and retry planner_execute_mcp.";
+
     return {
-      suggested_action: "get_tool_schema",
-      suggested_tool: "get_tool_schema",
-      fix_hint: buildFixHint({
-        message: errorMessage,
-        missingFields,
-        enumHints,
-        aliasConflict,
-      }),
-      contextual_hint: buildContextualHint({
-        missingFields,
-        autoFilledFieldSet,
-      }),
+      suggested_action: workflowWarnRecommendationActive
+        ? PLANNER_ENTRY_TOOL_NAME
+        : "get_tool_schema",
+      suggested_tool: workflowWarnRecommendationActive
+        ? PLANNER_ENTRY_TOOL_NAME
+        : "get_tool_schema",
+      fix_hint: workflowWarnRecommendationActive ? workflowFixHint : defaultFixHint,
+      contextual_hint: workflowWarnRecommendationActive
+        ? "warn path matched workflow candidate; prefer workflow template over low-level intent retries."
+        : defaultContextualHint,
       missing_fields: missingFields,
-      fix_steps: [
-        {
-          step: 1,
-          step_id: "inspect_planner_entry_schema",
-          tool: "get_tool_schema",
-          required: true,
-          idempotent: true,
-          verification: {
-            tool_name: PLANNER_ENTRY_TOOL_NAME,
-          },
-        },
-        {
-          step: 2,
-          step_id: "retry_with_planner_minimal_template",
-          tool: PLANNER_ENTRY_TOOL_NAME,
-          required: true,
-          idempotent: false,
-        },
-      ],
+      fix_steps: workflowWarnRecommendationActive
+        ? [
+            {
+              step: 1,
+              step_id: "retry_with_recommended_workflow_template",
+              tool: PLANNER_ENTRY_TOOL_NAME,
+              required: true,
+              idempotent: false,
+              verification: {
+                workflow_template_id: workflowRecommendation.workflow_template_id,
+              },
+            },
+          ]
+        : [
+            {
+              step: 1,
+              step_id: "inspect_planner_entry_schema",
+              tool: "get_tool_schema",
+              required: true,
+              idempotent: true,
+              verification: {
+                tool_name: PLANNER_ENTRY_TOOL_NAME,
+              },
+            },
+            {
+              step: 2,
+              step_id: "retry_with_planner_minimal_template",
+              tool: PLANNER_ENTRY_TOOL_NAME,
+              required: true,
+              idempotent: false,
+            },
+          ],
+      ...(workflowWarnRecommendationActive
+        ? { workflow_recommendation: workflowRecommendation }
+        : {}),
       repair_payload: repairPayload,
     };
   }
@@ -325,6 +534,7 @@ function createPlannerEntryErrorHintBuilder(options = {}) {
   return {
     version: PLANNER_ENTRY_ERROR_HINT_BUILDER_VERSION,
     buildHints,
+    buildWorkflowRecommendation,
   };
 }
 
@@ -332,4 +542,3 @@ module.exports = {
   PLANNER_ENTRY_ERROR_HINT_BUILDER_VERSION,
   createPlannerEntryErrorHintBuilder,
 };
-

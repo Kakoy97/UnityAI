@@ -23,12 +23,23 @@ const MINIMAL_REQUIRED_FIELD_KEYS = Object.freeze([
 const OPTIONAL_FIELD_KEYS = Object.freeze([
   "action_type",
   "usage_notes",
+  "workflow_recommendation",
   "quick_fixes",
   "recovery_paths",
   "related_contracts",
   "examples_negative",
   "enhanced_fields",
   "legacy_fields",
+]);
+
+const WORKFLOW_RECOMMENDATION_SOURCE = "planner_orchestration_contract";
+const WORKFLOW_RECOMMENDATION_TOOL = "planner_execute_mcp";
+const MISROUTE_RECOVERY_ERROR_CODES = new Set([
+  "E_BLOCK_INTENT_KEY_UNSUPPORTED",
+  "E_SCHEMA_INVALID",
+  "E_COMPONENT_TYPE_INVALID",
+  "E_PLANNER_NO_TOOL_MAPPING",
+  "E_PLANNER_UNSUPPORTED_FAMILY",
 ]);
 
 function normalizeBoolean(value, fallback = false) {
@@ -80,6 +91,264 @@ function cloneJson(value) {
 
 function estimateSize(value) {
   return Buffer.byteLength(JSON.stringify(value), "utf8");
+}
+
+function getPlannerOrchestrationContract(catalog) {
+  const globalContracts =
+    catalog && typeof catalog.globalContracts === "object"
+      ? catalog.globalContracts
+      : {};
+  const contract =
+    globalContracts &&
+    typeof globalContracts.planner_orchestration_contract === "object" &&
+    !Array.isArray(globalContracts.planner_orchestration_contract)
+      ? globalContracts.planner_orchestration_contract
+      : {};
+  return contract;
+}
+
+function normalizeWorkflowCandidateRules(contract) {
+  const source = Array.isArray(contract && contract.workflow_candidate_rules)
+    ? contract.workflow_candidate_rules
+    : [];
+  const output = [];
+  for (let index = 0; index < source.length; index += 1) {
+    const rule = source[index];
+    if (!isPlainObject(rule)) {
+      continue;
+    }
+    output.push({
+      rule_id: normalizeString(rule.rule_id),
+      enabled: rule.enabled !== false,
+      priority: Number.isFinite(Number(rule.priority))
+        ? Math.floor(Number(rule.priority))
+        : 0,
+      template_ref: normalizeString(rule.template_ref),
+      reason_code_on_hit: normalizeString(rule.reason_code_on_hit),
+      source_order: index,
+    });
+  }
+  output.sort((left, right) => {
+    if (left.priority !== right.priority) {
+      return right.priority - left.priority;
+    }
+    return left.source_order - right.source_order;
+  });
+  return output;
+}
+
+function getWorkflowTemplateById(contract, templateId) {
+  if (!templateId) {
+    return null;
+  }
+  const templates = isPlainObject(contract && contract.workflow_templates)
+    ? contract.workflow_templates
+    : {};
+  const template = templates[templateId];
+  if (!isPlainObject(template) || template.enabled === false) {
+    return null;
+  }
+  return template;
+}
+
+function normalizeStringLower(value) {
+  const token = normalizeString(value);
+  return token ? token.toLowerCase() : "";
+}
+
+function normalizeErrorContext(rawErrorContext) {
+  const errorContext = isPlainObject(rawErrorContext) ? rawErrorContext : {};
+  return {
+    error_code: normalizeString(errorContext.error_code).toUpperCase(),
+    failed_property_path: normalizeString(errorContext.failed_property_path),
+  };
+}
+
+function scenarioContainsAnyToken(scenario, tokens) {
+  const normalizedScenario = normalizeStringLower(scenario);
+  if (!normalizedScenario) {
+    return false;
+  }
+  const values = Array.isArray(tokens) ? tokens : [];
+  return values.some((token) => {
+    const normalizedToken = normalizeStringLower(token);
+    return !!normalizedToken && normalizedScenario.includes(normalizedToken);
+  });
+}
+
+function resolveWorkflowIntentKey(templateDef) {
+  const template = isPlainObject(templateDef) ? templateDef : {};
+  const selection = isPlainObject(template.selection) ? template.selection : {};
+  const intentKeys = normalizeStringArray(selection.intent_keys);
+  return intentKeys[0] || "workflow.script.create_compile_attach";
+}
+
+function collectWorkflowTaskPayloadSlots(templateDef) {
+  const template = isPlainObject(templateDef) ? templateDef : {};
+  const steps = Array.isArray(template.steps) ? template.steps : [];
+  const output = new Set();
+  for (const step of steps) {
+    if (!isPlainObject(step)) {
+      continue;
+    }
+    if (normalizeString(step.step_type) !== "submit_task") {
+      continue;
+    }
+    const slot = normalizeString(step.task_payload_slot);
+    if (slot) {
+      output.add(slot);
+    }
+  }
+  return output;
+}
+
+function shouldIncludeEnsureTargetInput(templateDef) {
+  const template = isPlainObject(templateDef) ? templateDef : {};
+  const steps = Array.isArray(template.steps) ? template.steps : [];
+  for (const rawStep of steps) {
+    const step = isPlainObject(rawStep) ? rawStep : {};
+    if (normalizeString(step.step_type) === "ensure_target") {
+      return true;
+    }
+  }
+  return resolveWorkflowIntentKey(templateDef) === "workflow.script.create_compile_attach";
+}
+
+function buildWorkflowMinimalTemplate({ templateId, templateDef }) {
+  const taskPayloadSlots = collectWorkflowTaskPayloadSlots(templateDef);
+  const input = {
+    thread_id: "__thread_id__",
+    user_intent: "__user_intent__",
+  };
+  if (shouldIncludeEnsureTargetInput(templateDef)) {
+    input.ensure_target = {
+      enabled: false,
+      parent_anchor: {
+        object_id: "__parent_object_id__",
+        path: "__parent_path__",
+      },
+      new_object_name: "__new_object_name__",
+      object_kind: "__object_kind__",
+      set_active: true,
+      name_collision_policy: "fail",
+    };
+  }
+  if (taskPayloadSlots.has("file_actions")) {
+    input.file_actions = [
+      {
+        action: "create_or_update_script",
+        path: "Assets/Scripts/__ScriptName__.cs",
+        content:
+          "using UnityEngine; public class __ScriptName__ : MonoBehaviour {}",
+      },
+    ];
+  }
+  if (taskPayloadSlots.has("visual_layer_actions")) {
+    input.visual_layer_actions = [
+      {
+        action: "add_component",
+        target_object_id: "__target_object_id__",
+        target_path: "__target_path__",
+        component_type: "__ComponentType__",
+      },
+    ];
+  }
+
+  return {
+    block_spec: {
+      block_id: "__workflow_block_id__",
+      block_type: "MUTATE",
+      intent_key: resolveWorkflowIntentKey(templateDef),
+      input,
+      target_anchor: {
+        object_id: "__target_object_id__",
+        path: "__target_path__",
+      },
+      based_on_read_token: "__based_on_read_token__",
+      write_envelope: {
+        idempotency_key: "__idempotency_key__",
+        write_anchor_object_id: "__target_object_id__",
+        write_anchor_path: "__target_path__",
+        execution_mode: "execute",
+      },
+    },
+    execution_context: {
+      shape: "single_step",
+    },
+    suggested_tool: WORKFLOW_RECOMMENDATION_TOOL,
+    workflow_template_id: templateId,
+  };
+}
+
+function buildWorkflowRecommendation({
+  catalog,
+  toolRecord,
+  scenario,
+  previousTool,
+  errorContext,
+}) {
+  const contract = getPlannerOrchestrationContract(catalog);
+  const rules = normalizeWorkflowCandidateRules(contract);
+  if (rules.length <= 0) {
+    return null;
+  }
+  const toolName = normalizeString(toolRecord && toolRecord.name);
+  const previousToolName = normalizeString(previousTool);
+  const normalizedErrorContext = normalizeErrorContext(errorContext);
+  const scenarioHasScriptWorkflowHint = scenarioContainsAnyToken(scenario, [
+    "script_create_compile_attach",
+    "workflow.script.create_compile_attach",
+    "workflow_candidate_script_create_compile_attach",
+  ]);
+  const scenarioHasScriptActionHint =
+    scenarioContainsAnyToken(scenario, ["script"]) &&
+    scenarioContainsAnyToken(scenario, ["compile"]) &&
+    scenarioContainsAnyToken(scenario, ["attach"]);
+  const hasMisrouteRecoveryHint =
+    previousToolName === WORKFLOW_RECOMMENDATION_TOOL &&
+    MISROUTE_RECOVERY_ERROR_CODES.has(normalizedErrorContext.error_code);
+
+  for (const rule of rules) {
+    if (rule.enabled !== true || !rule.template_ref || !rule.rule_id) {
+      continue;
+    }
+    const template = getWorkflowTemplateById(contract, rule.template_ref);
+    if (!template) {
+      continue;
+    }
+    const stepTools = new Set(
+      (Array.isArray(template.steps) ? template.steps : [])
+        .map((step) =>
+          isPlainObject(step) ? normalizeString(step.tool_name) : ""
+        )
+        .filter(Boolean)
+    );
+    const isToolReferencedByTemplate = toolName ? stepTools.has(toolName) : false;
+    const shouldRecommend =
+      scenarioHasScriptWorkflowHint ||
+      scenarioHasScriptActionHint ||
+      hasMisrouteRecoveryHint ||
+      (previousToolName === WORKFLOW_RECOMMENDATION_TOOL &&
+        isToolReferencedByTemplate);
+    if (!shouldRecommend) {
+      continue;
+    }
+    const templateId = rule.template_ref;
+    return {
+      source: WORKFLOW_RECOMMENDATION_SOURCE,
+      source_rule_id: rule.rule_id,
+      reason_code:
+        rule.reason_code_on_hit || "workflow_candidate_script_create_compile_attach",
+      suggested_tool: WORKFLOW_RECOMMENDATION_TOOL,
+      workflow_template_id: templateId,
+      minimal_valid_template: buildWorkflowMinimalTemplate({
+        templateId,
+        templateDef: template,
+      }),
+    };
+  }
+
+  return null;
 }
 
 function getToolRecord(catalog, toolName) {
@@ -597,6 +866,7 @@ function buildBaseResponse({
   toolRecord,
   legacyFields,
   enhancedFields,
+  workflowRecommendation,
   includeEnhanced,
   includeLegacy,
   actionType,
@@ -620,6 +890,9 @@ function buildBaseResponse({
     schema_ref: legacyFields.schema_ref,
     message: legacyFields.message,
     usage_notes: enhancedFields.usage_notes,
+    ...(workflowRecommendation
+      ? { workflow_recommendation: workflowRecommendation }
+      : {}),
     common_mistakes: enhancedFields.common_mistakes,
     quick_fixes: enhancedFields.quick_fixes,
     recovery_paths: enhancedFields.recovery_paths,
@@ -767,6 +1040,7 @@ function applyBudgetTrim(baseResponse, budgetChars) {
     ["catalog_version"],
     ["message"],
     ["schema_ref"],
+    ["workflow_recommendation"],
     ["common_aliases"],
     ["minimal_valid_template"],
     ["auto_filled_fields"],
@@ -878,6 +1152,7 @@ function buildWriteContractBundleView(requestBody) {
     payload.context && typeof payload.context === "object" ? payload.context : {};
   const scenario = normalizeString(context.scenario);
   const previousTool = normalizeString(context.previous_tool);
+  const errorContext = normalizeErrorContext(context.error_context);
 
   let catalog = null;
   try {
@@ -934,6 +1209,8 @@ function buildWriteContractBundleView(requestBody) {
     includeLegacy,
     scenario,
     previousTool,
+    errorCode: errorContext.error_code,
+    failedPropertyPath: errorContext.failed_property_path,
   });
   const cached = cache.get(cacheKey);
   if (cached && Number(cached.statusCode) === 200 && cached.body) {
@@ -954,11 +1231,19 @@ function buildWriteContractBundleView(requestBody) {
     budgetChars,
     legacyFields,
   });
+  const workflowRecommendation = buildWorkflowRecommendation({
+    catalog,
+    toolRecord,
+    scenario,
+    previousTool,
+    errorContext,
+  });
   const baseResponse = buildBaseResponse({
     catalog,
     toolRecord,
     legacyFields,
     enhancedFields,
+    workflowRecommendation,
     includeEnhanced,
     includeLegacy,
     actionType,

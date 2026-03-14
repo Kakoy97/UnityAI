@@ -250,6 +250,111 @@ function buildDefinitions(overrides = {}) {
             "transaction_candidate_blocked_phase2a_constraints",
         },
       ],
+      workflow_candidate_rules: [
+        {
+          rule_id: "script_create_compile_attach_candidate_v1",
+          enabled: true,
+          priority: 100,
+          template_ref: "script_create_compile_attach.v1",
+          match_when: {
+            all_signals: [
+              "script_file_action",
+              "component_attach",
+              "target_anchor_available",
+              "thread_id_available",
+            ],
+            any_signals: ["compile_wait_intent"],
+          },
+          deny_when: {
+            any_signals: [
+              "target_anchor_missing",
+              "thread_id_missing",
+              "required_capability_missing",
+              "workflow_template_disabled",
+            ],
+          },
+          reason_code_on_hit: "workflow_candidate_script_create_compile_attach",
+          reason_code_on_deny:
+            "workflow_candidate_script_create_compile_attach_blocked",
+        },
+      ],
+      workflow_intent_gating_rules: [
+        {
+          rule_id: "workflow_gating_allow_non_candidate_default_v1",
+          enabled: true,
+          priority: 10,
+          action: "allow",
+          when: {
+            candidate_hit: false,
+          },
+          reason_code: "workflow_gating_allow_non_candidate",
+        },
+        {
+          rule_id: "workflow_gating_warn_script_candidate_v1",
+          enabled: true,
+          priority: 100,
+          action: "warn",
+          when: {
+            candidate_hit: true,
+            candidate_rule_ids: [
+              "script_create_compile_attach_candidate_v1",
+            ],
+            candidate_confidence_in: ["medium", "high"],
+            required_scene_signals_all: [
+              "script_file_action",
+              "component_attach",
+              "target_anchor_available",
+              "thread_id_available",
+            ],
+          },
+          reason_code: "workflow_gating_warn_script_candidate",
+        },
+        {
+          rule_id: "workflow_gating_reject_script_mixed_submit_slots_v1",
+          enabled: false,
+          priority: 120,
+          action: "reject",
+          when: {
+            candidate_hit: true,
+            candidate_rule_ids: [
+              "script_create_compile_attach_candidate_v1",
+            ],
+            candidate_confidence_in: ["high"],
+            misroute_patterns_any: [
+              "async_ops_submit_task_mixed_slots",
+            ],
+          },
+          reason_code: "workflow_gating_reject_script_mixed_submit_slots",
+        },
+      ],
+      workflow_misroute_recovery_rules: [
+        {
+          rule_id: "workflow_misroute_recovery_script_candidate_v1",
+          enabled: true,
+          priority: 100,
+          template_ref: "script_create_compile_attach.v1",
+          when: {
+            candidate_hit: true,
+            candidate_rule_ids: ["script_create_compile_attach_candidate_v1"],
+            required_scene_signals_all: [
+              "script_file_action",
+              "component_attach",
+              "target_anchor_available",
+              "thread_id_available",
+            ],
+            failure_path_error_codes_any: [
+              "E_SCHEMA_INVALID",
+              "E_BLOCK_INTENT_KEY_UNSUPPORTED",
+              "E_COMPONENT_TYPE_INVALID",
+              "E_BLOCK_NOT_IMPLEMENTED",
+              "E_PLANNER_NO_TOOL_MAPPING",
+              "E_PLANNER_UNSUPPORTED_FAMILY",
+              "E_WORKFLOW_GATING_REJECTED",
+            ],
+          },
+          reason_code: "workflow_misroute_recovery_script_candidate",
+        },
+      ],
       workflow_templates: {
         "script_create_compile_attach.v1": {
           enabled: true,
@@ -967,6 +1072,201 @@ test("validateDictionaryShape accepts planner_orchestration_contract candidate r
   assert.equal(validateDictionaryShape(dictionary), true);
 });
 
+test("validateDictionaryShape accepts planner_orchestration_contract workflow_candidate_rules", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions(),
+    tools: [buildTool()],
+  };
+
+  assert.equal(validateDictionaryShape(dictionary), true);
+});
+
+test("validateDictionaryShape accepts planner_orchestration_contract workflow_intent_gating_rules", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions(),
+    tools: [buildTool()],
+  };
+
+  assert.equal(validateDictionaryShape(dictionary), true);
+});
+
+test("validateDictionaryShape accepts planner_orchestration_contract workflow_misroute_recovery_rules", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions(),
+    tools: [buildTool()],
+  };
+
+  assert.equal(validateDictionaryShape(dictionary), true);
+});
+
+test("validateDictionaryShape rejects workflow_intent_gating_rules when action is unsupported", () => {
+  const definitions = buildDefinitions();
+  definitions.planner_orchestration_contract.workflow_intent_gating_rules[0].action =
+    "deny";
+  const dictionary = {
+    version: 1,
+    _definitions: definitions,
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /workflow_intent_gating_rules\[0\]\.action must be one of/
+  );
+});
+
+test("validateDictionaryShape rejects workflow_intent_gating_rules reject rule when not high-confidence only", () => {
+  const definitions = buildDefinitions();
+  definitions.planner_orchestration_contract.workflow_intent_gating_rules[2].when.candidate_confidence_in =
+    ["medium", "high"];
+  const dictionary = {
+    version: 1,
+    _definitions: definitions,
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /reject requires when\.candidate_confidence_in to be exactly \[high\]/
+  );
+});
+
+test("validateDictionaryShape rejects workflow_intent_gating_rules when has unknown condition key", () => {
+  const definitions = buildDefinitions();
+  definitions.planner_orchestration_contract.workflow_intent_gating_rules[1].when.unknown_condition =
+    true;
+  const dictionary = {
+    version: 1,
+    _definitions: definitions,
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /workflow_intent_gating_rules\[1\]\.when\.unknown_condition is not allowed/
+  );
+});
+
+test("validateDictionaryShape rejects workflow_misroute_recovery_rules when candidate_hit is not true", () => {
+  const definitions = buildDefinitions();
+  definitions.planner_orchestration_contract.workflow_misroute_recovery_rules[0].when.candidate_hit =
+    false;
+  const dictionary = {
+    version: 1,
+    _definitions: definitions,
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /workflow_misroute_recovery_rules\[0\] requires when\.candidate_hit=true/
+  );
+});
+
+test("validateDictionaryShape rejects workflow_misroute_recovery_rules when failure path error codes are missing", () => {
+  const definitions = buildDefinitions();
+  delete definitions.planner_orchestration_contract.workflow_misroute_recovery_rules[0].when
+    .failure_path_error_codes_any;
+  const dictionary = {
+    version: 1,
+    _definitions: definitions,
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /workflow_misroute_recovery_rules\[0\] requires non-empty when\.failure_path_error_codes_any/
+  );
+});
+
+test("validateDictionaryShape rejects workflow_misroute_recovery_rules when has unknown condition key", () => {
+  const definitions = buildDefinitions();
+  definitions.planner_orchestration_contract.workflow_misroute_recovery_rules[0].when.unknown_condition =
+    true;
+  const dictionary = {
+    version: 1,
+    _definitions: definitions,
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /workflow_misroute_recovery_rules\[0\]\.when\.unknown_condition is not allowed/
+  );
+});
+
+test("validateDictionaryShape rejects workflow_candidate_rules when signal is unsupported", () => {
+  const dictionary = {
+    version: 1,
+    _definitions: buildDefinitions({
+      planner_orchestration_contract: {
+        schema_version: "phase2a.v1",
+        transaction_candidate_rules: [
+          {
+            rule_id: "valid_rule",
+            enabled: true,
+            priority: 100,
+            allow_when: {},
+            deny_when: {},
+            reason_code_on_allow: "allow",
+            reason_code_on_deny: "deny",
+          },
+        ],
+        workflow_candidate_rules: [
+          {
+            rule_id: "invalid_signal_rule",
+            enabled: true,
+            priority: 100,
+            template_ref: "script_create_compile_attach.v1",
+            match_when: {
+              all_signals: ["script_file_action", "unsupported_signal"],
+            },
+            deny_when: {
+              any_signals: ["target_anchor_missing"],
+            },
+            reason_code_on_hit: "workflow_candidate_hit",
+            reason_code_on_deny: "workflow_candidate_blocked",
+          },
+        ],
+        workflow_templates: {
+          "script_create_compile_attach.v1": {
+            enabled: true,
+            workflow_type: "condition_wait_sequential",
+            selection: {
+              intent_keys: ["workflow.script.create_compile_attach"],
+              required_capabilities: [
+                "write.async_ops.submit_task",
+                "write.async_ops.get_task_status",
+                "write.component_lifecycle.add_component",
+              ],
+            },
+            steps: [
+              {
+                step_id: "create_script_task",
+                step_type: "submit_task",
+                tool_name: "submit_unity_task",
+                task_payload_slot: "file_actions",
+              },
+            ],
+            error_mapping: {
+              wait_timeout: "workflow_compile_wait_timeout",
+            },
+          },
+        },
+      },
+    }),
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /workflow_candidate_rules\[0\]\.match_when\.all_signals\[1\] must be one of/
+  );
+});
+
 test("validateDictionaryShape rejects planner_orchestration_contract when write_block_count bounds are invalid", () => {
   const dictionary = {
     version: 1,
@@ -1181,6 +1481,149 @@ test("validateDictionaryShape rejects planner_orchestration_contract workflow te
   assert.throws(
     () => validateDictionaryShape(dictionary),
     /workflow_templates\.script_create_compile_attach\.v1\.steps\[0\]\.timeout_ms must be an integer >= 1/
+  );
+});
+
+test("validateDictionaryShape accepts planner workflow template ensure_target step contract", () => {
+  const definitions = buildDefinitions();
+  const workflowTemplate =
+    definitions.planner_orchestration_contract.workflow_templates[
+      "script_create_compile_attach.v1"
+    ];
+  workflowTemplate.steps = [
+    {
+      step_id: "ensure_target_object",
+      step_type: "ensure_target",
+      tool_name: "create_object",
+      ensure_target_contract: {
+        parent_anchor_input_field: "input.ensure_target.parent_anchor",
+        resolved_target_output_field: "workflow_orchestration.resolved_target",
+        collision_policy_input_field: "input.ensure_target.name_collision_policy",
+        allowed_collision_policies: ["fail", "reuse"],
+        default_collision_policy: "fail",
+        require_unique_reuse_match: true,
+        forbid_fuzzy_reuse: true,
+      },
+    },
+    ...workflowTemplate.steps,
+  ];
+
+  const dictionary = {
+    version: 1,
+    _definitions: definitions,
+    tools: [buildTool()],
+  };
+
+  assert.equal(validateDictionaryShape(dictionary), true);
+});
+
+test("validateDictionaryShape rejects ensure_target step when parent_anchor and resolved_target fields are mixed", () => {
+  const definitions = buildDefinitions();
+  const workflowTemplate =
+    definitions.planner_orchestration_contract.workflow_templates[
+      "script_create_compile_attach.v1"
+    ];
+  workflowTemplate.steps = [
+    {
+      step_id: "ensure_target_object",
+      step_type: "ensure_target",
+      tool_name: "create_object",
+      ensure_target_contract: {
+        parent_anchor_input_field:
+          "input.ensure_target.parent_anchor_resolved_target_shared",
+        resolved_target_output_field:
+          "input.ensure_target.parent_anchor_resolved_target_shared",
+        collision_policy_input_field: "input.ensure_target.name_collision_policy",
+        allowed_collision_policies: ["fail", "reuse"],
+        default_collision_policy: "fail",
+        require_unique_reuse_match: true,
+        forbid_fuzzy_reuse: true,
+      },
+    },
+    ...workflowTemplate.steps,
+  ];
+
+  const dictionary = {
+    version: 1,
+    _definitions: definitions,
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /ensure_target_contract\.parent_anchor_input_field must differ from resolved_target_output_field/
+  );
+});
+
+test("validateDictionaryShape rejects ensure_target step when phase1 collision policy or reuse guard is weakened", () => {
+  const definitions = buildDefinitions();
+  const workflowTemplate =
+    definitions.planner_orchestration_contract.workflow_templates[
+      "script_create_compile_attach.v1"
+    ];
+  workflowTemplate.steps = [
+    {
+      step_id: "ensure_target_object",
+      step_type: "ensure_target",
+      tool_name: "create_object",
+      ensure_target_contract: {
+        parent_anchor_input_field: "input.ensure_target.parent_anchor",
+        resolved_target_output_field: "workflow_orchestration.resolved_target",
+        collision_policy_input_field: "input.ensure_target.name_collision_policy",
+        allowed_collision_policies: ["fail", "suffix"],
+        default_collision_policy: "fail",
+        require_unique_reuse_match: false,
+        forbid_fuzzy_reuse: true,
+      },
+    },
+    ...workflowTemplate.steps,
+  ];
+
+  const dictionary = {
+    version: 1,
+    _definitions: definitions,
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /ensure_target_contract\.allowed_collision_policies\[1\] must be one of: fail\|reuse/
+  );
+});
+
+test("validateDictionaryShape rejects ensure_target step when require_unique_reuse_match is not true", () => {
+  const definitions = buildDefinitions();
+  const workflowTemplate =
+    definitions.planner_orchestration_contract.workflow_templates[
+      "script_create_compile_attach.v1"
+    ];
+  workflowTemplate.steps = [
+    {
+      step_id: "ensure_target_object",
+      step_type: "ensure_target",
+      tool_name: "create_object",
+      ensure_target_contract: {
+        parent_anchor_input_field: "input.ensure_target.parent_anchor",
+        resolved_target_output_field: "workflow_orchestration.resolved_target",
+        collision_policy_input_field: "input.ensure_target.name_collision_policy",
+        allowed_collision_policies: ["fail", "reuse"],
+        default_collision_policy: "fail",
+        require_unique_reuse_match: false,
+        forbid_fuzzy_reuse: true,
+      },
+    },
+    ...workflowTemplate.steps,
+  ];
+
+  const dictionary = {
+    version: 1,
+    _definitions: definitions,
+    tools: [buildTool()],
+  };
+
+  assert.throws(
+    () => validateDictionaryShape(dictionary),
+    /ensure_target_contract\.require_unique_reuse_match must be true in phase1/
   );
 });
 

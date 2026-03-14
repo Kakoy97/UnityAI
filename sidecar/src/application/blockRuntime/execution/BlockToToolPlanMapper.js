@@ -589,6 +589,21 @@ function mapCreateObject(blockSpec) {
     object_kind: objectKindOutcome.value,
     set_active: input.set_active,
   };
+  if (Object.prototype.hasOwnProperty.call(input, "name_collision_policy")) {
+    const nameCollisionPolicy = normalizeString(input.name_collision_policy);
+    if (!nameCollisionPolicy) {
+      return {
+        ok: false,
+        error: buildMapperError({
+          error_code: "E_SCHEMA_INVALID",
+          block_error_code: "",
+          error_message:
+            "input.name_collision_policy must be a non-empty string when provided",
+        }),
+      };
+    }
+    payload.name_collision_policy = nameCollisionPolicy;
+  }
   return {
     ok: true,
     tool_name: "create_object",

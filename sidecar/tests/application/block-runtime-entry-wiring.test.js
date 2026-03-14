@@ -77,6 +77,32 @@ function buildWriteBlockSpec(overrides = {}) {
   };
 }
 
+function buildCreateObjectBlockSpec(overrides = {}) {
+  return {
+    block_id: "block_entry_create_object_1",
+    block_type: BLOCK_TYPE.CREATE,
+    intent_key: "create.object",
+    input: {
+      new_object_name: "ImageContainer",
+      object_kind: "ui_panel",
+      set_active: true,
+      name_collision_policy: "reuse",
+    },
+    target_anchor: {
+      object_id: "GlobalObjectId_V1-canvas",
+      path: "Scene/Canvas",
+    },
+    based_on_read_token: "ssot_rt_create_object",
+    write_envelope: {
+      idempotency_key: "idp_entry_create_object_1",
+      write_anchor_object_id: "GlobalObjectId_V1-canvas",
+      write_anchor_path: "Scene/Canvas",
+      execution_mode: "execute",
+    },
+    ...overrides,
+  };
+}
+
 function buildAsyncStatusBlockSpec(overrides = {}) {
   return {
     block_id: "block_entry_async_status_1",
@@ -134,6 +160,58 @@ function buildScriptWorkflowBlockSpec(overrides = {}) {
     },
     ...overrides,
   };
+}
+
+function buildWorkflowContractWithEnsureTargetStep(service, overrides = {}) {
+  const baseContract = service.getPlannerOrchestrationContract();
+  const customContract = JSON.parse(JSON.stringify(baseContract || {}));
+  if (
+    !customContract ||
+    !customContract.workflow_templates ||
+    !customContract.workflow_templates["script_create_compile_attach.v1"]
+  ) {
+    throw new Error("workflow template script_create_compile_attach.v1 is missing");
+  }
+
+  const template = customContract.workflow_templates["script_create_compile_attach.v1"];
+  const ensureTargetStep = {
+    step_id: "ensure_target_object",
+    step_type: "ensure_target",
+    tool_name: "create_object",
+    ensure_target_contract: {
+      parent_anchor_input_field: "input.ensure_target.parent_anchor",
+      resolved_target_output_field: "workflow_orchestration.resolved_target",
+      collision_policy_input_field: "input.ensure_target.name_collision_policy",
+      allowed_collision_policies: ["fail", "reuse"],
+      default_collision_policy: "fail",
+      require_unique_reuse_match: true,
+      forbid_fuzzy_reuse: true,
+      ...(overrides.ensure_target_contract || {}),
+    },
+    ...overrides,
+  };
+
+  ensureTargetStep.ensure_target_contract = {
+    parent_anchor_input_field: "input.ensure_target.parent_anchor",
+    resolved_target_output_field: "workflow_orchestration.resolved_target",
+    collision_policy_input_field: "input.ensure_target.name_collision_policy",
+    allowed_collision_policies: ["fail", "reuse"],
+    default_collision_policy: "fail",
+    require_unique_reuse_match: true,
+    forbid_fuzzy_reuse: true,
+    ...(overrides.ensure_target_contract || {}),
+  };
+
+  const templateErrorMapping =
+    template && typeof template.error_mapping === "object" && !Array.isArray(template.error_mapping)
+      ? template.error_mapping
+      : {};
+  template.steps = [ensureTargetStep, ...(Array.isArray(template.steps) ? template.steps : [])];
+  template.error_mapping = {
+    ...templateErrorMapping,
+    ensure_target_failed: "workflow_ensure_target_failed",
+  };
+  return customContract;
 }
 
 test("S2B-T1 executeBlockSpecForMvp blocks when BLOCK_PIPELINE_ENABLED is false", async () => {
@@ -408,10 +486,302 @@ test("Step8 executeBlockSpecForMvp records planner ux metrics for success and be
     metricEvents[0].orchestration_meta.auto_transaction_applied,
     false
   );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_gating_action,
+    "allow"
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_candidate_hit,
+    false
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_candidate_confidence,
+    "none"
+  );
   assert.equal(metricEvents[1].success, false);
   assert.equal(metricEvents[1].failure_stage, "before_dispatch");
   assert.equal(metricEvents[1].error_code, "E_SCHEMA_INVALID");
   assert.equal(typeof metricEvents[1].orchestration_meta, "object");
+});
+
+test("A4 executeBlockSpecForMvp exposes collision policy meta in planner orchestration and metrics", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    plannerUxMetricsCollector: collector,
+  });
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        status: "succeeded",
+        data: {
+          target_object_id: "GlobalObjectId_V1-image_container",
+          target_path: "Scene/Canvas/ImageContainer",
+          applied_policy: "reuse",
+          existing_candidates_count: 1,
+          existing_candidate_path: "Scene/Canvas/ImageContainer",
+          pre_check_existing: true,
+          scene_revision: "ssot_rev_entry_create_object_policy",
+          read_token_candidate: "ssot_rt_entry_create_object_policy",
+        },
+      },
+    };
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: buildCreateObjectBlockSpec(),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.data.status, "succeeded");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].toolName, "create_object");
+  assert.equal(calls[0].payload.name_collision_policy, "reuse");
+  assert.equal(
+    outcome.body.data.planner_orchestration.collision_policy_used,
+    "reuse"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.existing_candidates_count,
+    1
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.pre_check_existing,
+    true
+  );
+  assert.equal(metricEvents.length, 1);
+  assert.equal(metricEvents[0].success, true);
+  assert.equal(
+    metricEvents[0].orchestration_meta.collision_policy_used,
+    "reuse"
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.existing_candidates_count,
+    1
+  );
+});
+
+test("A5 executeBlockSpecForMvp keeps reuse target stable across retries", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    plannerUxMetricsCollector: collector,
+  });
+  let createCallCount = 0;
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    assert.equal(toolName, "create_object");
+    assert.equal(payload.name_collision_policy, "reuse");
+    createCallCount += 1;
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        status: "succeeded",
+        data: {
+          target_object_id: "GlobalObjectId_V1-image_container",
+          target_path: "Scene/Canvas/ImageContainer",
+          applied_policy: "reuse",
+          existing_candidates_count: createCallCount === 1 ? 0 : 1,
+          existing_candidate_path:
+            createCallCount === 1 ? "" : "Scene/Canvas/ImageContainer",
+          pre_check_existing: true,
+          scene_revision: `ssot_rev_entry_create_object_retry_${createCallCount}`,
+          read_token_candidate: `ssot_rt_entry_create_object_retry_${createCallCount}`,
+        },
+      },
+    };
+  };
+
+  const firstOutcome = await service.executeBlockSpecForMvp({
+    block_spec: buildCreateObjectBlockSpec({
+      block_id: "block_entry_create_object_retry_reuse_1",
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+  const secondOutcome = await service.executeBlockSpecForMvp({
+    block_spec: buildCreateObjectBlockSpec({
+      block_id: "block_entry_create_object_retry_reuse_2",
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(createCallCount, 2);
+  assert.equal(firstOutcome.statusCode, 200);
+  assert.equal(secondOutcome.statusCode, 200);
+  assert.equal(
+    firstOutcome.body.data.output_data.target_object_id,
+    "GlobalObjectId_V1-image_container"
+  );
+  assert.equal(
+    secondOutcome.body.data.output_data.target_object_id,
+    firstOutcome.body.data.output_data.target_object_id
+  );
+  assert.equal(
+    firstOutcome.body.data.planner_orchestration.collision_policy_used,
+    "reuse"
+  );
+  assert.equal(
+    secondOutcome.body.data.planner_orchestration.collision_policy_used,
+    "reuse"
+  );
+  assert.equal(
+    secondOutcome.body.data.planner_orchestration.existing_candidates_count,
+    1
+  );
+  assert.equal(metricEvents.length, 2);
+  assert.equal(metricEvents[0].success, true);
+  assert.equal(metricEvents[1].success, true);
+  assert.equal(
+    metricEvents[0].orchestration_meta.collision_policy_used,
+    "reuse"
+  );
+  assert.equal(
+    metricEvents[1].orchestration_meta.collision_policy_used,
+    "reuse"
+  );
+});
+
+test("A5 executeBlockSpecForMvp keeps fail collision diagnostics stable across retries", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    plannerUxMetricsCollector: collector,
+  });
+  let createCallCount = 0;
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    assert.equal(toolName, "create_object");
+    assert.equal(payload.name_collision_policy, "fail");
+    createCallCount += 1;
+    return {
+      statusCode: 409,
+      body: {
+        status: "failed",
+        error_code: "E_NAME_COLLISION_DETECTED",
+        message:
+          "Object name collision detected under parent: 'ImageContainer' (candidates=2).",
+        data: {
+          target_object_name: "ImageContainer",
+          target_path: "Scene/Canvas/ImageContainer",
+          existing_candidates_count: 2,
+          existing_candidate_path: "Scene/Canvas/ImageContainer",
+          applied_policy: "fail",
+          pre_check_existing: true,
+          scene_revision: `ssot_rev_entry_create_object_retry_fail_${createCallCount}`,
+        },
+      },
+    };
+  };
+
+  const failBlockSpec = buildCreateObjectBlockSpec({
+    input: {
+      new_object_name: "ImageContainer",
+      object_kind: "ui_panel",
+      set_active: true,
+      name_collision_policy: "fail",
+    },
+  });
+  const firstOutcome = await service.executeBlockSpecForMvp({
+    block_spec: {
+      ...failBlockSpec,
+      block_id: "block_entry_create_object_retry_fail_1",
+    },
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+  const secondOutcome = await service.executeBlockSpecForMvp({
+    block_spec: {
+      ...failBlockSpec,
+      block_id: "block_entry_create_object_retry_fail_2",
+    },
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(createCallCount, 2);
+  assert.equal(firstOutcome.statusCode, 409);
+  assert.equal(secondOutcome.statusCode, 409);
+  assert.equal(firstOutcome.body.error_code, "E_NAME_COLLISION_DETECTED");
+  assert.equal(secondOutcome.body.error_code, "E_NAME_COLLISION_DETECTED");
+  assert.equal(firstOutcome.body.data.block_result.status, "failed");
+  assert.equal(secondOutcome.body.data.block_result.status, "failed");
+  assert.equal(
+    firstOutcome.body.data.block_result.output_data.existing_candidates_count,
+    2
+  );
+  assert.equal(
+    secondOutcome.body.data.block_result.output_data.existing_candidates_count,
+    2
+  );
+  assert.equal(
+    firstOutcome.body.data.block_result.output_data.existing_candidate_path,
+    "Scene/Canvas/ImageContainer"
+  );
+  assert.equal(
+    secondOutcome.body.data.block_result.output_data.existing_candidate_path,
+    "Scene/Canvas/ImageContainer"
+  );
+  assert.equal(
+    firstOutcome.body.data.planner_orchestration.collision_policy_used,
+    "fail"
+  );
+  assert.equal(
+    secondOutcome.body.data.planner_orchestration.collision_policy_used,
+    "fail"
+  );
+  assert.equal(metricEvents.length, 2);
+  assert.equal(metricEvents[0].success, false);
+  assert.equal(metricEvents[1].success, false);
+  assert.equal(
+    metricEvents[0].orchestration_meta.collision_policy_used,
+    "fail"
+  );
+  assert.equal(
+    metricEvents[1].orchestration_meta.collision_policy_used,
+    "fail"
+  );
 });
 
 test("Step5 executeBlockSpecForMvp does not autofill based_on_read_token in phase1", async () => {
@@ -1281,16 +1651,994 @@ test("S6.2-T3 executeBlockSpecForMvp composes script workflow without changing s
   );
   assert.equal(
     outcome.body.data.planner_orchestration.workflow_template_id,
-    "script_create_compile_attach.v1"
+    "script_create_compile_attach_with_ensure_target.v1"
   );
-  assert.equal(outcome.body.data.planner_orchestration.step_count, 3);
+  assert.equal(outcome.body.data.planner_orchestration.step_count, 4);
   assert.equal(
     outcome.body.data.output_data.workflow_orchestration.template_id,
-    "script_create_compile_attach.v1"
+    "script_create_compile_attach_with_ensure_target.v1"
   );
   assert.equal(
     outcome.body.data.output_data.workflow_orchestration.step_results.length,
-    3
+    4
+  );
+});
+
+test("B2 executeBlockSpecForMvp runs ensure_target step and exposes resolved_target trace", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+    plannerUxMetricsCollector: collector,
+  });
+  service.plannerOrchestrationContract = buildWorkflowContractWithEnsureTargetStep(service);
+
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    if (toolName === "create_object") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            target_object_id: "GlobalObjectId_V1-runtime_button",
+            target_path: "Scene/Canvas/RuntimeButton",
+            applied_policy: "reuse",
+            existing_candidates_count: 1,
+            existing_candidate_path: "Scene/Canvas/RuntimeButton",
+          },
+        },
+      };
+    }
+    if (toolName === "submit_unity_task") {
+      if (Array.isArray(payload.file_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              job_id: "job_workflow_b2_ensure_target_1",
+              status: "submitted",
+            },
+          },
+        };
+      }
+      if (Array.isArray(payload.visual_layer_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              status: "completed",
+            },
+          },
+        };
+      }
+    }
+    if (toolName === "get_unity_task_status") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: payload.job_id,
+            status: "completed",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in ensure_target workflow test: ${toolName}`);
+  };
+
+  const blockSpec = buildScriptWorkflowBlockSpec({
+    block_id: "block_entry_script_workflow_ensure_target_1",
+    target_anchor: {
+      object_id: "GlobalObjectId_V1-runtime_button",
+      path: "Scene/Canvas/RuntimeButton",
+    },
+    write_envelope: {
+      idempotency_key: "idp_entry_workflow_ensure_target_1",
+      write_anchor_object_id: "GlobalObjectId_V1-runtime_button",
+      write_anchor_path: "Scene/Canvas/RuntimeButton",
+      execution_mode: "execute",
+    },
+  });
+  blockSpec.input.ensure_target = {
+    enabled: true,
+    parent_anchor: {
+      object_id: "GlobalObjectId_V1-canvas",
+      path: "Scene/Canvas",
+    },
+    new_object_name: "RuntimeButton",
+    object_kind: "ui_button",
+    name_collision_policy: "reuse",
+  };
+  blockSpec.input.visual_layer_actions = [
+    {
+      action: "add_component",
+      component_type: "PlannerUxStep3Sample",
+    },
+  ];
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: blockSpec,
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(calls.length, 4);
+  assert.equal(calls[0].toolName, "create_object");
+  assert.equal(calls[1].toolName, "submit_unity_task");
+  assert.equal(calls[2].toolName, "get_unity_task_status");
+  assert.equal(calls[3].toolName, "submit_unity_task");
+  assert.equal(calls[0].payload.parent_object_id, "GlobalObjectId_V1-canvas");
+  assert.equal(calls[0].payload.parent_path, "Scene/Canvas");
+  assert.equal(calls[0].payload.new_object_name, "RuntimeButton");
+  assert.equal(calls[0].payload.object_kind, "ui_button");
+  assert.equal(calls[0].payload.name_collision_policy, "reuse");
+  assert.equal(
+    outcome.body.data.output_data.workflow_orchestration.step_results.length,
+    4
+  );
+  assert.equal(
+    outcome.body.data.output_data.workflow_orchestration.step_results[0].step_type,
+    "ensure_target"
+  );
+  assert.equal(
+    outcome.body.data.output_data.workflow_orchestration.resolved_target.resolved_target_id,
+    "GlobalObjectId_V1-runtime_button"
+  );
+  assert.equal(
+    outcome.body.data.output_data.workflow_orchestration.resolved_target.resolved_target_path,
+    "Scene/Canvas/RuntimeButton"
+  );
+  assert.equal(
+    outcome.body.data.output_data.workflow_orchestration.resolved_target.created_or_reused,
+    "reused"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_step_count,
+    4
+  );
+  assert.equal(outcome.body.data.planner_orchestration.ensure_target_invoked, true);
+  assert.equal(outcome.body.data.planner_orchestration.ensure_target_reused, true);
+  assert.equal(
+    outcome.body.data.planner_orchestration.ensure_target_failed === true,
+    false
+  );
+  assert.equal(metricEvents.length, 1);
+  assert.equal(metricEvents[0].success, true);
+  assert.equal(
+    metricEvents[0].orchestration_meta.ensure_target_invoked,
+    true
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.ensure_target_reused,
+    true
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.ensure_target_failed === true,
+    false
+  );
+});
+
+test("B6 executeBlockSpecForMvp marks ensure_target created path in trace and metrics", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+    plannerUxMetricsCollector: collector,
+  });
+  service.plannerOrchestrationContract = buildWorkflowContractWithEnsureTargetStep(service);
+
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    if (toolName === "create_object") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            target_object_id: "GlobalObjectId_V1-runtime_button_created",
+            target_path: "Scene/Canvas/RuntimeButtonCreated",
+            applied_policy: "fail",
+            existing_candidates_count: 0,
+          },
+        },
+      };
+    }
+    if (toolName === "submit_unity_task") {
+      if (Array.isArray(payload.file_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              job_id: "job_workflow_b6_ensure_target_created_1",
+              status: "submitted",
+            },
+          },
+        };
+      }
+      if (Array.isArray(payload.visual_layer_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              status: "completed",
+            },
+          },
+        };
+      }
+    }
+    if (toolName === "get_unity_task_status") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: payload.job_id,
+            status: "completed",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in ensure_target created test: ${toolName}`);
+  };
+
+  const blockSpec = buildScriptWorkflowBlockSpec({
+    block_id: "block_entry_script_workflow_ensure_target_created_1",
+    target_anchor: {
+      object_id: "GlobalObjectId_V1-runtime_button_created",
+      path: "Scene/Canvas/RuntimeButtonCreated",
+    },
+    write_envelope: {
+      idempotency_key: "idp_entry_workflow_ensure_target_created_1",
+      write_anchor_object_id: "GlobalObjectId_V1-runtime_button_created",
+      write_anchor_path: "Scene/Canvas/RuntimeButtonCreated",
+      execution_mode: "execute",
+    },
+  });
+  blockSpec.input.ensure_target = {
+    enabled: true,
+    parent_anchor: {
+      object_id: "GlobalObjectId_V1-canvas",
+      path: "Scene/Canvas",
+    },
+    new_object_name: "RuntimeButtonCreated",
+    object_kind: "ui_button",
+    name_collision_policy: "fail",
+  };
+  blockSpec.input.visual_layer_actions = [
+    {
+      action: "add_component",
+      component_type: "PlannerUxStep3Sample",
+    },
+  ];
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: blockSpec,
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(
+    outcome.body.data.output_data.workflow_orchestration.resolved_target.created_or_reused,
+    "created"
+  );
+  assert.equal(outcome.body.data.planner_orchestration.ensure_target_invoked, true);
+  assert.equal(outcome.body.data.planner_orchestration.ensure_target_created, true);
+  assert.equal(
+    outcome.body.data.planner_orchestration.ensure_target_reused === true,
+    false
+  );
+  assert.equal(metricEvents.length, 1);
+  assert.equal(metricEvents[0].success, true);
+  assert.equal(
+    metricEvents[0].orchestration_meta.ensure_target_invoked,
+    true
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.ensure_target_created,
+    true
+  );
+});
+
+test("B2 executeBlockSpecForMvp fails fast when ensure_target reuse is ambiguous", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+    plannerUxMetricsCollector: collector,
+  });
+  service.plannerOrchestrationContract = buildWorkflowContractWithEnsureTargetStep(service);
+
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName) => {
+    calls.push(toolName);
+    if (toolName === "create_object") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            target_object_id: "GlobalObjectId_V1-runtime_button",
+            target_path: "Scene/Canvas/RuntimeButton",
+            applied_policy: "reuse",
+            existing_candidates_count: 2,
+            existing_candidate_path: "Scene/Canvas/RuntimeButton",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in ensure_target ambiguity test: ${toolName}`);
+  };
+
+  const blockSpec = buildScriptWorkflowBlockSpec({
+    block_id: "block_entry_script_workflow_ensure_target_ambiguous_1",
+  });
+  blockSpec.input.ensure_target = {
+    enabled: true,
+    parent_anchor: {
+      object_id: "GlobalObjectId_V1-canvas",
+      path: "Scene/Canvas",
+    },
+    new_object_name: "RuntimeButton",
+    object_kind: "ui_button",
+    name_collision_policy: "reuse",
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: blockSpec,
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(outcome.body.error_code, "E_WORKFLOW_ENSURE_TARGET_AMBIGUOUS_REUSE");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0], "create_object");
+  assert.equal(outcome.body.planner_dispatch_mode, "workflow_template");
+  assert.equal(metricEvents.length, 1);
+  assert.equal(metricEvents[0].success, false);
+  assert.equal(
+    metricEvents[0].orchestration_meta.ensure_target_invoked,
+    true
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.ensure_target_failed,
+    true
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.ensure_target_ambiguous_reuse,
+    true
+  );
+});
+
+test("B4 executeBlockSpecForMvp binds attach target to resolved_target for visual actions", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+  });
+  service.plannerOrchestrationContract = buildWorkflowContractWithEnsureTargetStep(service);
+
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    if (toolName === "create_object") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            target_object_id: "GlobalObjectId_V1-runtime_button_b4",
+            target_path: "Scene/Canvas/RuntimeButtonB4",
+            applied_policy: "reuse",
+            existing_candidates_count: 1,
+            existing_candidate_path: "Scene/Canvas/RuntimeButtonB4",
+          },
+        },
+      };
+    }
+    if (toolName === "submit_unity_task") {
+      if (Array.isArray(payload.file_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              job_id: "job_workflow_b4_bind_1",
+              status: "submitted",
+            },
+          },
+        };
+      }
+      if (Array.isArray(payload.visual_layer_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              status: "completed",
+            },
+          },
+        };
+      }
+    }
+    if (toolName === "get_unity_task_status") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: payload.job_id,
+            status: "completed",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in B4 bind test: ${toolName}`);
+  };
+
+  const blockSpec = buildScriptWorkflowBlockSpec({
+    block_id: "block_entry_script_workflow_b4_bind_1",
+    target_anchor: {
+      object_id: "GlobalObjectId_V1-runtime_button_b4",
+      path: "Scene/Canvas/RuntimeButtonB4",
+    },
+    write_envelope: {
+      idempotency_key: "idp_entry_workflow_b4_bind_1",
+      write_anchor_object_id: "GlobalObjectId_V1-runtime_button_b4",
+      write_anchor_path: "Scene/Canvas/RuntimeButtonB4",
+      execution_mode: "execute",
+    },
+  });
+  blockSpec.input.ensure_target = {
+    enabled: true,
+    parent_anchor: {
+      object_id: "GlobalObjectId_V1-canvas",
+      path: "Scene/Canvas",
+    },
+    new_object_name: "RuntimeButtonB4",
+    object_kind: "ui_button",
+    name_collision_policy: "reuse",
+  };
+  blockSpec.input.visual_layer_actions = [
+    {
+      action: "add_component",
+      component_type: "PlannerUxStep3Sample",
+    },
+  ];
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: blockSpec,
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(calls.length, 4);
+  assert.equal(calls[3].toolName, "submit_unity_task");
+  assert.equal(calls[3].payload.write_anchor.object_id, "GlobalObjectId_V1-runtime_button_b4");
+  assert.equal(calls[3].payload.write_anchor.path, "Scene/Canvas/RuntimeButtonB4");
+  const boundVisualAction = JSON.parse(calls[3].payload.visual_layer_actions[0]);
+  assert.equal(
+    boundVisualAction.target_anchor.object_id,
+    "GlobalObjectId_V1-runtime_button_b4"
+  );
+  assert.equal(
+    boundVisualAction.target_anchor.path,
+    "Scene/Canvas/RuntimeButtonB4"
+  );
+  assert.equal(
+    boundVisualAction.target_object_id,
+    "GlobalObjectId_V1-runtime_button_b4"
+  );
+  assert.equal(
+    boundVisualAction.target_path,
+    "Scene/Canvas/RuntimeButtonB4"
+  );
+});
+
+test("B4 executeBlockSpecForMvp fails before attach when block target_anchor conflicts with resolved_target", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+  });
+  service.plannerOrchestrationContract = buildWorkflowContractWithEnsureTargetStep(service);
+
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    if (toolName === "create_object") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            target_object_id: "GlobalObjectId_V1-runtime_button_b4_conflict",
+            target_path: "Scene/Canvas/RuntimeButtonB4Conflict",
+            applied_policy: "reuse",
+            existing_candidates_count: 1,
+            existing_candidate_path: "Scene/Canvas/RuntimeButtonB4Conflict",
+          },
+        },
+      };
+    }
+    if (toolName === "submit_unity_task" && Array.isArray(payload.file_actions)) {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: "job_workflow_b4_conflict_1",
+            status: "submitted",
+          },
+        },
+      };
+    }
+    if (toolName === "get_unity_task_status") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: payload.job_id,
+            status: "completed",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in B4 conflict test: ${toolName}`);
+  };
+
+  const blockSpec = buildScriptWorkflowBlockSpec({
+    block_id: "block_entry_script_workflow_b4_conflict_1",
+    target_anchor: {
+      object_id: "GlobalObjectId_V1-old_target",
+      path: "Scene/Canvas/OldTarget",
+    },
+    write_envelope: {
+      idempotency_key: "idp_entry_workflow_b4_conflict_1",
+      write_anchor_object_id: "GlobalObjectId_V1-old_target",
+      write_anchor_path: "Scene/Canvas/OldTarget",
+      execution_mode: "execute",
+    },
+  });
+  blockSpec.input.ensure_target = {
+    enabled: true,
+    parent_anchor: {
+      object_id: "GlobalObjectId_V1-canvas",
+      path: "Scene/Canvas",
+    },
+    new_object_name: "RuntimeButtonB4Conflict",
+    object_kind: "ui_button",
+    name_collision_policy: "reuse",
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: blockSpec,
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(outcome.body.error_code, "E_WORKFLOW_RESOLVED_TARGET_CONFLICT");
+  assert.equal(outcome.body.planner_dispatch_mode, "workflow_template");
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0].toolName, "create_object");
+  assert.equal(calls[1].toolName, "submit_unity_task");
+  assert.equal(calls[2].toolName, "get_unity_task_status");
+});
+
+test("A3 executeBlockSpecForMvp emits workflow candidate metadata for workflow template path", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+  });
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    if (toolName === "submit_unity_task") {
+      if (Array.isArray(payload.file_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              job_id: "job_workflow_candidate_1",
+              status: "submitted",
+            },
+          },
+        };
+      }
+      if (Array.isArray(payload.visual_layer_actions)) {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            data: {
+              status: "completed",
+            },
+          },
+        };
+      }
+    }
+    if (toolName === "get_unity_task_status") {
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          data: {
+            job_id: payload.job_id,
+            status: "completed",
+          },
+        },
+      };
+    }
+    throw new Error(`unexpected tool dispatch in workflow candidate test: ${toolName}`);
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: buildScriptWorkflowBlockSpec({
+      block_id: "block_entry_script_workflow_candidate_1",
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.data.planner_orchestration.workflow_candidate_hit, true);
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_candidate_confidence,
+    "high"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_candidate_rule_id,
+    "script_create_compile_attach_candidate_v1"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_candidate_reason_code,
+    "workflow_candidate_script_create_compile_attach"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.recommended_workflow_template_id,
+    "script_create_compile_attach_with_ensure_target.v1"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_gating_action,
+    "warn"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_gating_rule_id,
+    "workflow_gating_warn_script_candidate_v1"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_gating_reason_code,
+    "workflow_gating_warn_script_candidate"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_template_applied,
+    true
+  );
+});
+
+test("A3 executeBlockSpecForMvp keeps workflow candidate metadata as miss for non-workflow requests", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+  });
+  service.dispatchSsotToolForMcp = async () => ({
+    statusCode: 200,
+    body: {
+      ok: true,
+      status: "succeeded",
+      data: {
+        scene_revision: "ssot_rev_entry_candidate_miss",
+        read_token_candidate: "ssot_rt_entry_candidate_miss",
+      },
+    },
+  });
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: buildReadBlockSpec({
+      block_id: "block_entry_workflow_candidate_miss_1",
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.data.planner_orchestration.workflow_candidate_hit, false);
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_candidate_confidence,
+    "none"
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      outcome.body.data.planner_orchestration,
+      "workflow_candidate_rule_id"
+    ),
+    false
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      outcome.body.data.planner_orchestration,
+      "recommended_workflow_template_id"
+    ),
+    false
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_gating_action,
+    "allow"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_gating_rule_id,
+    "workflow_gating_allow_non_candidate_default_v1"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_gating_reason_code,
+    "workflow_gating_allow_non_candidate"
+  );
+});
+
+test("B2 executeBlockSpecForMvp rejects before dispatch when workflow intent gating action is reject", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+    plannerUxMetricsCollector: collector,
+  });
+  let dispatchCalled = false;
+  service.dispatchSsotToolForMcp = async () => {
+    dispatchCalled = true;
+    return {
+      statusCode: 500,
+      body: {
+        ok: false,
+      },
+    };
+  };
+  service.workflowRoutingAdvisor = {
+    detectCandidate() {
+      return {
+        candidate_hit: true,
+        confidence: "high",
+        matched_rule_id: "script_create_compile_attach_candidate_v1",
+        recommended_workflow_template_id: "script_create_compile_attach.v1",
+        reason_code: "workflow_candidate_script_create_compile_attach",
+      };
+    },
+    evaluateIntentGating() {
+      return {
+        action: "reject",
+        matched_rule_id: "workflow_gating_reject_test_v1",
+        reason_code: "workflow_gating_reject_test",
+        recommended_workflow_template_id: "script_create_compile_attach.v1",
+      };
+    },
+  };
+
+  const outcome = await service.executeBlockSpecForMvp({
+    block_spec: buildScriptWorkflowBlockSpec({
+      block_id: "block_entry_workflow_gating_reject_1",
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(dispatchCalled, false);
+  assert.equal(metricEvents.length, 1);
+  assert.equal(metricEvents[0].success, false);
+  assert.equal(metricEvents[0].failure_stage, "before_dispatch");
+  assert.equal(metricEvents[0].error_code, "E_WORKFLOW_GATING_REJECTED");
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_gating_action,
+    "reject"
+  );
+  assert.equal(outcome.statusCode, 409);
+  assert.equal(outcome.body.error_code, "E_WORKFLOW_GATING_REJECTED");
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_gating_action,
+    "reject"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_gating_rule_id,
+    "workflow_gating_reject_test_v1"
+  );
+  assert.equal(
+    outcome.body.data.planner_orchestration.workflow_gating_reason_code,
+    "workflow_gating_reject_test"
+  );
+  assert.equal(
+    outcome.body.context.previous_operation,
+    "workflow_intent_gating"
+  );
+});
+
+test("C3 executeBlockSpecForMvp returns misroute recommendation only when same error has workflow scene candidate", async () => {
+  const metricEvents = [];
+  const collector = {
+    recordAttempt(input) {
+      metricEvents.push(input);
+    },
+    getSnapshot() {
+      return {
+        events_total: metricEvents.length,
+      };
+    },
+  };
+  const service = createService({
+    blockPipelineEnabled: true,
+    blockBypassRouter: true,
+    plannerUxMetricsCollector: collector,
+  });
+  service.getBlockRuntimeExecutionAdapter = () => ({
+    async executeBlock(blockSpec) {
+      return {
+        block_id:
+          blockSpec && typeof blockSpec.block_id === "string"
+            ? blockSpec.block_id
+            : "block_entry_misroute_failed",
+        status: "failed",
+        output_data: {},
+        execution_meta: {
+          channel: "execution",
+          shape: "single_step",
+          tool_name: "set_active",
+        },
+        error: {
+          error_code: "E_SCHEMA_INVALID",
+          error_message:
+            "input must contain exactly one of file_actions or visual_layer_actions",
+        },
+      };
+    },
+  });
+
+  const candidateOutcome = await service.executeBlockSpecForMvp({
+    block_spec: buildWriteBlockSpec({
+      block_id: "block_entry_misroute_candidate_case_1",
+      input: {
+        active: true,
+        thread_id: "thread_misroute_candidate_1",
+        file_actions: [
+          {
+            action: "create_or_update_script",
+            path: "Assets/Scripts/MisrouteCandidate.cs",
+            content:
+              "using UnityEngine; public class MisrouteCandidate : MonoBehaviour {}",
+          },
+        ],
+        visual_layer_actions: [
+          {
+            action: "add_component",
+            target_object_id: "GlobalObjectId_V1-target",
+            target_path: "Scene/Canvas/Image",
+            component_type: "MisrouteCandidate",
+          },
+        ],
+      },
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+  const nonCandidateOutcome = await service.executeBlockSpecForMvp({
+    block_spec: buildWriteBlockSpec({
+      block_id: "block_entry_misroute_non_candidate_case_1",
+      input: {
+        active: true,
+      },
+    }),
+    execution_context: {
+      shape: "single_step",
+    },
+  });
+
+  assert.equal(candidateOutcome.statusCode, 409);
+  assert.equal(candidateOutcome.body.error_code, "E_SCHEMA_INVALID");
+  assert.equal(typeof candidateOutcome.body.workflow_recommendation, "object");
+  assert.equal(
+    candidateOutcome.body.workflow_recommendation.workflow_template_id,
+    "script_create_compile_attach_with_ensure_target.v1"
+  );
+  assert.equal(nonCandidateOutcome.statusCode, 409);
+  assert.equal(nonCandidateOutcome.body.error_code, "E_SCHEMA_INVALID");
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      nonCandidateOutcome.body,
+      "workflow_recommendation"
+    ),
+    false
+  );
+
+  assert.equal(metricEvents.length, 2);
+  assert.equal(metricEvents[0].error_code, "E_SCHEMA_INVALID");
+  assert.equal(metricEvents[1].error_code, "E_SCHEMA_INVALID");
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_candidate_hit,
+    true
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_recommendation_suggested,
+    true
+  );
+  assert.equal(
+    metricEvents[1].orchestration_meta.workflow_candidate_hit,
+    false
+  );
+  assert.equal(
+    metricEvents[1].orchestration_meta.workflow_recommendation_suggested === true,
+    false
   );
 });
 
@@ -1520,7 +2868,19 @@ test("S6.2-T5 planner ux metrics capture workflow wait duration and success stag
   );
   assert.equal(
     metricEvents[0].orchestration_meta.workflow_template_id,
-    "script_create_compile_attach.v1"
+    "script_create_compile_attach_with_ensure_target.v1"
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_candidate_hit,
+    true
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_candidate_confidence,
+    "high"
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_gating_action,
+    "warn"
   );
   assert.equal(
     Number.isFinite(
@@ -1609,12 +2969,24 @@ test("S6.2-T5 planner ux metrics capture workflow failure stage and failed step"
     true
   );
   assert.equal(
+    metricEvents[0].orchestration_meta.workflow_candidate_hit,
+    true
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_candidate_confidence,
+    "high"
+  );
+  assert.equal(
+    metricEvents[0].orchestration_meta.workflow_gating_action,
+    "warn"
+  );
+  assert.equal(
     metricEvents[0].orchestration_meta.workflow_failed_step_id,
     "wait_compile_ready"
   );
   assert.equal(
     metricEvents[0].orchestration_meta.workflow_step_count,
-    2
+    3
   );
 });
 

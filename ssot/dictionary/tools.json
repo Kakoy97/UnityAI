@@ -323,9 +323,122 @@
           "reason_code_on_deny": "transaction_candidate_blocked_phase2a_constraints"
         }
       ],
+      "workflow_candidate_rules": [
+        {
+          "rule_id": "script_create_compile_attach_candidate_v1",
+          "enabled": true,
+          "priority": 100,
+          "template_ref": "script_create_compile_attach_with_ensure_target.v1",
+          "match_when": {
+            "all_signals": [
+              "script_file_action",
+              "component_attach",
+              "target_anchor_available",
+              "thread_id_available"
+            ],
+            "any_signals": [
+              "compile_wait_intent"
+            ]
+          },
+          "deny_when": {
+            "any_signals": [
+              "target_anchor_missing",
+              "thread_id_missing",
+              "required_capability_missing",
+              "workflow_template_disabled"
+            ]
+          },
+          "reason_code_on_hit": "workflow_candidate_script_create_compile_attach",
+          "reason_code_on_deny": "workflow_candidate_script_create_compile_attach_blocked"
+        }
+      ],
+      "workflow_intent_gating_rules": [
+        {
+          "rule_id": "workflow_gating_allow_non_candidate_default_v1",
+          "enabled": true,
+          "priority": 10,
+          "action": "allow",
+          "when": {
+            "candidate_hit": false
+          },
+          "reason_code": "workflow_gating_allow_non_candidate"
+        },
+        {
+          "rule_id": "workflow_gating_warn_script_candidate_v1",
+          "enabled": true,
+          "priority": 100,
+          "action": "warn",
+          "when": {
+            "candidate_hit": true,
+            "candidate_rule_ids": [
+              "script_create_compile_attach_candidate_v1"
+            ],
+            "candidate_confidence_in": [
+              "medium",
+              "high"
+            ],
+            "required_scene_signals_all": [
+              "script_file_action",
+              "component_attach",
+              "target_anchor_available",
+              "thread_id_available"
+            ]
+          },
+          "reason_code": "workflow_gating_warn_script_candidate"
+        },
+        {
+          "rule_id": "workflow_gating_reject_script_mixed_submit_slots_v1",
+          "enabled": true,
+          "priority": 120,
+          "action": "reject",
+          "when": {
+            "candidate_hit": true,
+            "candidate_rule_ids": [
+              "script_create_compile_attach_candidate_v1"
+            ],
+            "candidate_confidence_in": [
+              "high"
+            ],
+            "misroute_patterns_any": [
+              "async_ops_submit_task_mixed_slots"
+            ]
+          },
+          "reason_code": "workflow_gating_reject_script_mixed_submit_slots"
+        }
+      ],
+      "workflow_misroute_recovery_rules": [
+        {
+          "rule_id": "workflow_misroute_recovery_script_candidate_v1",
+          "enabled": true,
+          "priority": 100,
+          "template_ref": "script_create_compile_attach_with_ensure_target.v1",
+          "when": {
+            "candidate_hit": true,
+            "candidate_rule_ids": [
+              "script_create_compile_attach_candidate_v1"
+            ],
+            "required_scene_signals_all": [
+              "script_file_action",
+              "component_attach",
+              "target_anchor_available",
+              "thread_id_available"
+            ],
+            "failure_path_error_codes_any": [
+              "E_SCHEMA_INVALID",
+              "E_BLOCK_INTENT_KEY_UNSUPPORTED",
+              "E_COMPONENT_TYPE_INVALID",
+              "E_BLOCK_NOT_IMPLEMENTED",
+              "E_PLANNER_NO_TOOL_MAPPING",
+              "E_PLANNER_UNSUPPORTED_FAMILY",
+              "E_WORKFLOW_GATING_REJECTED"
+            ]
+          },
+          "reason_code": "workflow_misroute_recovery_script_candidate"
+        }
+      ],
       "workflow_templates": {
         "script_create_compile_attach.v1": {
-          "enabled": true,
+          "enabled": false,
           "workflow_type": "condition_wait_sequential",
           "selection": {
             "intent_keys": [
@@ -367,6 +480,74 @@
             }
           ],
           "error_mapping": {
+            "compile_failed": "workflow_script_compile_failed",
+            "class_name_mismatch": "workflow_script_class_mismatch",
+            "component_not_attachable": "workflow_component_not_attachable",
+            "wait_timeout": "workflow_compile_wait_timeout",
+            "task_cancelled": "workflow_task_cancelled"
+          }
+        },
+        "script_create_compile_attach_with_ensure_target.v1": {
+          "enabled": true,
+          "workflow_type": "condition_wait_sequential",
+          "selection": {
+            "intent_keys": [
+              "workflow.script.create_compile_attach"
+            ],
+            "required_capabilities": [
+              "write.async_ops.submit_task",
+              "write.async_ops.get_task_status",
+              "write.component_lifecycle.add_component"
+            ]
+          },
+          "steps": [
+            {
+              "step_id": "ensure_target_object",
+              "step_type": "ensure_target",
+              "tool_name": "create_object",
+              "ensure_target_contract": {
+                "parent_anchor_input_field": "input.ensure_target.parent_anchor",
+                "resolved_target_output_field": "workflow_orchestration.resolved_target",
+                "collision_policy_input_field": "input.ensure_target.name_collision_policy",
+                "allowed_collision_policies": [
+                  "fail",
+                  "reuse"
+                ],
+                "default_collision_policy": "fail",
+                "require_unique_reuse_match": true,
+                "forbid_fuzzy_reuse": true
+              }
+            },
+            {
+              "step_id": "create_script_task",
+              "step_type": "submit_task",
+              "tool_name": "submit_unity_task",
+              "task_payload_slot": "file_actions"
+            },
+            {
+              "step_id": "wait_compile_ready",
+              "step_type": "wait_task_status",
+              "tool_name": "get_unity_task_status",
+              "poll_interval_ms": 1200,
+              "timeout_ms": 180000,
+              "success_statuses": [
+                "completed"
+              ],
+              "failure_statuses": [
+                "failed",
+                "cancelled",
+                "timeout"
+              ]
+            },
+            {
+              "step_id": "attach_component_task",
+              "step_type": "submit_task",
+              "tool_name": "submit_unity_task",
+              "task_payload_slot": "visual_layer_actions"
+            }
+          ],
+          "error_mapping": {
+            "ensure_target_failed": "workflow_ensure_target_failed",
             "compile_failed": "workflow_script_compile_failed",
             "class_name_mismatch": "workflow_script_class_mismatch",
             "component_not_attachable": "workflow_component_not_attachable",

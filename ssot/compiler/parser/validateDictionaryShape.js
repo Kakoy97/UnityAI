@@ -904,6 +904,356 @@ function validateTransactionCandidateRule(value, label) {
   }
 }
 
+function validateWorkflowCandidateSignalArray(
+  value,
+  label,
+  allowedSignalSet,
+  { requiredNonEmpty = false } = {}
+) {
+  assertStringArray(value, label);
+  if (requiredNonEmpty && value.length <= 0) {
+    throw new Error(`${label} must be non-empty`);
+  }
+  for (const [index, rawSignal] of value.entries()) {
+    const signal = String(rawSignal || "").trim();
+    if (!allowedSignalSet.has(signal)) {
+      throw new Error(
+        `${label}[${index}] must be one of: ${Array.from(allowedSignalSet).join("|")}`
+      );
+    }
+  }
+}
+
+function validateAllowedStringArray(
+  value,
+  label,
+  allowedValueSet,
+  { requiredNonEmpty = false } = {}
+) {
+  assertStringArray(value, label);
+  if (requiredNonEmpty && value.length <= 0) {
+    throw new Error(`${label} must be non-empty`);
+  }
+  for (const [index, rawValue] of value.entries()) {
+    const token = String(rawValue || "").trim();
+    if (!allowedValueSet.has(token)) {
+      throw new Error(
+        `${label}[${index}] must be one of: ${Array.from(allowedValueSet).join("|")}`
+      );
+    }
+  }
+}
+
+const WORKFLOW_ORCHESTRATION_SCENE_SIGNALS = new Set([
+  "script_file_action",
+  "component_attach",
+  "compile_wait_intent",
+  "target_anchor_available",
+  "thread_id_available",
+  "target_anchor_missing",
+  "thread_id_missing",
+  "required_capability_missing",
+  "workflow_template_disabled",
+]);
+
+const WORKFLOW_GATING_MISROUTE_PATTERNS = new Set([
+  "async_ops_submit_task_mixed_slots",
+  "unsupported_intent_key",
+  "disabled_family_key",
+  "missing_write_envelope_or_anchor",
+  "generic_property_fallback_drift",
+]);
+
+const WORKFLOW_MISROUTE_RECOVERY_ERROR_CODES = new Set([
+  "E_SCHEMA_INVALID",
+  "E_BLOCK_INTENT_KEY_UNSUPPORTED",
+  "E_COMPONENT_TYPE_INVALID",
+  "E_BLOCK_NOT_IMPLEMENTED",
+  "E_PLANNER_NO_TOOL_MAPPING",
+  "E_PLANNER_UNSUPPORTED_FAMILY",
+  "E_WORKFLOW_GATING_REJECTED",
+]);
+
+function validateWorkflowCandidateRule(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  const allowedKeys = new Set([
+    "rule_id",
+    "enabled",
+    "priority",
+    "template_ref",
+    "match_when",
+    "deny_when",
+    "reason_code_on_hit",
+    "reason_code_on_deny",
+  ]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(
+        `${label}.${key} is not allowed (allowed: rule_id, enabled, priority, template_ref, match_when, deny_when, reason_code_on_hit, reason_code_on_deny)`
+      );
+    }
+  }
+  assertNonEmptyString(value.rule_id, `${label}.rule_id`);
+  assertBoolean(value.enabled, `${label}.enabled`);
+  assertPositiveInteger(value.priority, `${label}.priority`);
+  assertNonEmptyString(value.template_ref, `${label}.template_ref`);
+  assertNonEmptyString(value.reason_code_on_hit, `${label}.reason_code_on_hit`);
+  assertNonEmptyString(value.reason_code_on_deny, `${label}.reason_code_on_deny`);
+
+  if (!isPlainObject(value.match_when)) {
+    throw new Error(`${label}.match_when must be an object`);
+  }
+  const allowedMatchKeys = new Set(["all_signals", "any_signals"]);
+  for (const key of Object.keys(value.match_when)) {
+    if (!allowedMatchKeys.has(key)) {
+      throw new Error(
+        `${label}.match_when.${key} is not allowed (allowed: all_signals, any_signals)`
+      );
+    }
+  }
+  const allowedMatchSignals = new Set([
+    "script_file_action",
+    "component_attach",
+    "compile_wait_intent",
+    "target_anchor_available",
+    "thread_id_available",
+  ]);
+  validateWorkflowCandidateSignalArray(
+    value.match_when.all_signals,
+    `${label}.match_when.all_signals`,
+    allowedMatchSignals,
+    { requiredNonEmpty: true }
+  );
+  if (Object.prototype.hasOwnProperty.call(value.match_when, "any_signals")) {
+    validateWorkflowCandidateSignalArray(
+      value.match_when.any_signals,
+      `${label}.match_when.any_signals`,
+      allowedMatchSignals
+    );
+  }
+
+  if (!isPlainObject(value.deny_when)) {
+    throw new Error(`${label}.deny_when must be an object`);
+  }
+  const allowedDenyKeys = new Set(["any_signals"]);
+  for (const key of Object.keys(value.deny_when)) {
+    if (!allowedDenyKeys.has(key)) {
+      throw new Error(
+        `${label}.deny_when.${key} is not allowed (allowed: any_signals)`
+      );
+    }
+  }
+  const allowedDenySignals = new Set([
+    "target_anchor_missing",
+    "thread_id_missing",
+    "required_capability_missing",
+    "workflow_template_disabled",
+  ]);
+  validateWorkflowCandidateSignalArray(
+    value.deny_when.any_signals,
+    `${label}.deny_when.any_signals`,
+    allowedDenySignals,
+    { requiredNonEmpty: true }
+  );
+}
+
+function validateWorkflowIntentGatingRule(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  const allowedKeys = new Set([
+    "rule_id",
+    "enabled",
+    "priority",
+    "action",
+    "when",
+    "reason_code",
+  ]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(
+        `${label}.${key} is not allowed (allowed: rule_id, enabled, priority, action, when, reason_code)`
+      );
+    }
+  }
+  assertNonEmptyString(value.rule_id, `${label}.rule_id`);
+  assertBoolean(value.enabled, `${label}.enabled`);
+  assertPositiveInteger(value.priority, `${label}.priority`);
+  assertEnum(value.action, ["allow", "warn", "reject"], `${label}.action`);
+  assertNonEmptyString(value.reason_code, `${label}.reason_code`);
+
+  if (!isPlainObject(value.when)) {
+    throw new Error(`${label}.when must be an object`);
+  }
+  const when = value.when;
+  const allowedWhenKeys = new Set([
+    "candidate_hit",
+    "candidate_rule_ids",
+    "candidate_confidence_in",
+    "required_scene_signals_all",
+    "intent_key_prefixes",
+    "misroute_patterns_any",
+  ]);
+  for (const key of Object.keys(when)) {
+    if (!allowedWhenKeys.has(key)) {
+      throw new Error(
+        `${label}.when.${key} is not allowed (allowed: candidate_hit, candidate_rule_ids, candidate_confidence_in, required_scene_signals_all, intent_key_prefixes, misroute_patterns_any)`
+      );
+    }
+  }
+  if (Object.keys(when).length <= 0) {
+    throw new Error(`${label}.when must include at least one condition`);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(when, "candidate_hit")) {
+    assertBoolean(when.candidate_hit, `${label}.when.candidate_hit`);
+  }
+  if (Object.prototype.hasOwnProperty.call(when, "candidate_rule_ids")) {
+    assertStringArray(when.candidate_rule_ids, `${label}.when.candidate_rule_ids`);
+    if (when.candidate_rule_ids.length <= 0) {
+      throw new Error(`${label}.when.candidate_rule_ids must be non-empty`);
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(when, "candidate_confidence_in")) {
+    validateAllowedStringArray(
+      when.candidate_confidence_in,
+      `${label}.when.candidate_confidence_in`,
+      new Set(["none", "medium", "high"]),
+      { requiredNonEmpty: true }
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(when, "required_scene_signals_all")) {
+    validateWorkflowCandidateSignalArray(
+      when.required_scene_signals_all,
+      `${label}.when.required_scene_signals_all`,
+      WORKFLOW_ORCHESTRATION_SCENE_SIGNALS,
+      { requiredNonEmpty: true }
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(when, "intent_key_prefixes")) {
+    assertStringArray(when.intent_key_prefixes, `${label}.when.intent_key_prefixes`);
+    if (when.intent_key_prefixes.length <= 0) {
+      throw new Error(`${label}.when.intent_key_prefixes must be non-empty`);
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(when, "misroute_patterns_any")) {
+    validateAllowedStringArray(
+      when.misroute_patterns_any,
+      `${label}.when.misroute_patterns_any`,
+      WORKFLOW_GATING_MISROUTE_PATTERNS,
+      { requiredNonEmpty: true }
+    );
+  }
+
+  if (value.action === "reject") {
+    if (when.candidate_hit !== true) {
+      throw new Error(`${label} reject requires when.candidate_hit=true`);
+    }
+    const confidenceIn = Array.isArray(when.candidate_confidence_in)
+      ? when.candidate_confidence_in.map((item) => String(item || "").trim())
+      : [];
+    if (confidenceIn.length !== 1 || confidenceIn[0] !== "high") {
+      throw new Error(
+        `${label} reject requires when.candidate_confidence_in to be exactly [high]`
+      );
+    }
+    if (!Array.isArray(when.misroute_patterns_any) || when.misroute_patterns_any.length <= 0) {
+      throw new Error(`${label} reject requires non-empty when.misroute_patterns_any`);
+    }
+  }
+}
+
+function validateWorkflowMisrouteRecoveryRule(value, label) {
+  if (!isPlainObject(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  const allowedKeys = new Set([
+    "rule_id",
+    "enabled",
+    "priority",
+    "template_ref",
+    "when",
+    "reason_code",
+  ]);
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(
+        `${label}.${key} is not allowed (allowed: rule_id, enabled, priority, template_ref, when, reason_code)`
+      );
+    }
+  }
+  assertNonEmptyString(value.rule_id, `${label}.rule_id`);
+  assertBoolean(value.enabled, `${label}.enabled`);
+  assertPositiveInteger(value.priority, `${label}.priority`);
+  assertNonEmptyString(value.template_ref, `${label}.template_ref`);
+  assertNonEmptyString(value.reason_code, `${label}.reason_code`);
+
+  if (!isPlainObject(value.when)) {
+    throw new Error(`${label}.when must be an object`);
+  }
+  const when = value.when;
+  const allowedWhenKeys = new Set([
+    "candidate_hit",
+    "candidate_rule_ids",
+    "required_scene_signals_all",
+    "failure_path_error_codes_any",
+  ]);
+  for (const key of Object.keys(when)) {
+    if (!allowedWhenKeys.has(key)) {
+      throw new Error(
+        `${label}.when.${key} is not allowed (allowed: candidate_hit, candidate_rule_ids, required_scene_signals_all, failure_path_error_codes_any)`
+      );
+    }
+  }
+  if (Object.keys(when).length <= 0) {
+    throw new Error(`${label}.when must include at least one condition`);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(when, "candidate_hit")) {
+    assertBoolean(when.candidate_hit, `${label}.when.candidate_hit`);
+  }
+  if (Object.prototype.hasOwnProperty.call(when, "candidate_rule_ids")) {
+    assertStringArray(when.candidate_rule_ids, `${label}.when.candidate_rule_ids`);
+    if (when.candidate_rule_ids.length <= 0) {
+      throw new Error(`${label}.when.candidate_rule_ids must be non-empty`);
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(when, "required_scene_signals_all")) {
+    validateWorkflowCandidateSignalArray(
+      when.required_scene_signals_all,
+      `${label}.when.required_scene_signals_all`,
+      WORKFLOW_ORCHESTRATION_SCENE_SIGNALS,
+      { requiredNonEmpty: true }
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(when, "failure_path_error_codes_any")) {
+    validateAllowedStringArray(
+      when.failure_path_error_codes_any,
+      `${label}.when.failure_path_error_codes_any`,
+      WORKFLOW_MISROUTE_RECOVERY_ERROR_CODES,
+      { requiredNonEmpty: true }
+    );
+  }
+
+  if (when.candidate_hit !== true) {
+    throw new Error(`${label} requires when.candidate_hit=true`);
+  }
+  if (
+    !Array.isArray(when.required_scene_signals_all) ||
+    when.required_scene_signals_all.length <= 0
+  ) {
+    throw new Error(`${label} requires non-empty when.required_scene_signals_all`);
+  }
+  if (
+    !Array.isArray(when.failure_path_error_codes_any) ||
+    when.failure_path_error_codes_any.length <= 0
+  ) {
+    throw new Error(`${label} requires non-empty when.failure_path_error_codes_any`);
+  }
+}
+
 function validateWorkflowTemplateStep(value, label) {
   if (!isPlainObject(value)) {
     throw new Error(`${label} must be an object`);
@@ -911,12 +1261,25 @@ function validateWorkflowTemplateStep(value, label) {
   assertNonEmptyString(value.step_id, `${label}.step_id`);
   assertEnum(
     value.step_type,
-    ["submit_task", "wait_task_status"],
+    ["submit_task", "wait_task_status", "ensure_target"],
     `${label}.step_type`
   );
   assertNonEmptyString(value.tool_name, `${label}.tool_name`);
 
   if (value.step_type === "submit_task") {
+    const allowedSubmitStepKeys = new Set([
+      "step_id",
+      "step_type",
+      "tool_name",
+      "task_payload_slot",
+    ]);
+    for (const key of Object.keys(value)) {
+      if (!allowedSubmitStepKeys.has(key)) {
+        throw new Error(
+          `${label}.${key} is not allowed (allowed: step_id, step_type, tool_name, task_payload_slot)`
+        );
+      }
+    }
     assertEnum(
       value.task_payload_slot,
       ["file_actions", "visual_layer_actions"],
@@ -925,15 +1288,143 @@ function validateWorkflowTemplateStep(value, label) {
     return;
   }
 
-  assertPositiveInteger(value.poll_interval_ms, `${label}.poll_interval_ms`);
-  assertPositiveInteger(value.timeout_ms, `${label}.timeout_ms`);
-  assertStringArray(value.success_statuses, `${label}.success_statuses`);
-  assertStringArray(value.failure_statuses, `${label}.failure_statuses`);
-  if (value.success_statuses.length <= 0) {
-    throw new Error(`${label}.success_statuses must be non-empty`);
+  if (value.step_type === "wait_task_status") {
+    const allowedWaitStepKeys = new Set([
+      "step_id",
+      "step_type",
+      "tool_name",
+      "poll_interval_ms",
+      "timeout_ms",
+      "success_statuses",
+      "failure_statuses",
+    ]);
+    for (const key of Object.keys(value)) {
+      if (!allowedWaitStepKeys.has(key)) {
+        throw new Error(
+          `${label}.${key} is not allowed (allowed: step_id, step_type, tool_name, poll_interval_ms, timeout_ms, success_statuses, failure_statuses)`
+        );
+      }
+    }
+    assertPositiveInteger(value.poll_interval_ms, `${label}.poll_interval_ms`);
+    assertPositiveInteger(value.timeout_ms, `${label}.timeout_ms`);
+    assertStringArray(value.success_statuses, `${label}.success_statuses`);
+    assertStringArray(value.failure_statuses, `${label}.failure_statuses`);
+    if (value.success_statuses.length <= 0) {
+      throw new Error(`${label}.success_statuses must be non-empty`);
+    }
+    if (value.failure_statuses.length <= 0) {
+      throw new Error(`${label}.failure_statuses must be non-empty`);
+    }
+    return;
   }
-  if (value.failure_statuses.length <= 0) {
-    throw new Error(`${label}.failure_statuses must be non-empty`);
+
+  const allowedEnsureTargetStepKeys = new Set([
+    "step_id",
+    "step_type",
+    "tool_name",
+    "ensure_target_contract",
+  ]);
+  for (const key of Object.keys(value)) {
+    if (!allowedEnsureTargetStepKeys.has(key)) {
+      throw new Error(
+        `${label}.${key} is not allowed (allowed: step_id, step_type, tool_name, ensure_target_contract)`
+      );
+    }
+  }
+  assertEnum(
+    value.tool_name,
+    ["create_object", "create.object"],
+    `${label}.tool_name`
+  );
+
+  const contract = value.ensure_target_contract;
+  if (!isPlainObject(contract)) {
+    throw new Error(`${label}.ensure_target_contract must be an object`);
+  }
+  const allowedContractKeys = new Set([
+    "parent_anchor_input_field",
+    "resolved_target_output_field",
+    "collision_policy_input_field",
+    "allowed_collision_policies",
+    "default_collision_policy",
+    "require_unique_reuse_match",
+    "forbid_fuzzy_reuse",
+  ]);
+  for (const key of Object.keys(contract)) {
+    if (!allowedContractKeys.has(key)) {
+      throw new Error(
+        `${label}.ensure_target_contract.${key} is not allowed (allowed: parent_anchor_input_field, resolved_target_output_field, collision_policy_input_field, allowed_collision_policies, default_collision_policy, require_unique_reuse_match, forbid_fuzzy_reuse)`
+      );
+    }
+  }
+  assertNonEmptyString(
+    contract.parent_anchor_input_field,
+    `${label}.ensure_target_contract.parent_anchor_input_field`
+  );
+  assertNonEmptyString(
+    contract.resolved_target_output_field,
+    `${label}.ensure_target_contract.resolved_target_output_field`
+  );
+  assertNonEmptyString(
+    contract.collision_policy_input_field,
+    `${label}.ensure_target_contract.collision_policy_input_field`
+  );
+  const parentAnchorInputField = String(contract.parent_anchor_input_field).trim();
+  const resolvedTargetOutputField = String(contract.resolved_target_output_field).trim();
+  const collisionPolicyInputField = String(contract.collision_policy_input_field).trim();
+
+  if (!parentAnchorInputField.includes("parent_anchor")) {
+    throw new Error(
+      `${label}.ensure_target_contract.parent_anchor_input_field must encode parent_anchor semantics`
+    );
+  }
+  if (!resolvedTargetOutputField.includes("resolved_target")) {
+    throw new Error(
+      `${label}.ensure_target_contract.resolved_target_output_field must encode resolved_target semantics`
+    );
+  }
+  if (!collisionPolicyInputField.includes("name_collision_policy")) {
+    throw new Error(
+      `${label}.ensure_target_contract.collision_policy_input_field must point to name_collision_policy`
+    );
+  }
+  if (parentAnchorInputField === resolvedTargetOutputField) {
+    throw new Error(
+      `${label}.ensure_target_contract.parent_anchor_input_field must differ from resolved_target_output_field`
+    );
+  }
+  validateAllowedStringArray(
+    contract.allowed_collision_policies,
+    `${label}.ensure_target_contract.allowed_collision_policies`,
+    new Set(["fail", "reuse"]),
+    { requiredNonEmpty: true }
+  );
+  assertNonEmptyString(
+    contract.default_collision_policy,
+    `${label}.ensure_target_contract.default_collision_policy`
+  );
+  if (!contract.allowed_collision_policies.includes(contract.default_collision_policy)) {
+    throw new Error(
+      `${label}.ensure_target_contract.default_collision_policy must be included in allowed_collision_policies`
+    );
+  }
+  assertBoolean(
+    contract.require_unique_reuse_match,
+    `${label}.ensure_target_contract.require_unique_reuse_match`
+  );
+  if (contract.require_unique_reuse_match !== true) {
+    throw new Error(
+      `${label}.ensure_target_contract.require_unique_reuse_match must be true in phase1`
+    );
+  }
+  assertBoolean(
+    contract.forbid_fuzzy_reuse,
+    `${label}.ensure_target_contract.forbid_fuzzy_reuse`
+  );
+  if (contract.forbid_fuzzy_reuse !== true) {
+    throw new Error(
+      `${label}.ensure_target_contract.forbid_fuzzy_reuse must be true in phase1`
+    );
   }
 }
 
@@ -1074,13 +1565,16 @@ function validatePlannerOrchestrationContract(value, label) {
   const allowedKeys = new Set([
     "schema_version",
     "transaction_candidate_rules",
+    "workflow_candidate_rules",
+    "workflow_intent_gating_rules",
+    "workflow_misroute_recovery_rules",
     "workflow_templates",
     "read_write_folding_profiles",
   ]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) {
       throw new Error(
-        `${label}.${key} is not allowed (allowed: schema_version, transaction_candidate_rules, workflow_templates, read_write_folding_profiles)`
+        `${label}.${key} is not allowed (allowed: schema_version, transaction_candidate_rules, workflow_candidate_rules, workflow_intent_gating_rules, workflow_misroute_recovery_rules, workflow_templates, read_write_folding_profiles)`
       );
     }
   }
@@ -1097,6 +1591,36 @@ function validatePlannerOrchestrationContract(value, label) {
       `${label}.transaction_candidate_rules[${index}]`
     );
   }
+  if (Object.prototype.hasOwnProperty.call(value, "workflow_candidate_rules")) {
+    if (
+      !Array.isArray(value.workflow_candidate_rules) ||
+      value.workflow_candidate_rules.length <= 0
+    ) {
+      throw new Error(`${label}.workflow_candidate_rules must be a non-empty array`);
+    }
+    for (const [index, rule] of value.workflow_candidate_rules.entries()) {
+      validateWorkflowCandidateRule(
+        rule,
+        `${label}.workflow_candidate_rules[${index}]`
+      );
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "workflow_intent_gating_rules")) {
+    if (
+      !Array.isArray(value.workflow_intent_gating_rules) ||
+      value.workflow_intent_gating_rules.length <= 0
+    ) {
+      throw new Error(
+        `${label}.workflow_intent_gating_rules must be a non-empty array`
+      );
+    }
+    for (const [index, rule] of value.workflow_intent_gating_rules.entries()) {
+      validateWorkflowIntentGatingRule(
+        rule,
+        `${label}.workflow_intent_gating_rules[${index}]`
+      );
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(value, "workflow_templates")) {
     if (!isPlainObject(value.workflow_templates)) {
       throw new Error(`${label}.workflow_templates must be an object`);
@@ -1111,6 +1635,22 @@ function validatePlannerOrchestrationContract(value, label) {
       validateWorkflowTemplate(
         templateDef,
         `${label}.workflow_templates.${templateName}`
+      );
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "workflow_misroute_recovery_rules")) {
+    if (
+      !Array.isArray(value.workflow_misroute_recovery_rules) ||
+      value.workflow_misroute_recovery_rules.length <= 0
+    ) {
+      throw new Error(
+        `${label}.workflow_misroute_recovery_rules must be a non-empty array`
+      );
+    }
+    for (const [index, rule] of value.workflow_misroute_recovery_rules.entries()) {
+      validateWorkflowMisrouteRecoveryRule(
+        rule,
+        `${label}.workflow_misroute_recovery_rules[${index}]`
       );
     }
   }

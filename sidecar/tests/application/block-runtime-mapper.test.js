@@ -858,6 +858,81 @@ test("S2A-T1 maps CREATE block to create_object with write envelope", () => {
   assert.equal(outcome.payload.based_on_read_token, "ssot_rt_123");
 });
 
+test("S2A-T1 maps CREATE block and forwards name_collision_policy when provided", () => {
+  const outcome = mapBlockSpecToToolPlan({
+    block_id: "b2_policy",
+    block_type: BLOCK_TYPE.CREATE,
+    intent_key: "create.object",
+    input: {
+      new_object_name: "ImageContainer",
+      object_kind: "ui_panel",
+      set_active: true,
+      name_collision_policy: "reuse",
+    },
+    target_anchor: {
+      object_id: "GlobalObjectId_V1-canvas",
+      path: "Scene/Canvas",
+    },
+    based_on_read_token: "ssot_rt_123",
+    write_envelope: buildWriteEnvelope(),
+  });
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.tool_name, "create_object");
+  assert.equal(outcome.payload.name_collision_policy, "reuse");
+});
+
+test("S2A-T1 rejects CREATE block when name_collision_policy is empty", () => {
+  const outcome = mapBlockSpecToToolPlan({
+    block_id: "b2_policy_empty",
+    block_type: BLOCK_TYPE.CREATE,
+    intent_key: "create.object",
+    input: {
+      new_object_name: "ImageContainer",
+      object_kind: "ui_panel",
+      set_active: true,
+      name_collision_policy: "   ",
+    },
+    target_anchor: {
+      object_id: "GlobalObjectId_V1-canvas",
+      path: "Scene/Canvas",
+    },
+    based_on_read_token: "ssot_rt_123",
+    write_envelope: buildWriteEnvelope(),
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.error_code, "E_SCHEMA_INVALID");
+  assert.equal(
+    outcome.error_message,
+    "input.name_collision_policy must be a non-empty string when provided"
+  );
+});
+
+test("S2A-T1 rejects CREATE block when name_collision_policy is not string", () => {
+  const outcome = mapBlockSpecToToolPlan({
+    block_id: "b2_policy_type",
+    block_type: BLOCK_TYPE.CREATE,
+    intent_key: "create.object",
+    input: {
+      new_object_name: "ImageContainer",
+      object_kind: "ui_panel",
+      set_active: true,
+      name_collision_policy: 1,
+    },
+    target_anchor: {
+      object_id: "GlobalObjectId_V1-canvas",
+      path: "Scene/Canvas",
+    },
+    based_on_read_token: "ssot_rt_123",
+    write_envelope: buildWriteEnvelope(),
+  });
+  assert.equal(outcome.ok, false);
+  assert.equal(outcome.error_code, "E_SCHEMA_INVALID");
+  assert.equal(
+    outcome.error_message,
+    "input.name_collision_policy must be a non-empty string when provided"
+  );
+});
+
 test("S2A-T1 maps MUTATE component_properties with value kind checks", () => {
   const success = mapBlockSpecToToolPlan({
     block_id: "m1",

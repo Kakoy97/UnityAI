@@ -166,6 +166,107 @@ test("get_write_contract_bundle returns static contract payload for SSOT write t
     outcome.body.quick_fixes.E_TARGET_ANCHOR_CONFLICT.fix_steps[2].tool,
     "modify_ui_layout"
   );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      outcome.body,
+      "workflow_recommendation"
+    ),
+    false
+  );
+});
+
+test("get_write_contract_bundle returns workflow recommendation with minimal template for script workflow context", async () => {
+  const registry = getMcpCommandRegistry();
+  const outcome = await dispatchBodyCommand(
+    registry,
+    "/mcp/get_write_contract_bundle",
+    {
+      tool_name: "submit_unity_task",
+      include_related: false,
+      include_enhanced: true,
+      include_legacy: false,
+      context: {
+        scenario: "workflow_candidate_script_create_compile_attach",
+        previous_tool: "planner_execute_mcp",
+        error_context: {
+          error_code: "E_SCHEMA_INVALID",
+        },
+      },
+    },
+    createMockTurnService()
+  );
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(typeof outcome.body.workflow_recommendation, "object");
+  assert.equal(
+    outcome.body.workflow_recommendation.workflow_template_id,
+    "script_create_compile_attach_with_ensure_target.v1"
+  );
+  assert.equal(
+    outcome.body.workflow_recommendation.source_rule_id,
+    "script_create_compile_attach_candidate_v1"
+  );
+  assert.equal(
+    outcome.body.workflow_recommendation.suggested_tool,
+    "planner_execute_mcp"
+  );
+  assert.equal(
+    outcome.body.workflow_recommendation.reason_code,
+    "workflow_candidate_script_create_compile_attach"
+  );
+  assert.equal(
+    typeof outcome.body.workflow_recommendation.minimal_valid_template,
+    "object"
+  );
+  assert.equal(
+    outcome.body.workflow_recommendation.minimal_valid_template.block_spec.intent_key,
+    "workflow.script.create_compile_attach"
+  );
+  assert.equal(
+    Array.isArray(
+      outcome.body.workflow_recommendation.minimal_valid_template.block_spec.input
+        .file_actions
+    ),
+    true
+  );
+  assert.equal(
+    Array.isArray(
+      outcome.body.workflow_recommendation.minimal_valid_template.block_spec.input
+        .visual_layer_actions
+    ),
+    true
+  );
+  assert.equal(
+    typeof outcome.body.workflow_recommendation.minimal_valid_template.block_spec
+      .input.ensure_target,
+    "object"
+  );
+  assert.equal(
+    outcome.body.workflow_recommendation.minimal_valid_template.block_spec.input
+      .ensure_target.enabled,
+    false
+  );
+  assert.equal(
+    outcome.body.workflow_recommendation.minimal_valid_template.block_spec.input
+      .ensure_target.parent_anchor.object_id,
+    "__parent_object_id__"
+  );
+  assert.equal(
+    outcome.body.workflow_recommendation.minimal_valid_template.block_spec.input
+      .ensure_target.parent_anchor.path,
+    "__parent_path__"
+  );
+  assert.equal(
+    outcome.body.workflow_recommendation.minimal_valid_template.block_spec.input
+      .ensure_target.name_collision_policy,
+    "fail"
+  );
+  assert.equal(
+    outcome.body.workflow_recommendation.minimal_valid_template.block_spec
+      .based_on_read_token,
+    "__based_on_read_token__"
+  );
 });
 
 test("get_write_contract_bundle returns tool not found for unknown tool", async () => {

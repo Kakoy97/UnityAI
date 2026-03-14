@@ -303,3 +303,126 @@ test("source fix_steps are used when structured guidance has no steps", () => {
   assert.equal(outcome.fix_steps[0].tool, "get_tool_schema");
   assert.equal(outcome.fix_steps[0].step_id, "inspect_schema");
 });
+
+test("planner warn schema failures expose workflow recommendation with minimal template", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_SCHEMA_INVALID",
+    error_message:
+      "input must contain exactly one of file_actions or visual_layer_actions",
+    tool_name: "planner_execute_mcp",
+    data: {
+      planner_orchestration: {
+        workflow_candidate_hit: true,
+        workflow_candidate_confidence: "high",
+        workflow_gating_action: "warn",
+        workflow_gating_rule_id: "workflow_gating_warn_script_candidate_v1",
+        workflow_gating_reason_code: "workflow_gating_warn_script_candidate",
+        workflow_candidate_rule_id: "script_create_compile_attach_candidate_v1",
+        workflow_candidate_reason_code:
+          "workflow_candidate_script_create_compile_attach",
+        recommended_workflow_template_id: "script_create_compile_attach.v1",
+      },
+    },
+    context: {
+      stage: "during_dispatch",
+    },
+  });
+
+  assert.equal(outcome.error_code, "E_SCHEMA_INVALID");
+  assert.equal(outcome.suggested_action, "planner_execute_mcp");
+  assert.equal(outcome.suggested_tool, "planner_execute_mcp");
+  assert.equal(Array.isArray(outcome.fix_steps), true);
+  assert.equal(outcome.fix_steps.length > 0, true);
+  assert.equal(outcome.fix_steps[0].tool, "planner_execute_mcp");
+  assert.equal(typeof outcome.workflow_recommendation, "object");
+  assert.equal(
+    outcome.workflow_recommendation.workflow_template_id,
+    "script_create_compile_attach_with_ensure_target.v1"
+  );
+  assert.equal(
+    outcome.workflow_recommendation.source_rule_id,
+    "workflow_misroute_recovery_script_candidate_v1"
+  );
+  assert.equal(
+    outcome.workflow_recommendation.reason_code,
+    "workflow_misroute_recovery_script_candidate"
+  );
+  assert.equal(
+    outcome.workflow_recommendation.minimal_valid_template.block_spec.intent_key,
+    "workflow.script.create_compile_attach"
+  );
+  assert.equal(
+    typeof outcome.workflow_recommendation.minimal_valid_template.block_spec.input
+      .ensure_target,
+    "object"
+  );
+  assert.equal(
+    outcome.workflow_recommendation.minimal_valid_template.block_spec.input
+      .ensure_target.enabled,
+    false
+  );
+  assert.equal(
+    outcome.workflow_recommendation.minimal_valid_template.block_spec.input
+      .ensure_target.parent_anchor.object_id,
+    "__parent_object_id__"
+  );
+  assert.equal(
+    outcome.workflow_recommendation.minimal_valid_template.block_spec.input
+      .ensure_target.parent_anchor.path,
+    "__parent_path__"
+  );
+  assert.equal(
+    outcome.workflow_recommendation.minimal_valid_template.block_spec.input
+      .ensure_target.name_collision_policy,
+    "fail"
+  );
+});
+
+test("workflow ensure_target ambiguous reuse exposes hierarchy-first recovery guidance", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_WORKFLOW_ENSURE_TARGET_AMBIGUOUS_REUSE",
+    error_message:
+      "workflow ensure_target reuse requires unique match; multiple existing candidates detected",
+    tool_name: "planner_execute_mcp",
+    data: {
+      existing_candidates_count: 2,
+    },
+    context: {
+      stage: "during_dispatch",
+    },
+  });
+
+  assert.equal(outcome.error_code, "E_WORKFLOW_ENSURE_TARGET_AMBIGUOUS_REUSE");
+  assert.equal(outcome.recoverable, true);
+  assert.equal(outcome.suggested_action, "get_hierarchy_subtree");
+  assert.equal(outcome.suggested_tool, "get_hierarchy_subtree");
+  assert.equal(
+    String(outcome.fix_hint || "").includes("unique existing match"),
+    true
+  );
+});
+
+test("planner schema failure does not expose workflow recommendation when candidate triad is not matched", () => {
+  const outcome = withMcpErrorFeedback({
+    error_code: "E_SCHEMA_INVALID",
+    error_message: "intent_key not supported",
+    tool_name: "planner_execute_mcp",
+    data: {
+      planner_orchestration: {
+        workflow_candidate_hit: false,
+        workflow_candidate_confidence: "none",
+        workflow_gating_action: "allow",
+        workflow_gating_rule_id: "workflow_gating_allow_non_candidate_default_v1",
+      },
+    },
+    context: {
+      stage: "during_dispatch",
+    },
+  });
+
+  assert.equal(outcome.error_code, "E_SCHEMA_INVALID");
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(outcome, "workflow_recommendation"),
+    false
+  );
+});

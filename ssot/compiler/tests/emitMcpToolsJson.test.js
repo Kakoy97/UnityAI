@@ -93,6 +93,69 @@ test("emitMcpToolsJson applies fallback defaults for missing optional tool field
   assert.deepEqual(emitted.global_contracts, {});
 });
 
+test("emitMcpToolsJson preserves create_object name_collision_policy schema", () => {
+  const emitted = emitMcpToolsJson({
+    version: 1,
+    _definitions: {
+      create_family: {
+        pre_check_policy: {
+          check_existing: true,
+          on_conflict: "fail",
+          return_candidates: true,
+          policy_field: "name_collision_policy",
+        },
+      },
+    },
+    tools: [
+      {
+        name: "create_object",
+        kind: "write",
+        input: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "parent_object_id",
+            "parent_path",
+            "new_object_name",
+            "object_kind",
+            "set_active",
+          ],
+          properties: {
+            parent_object_id: { type: "string", minLength: 1 },
+            parent_path: { type: "string", minLength: 1 },
+            new_object_name: { type: "string", minLength: 1 },
+            object_kind: {
+              type: "string",
+              enum: ["empty", "ui_button", "ui_panel", "camera", "light"],
+            },
+            set_active: { type: "boolean" },
+            name_collision_policy: {
+              type: "string",
+              enum: ["fail", "suffix", "reuse"],
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  const tool = emitted.tools[0];
+  assert.equal(tool.name, "create_object");
+  assert.equal(
+    tool.inputSchema.properties.name_collision_policy.type,
+    "string"
+  );
+  assert.deepEqual(tool.inputSchema.properties.name_collision_policy.enum, [
+    "fail",
+    "suffix",
+    "reuse",
+  ]);
+  assert.equal(
+    emitted.global_contracts.create_family.pre_check_policy.policy_field,
+    "name_collision_policy"
+  );
+});
+
 test("emitMcpToolsJson projects v2 global contracts from _definitions", () => {
   const emitted = emitMcpToolsJson({
     version: 1,
@@ -210,6 +273,34 @@ test("emitMcpToolsJson projects v2 global contracts from _definitions", () => {
               "transaction_candidate_blocked_phase2a_constraints",
           },
         ],
+        workflow_candidate_rules: [
+          {
+            rule_id: "script_create_compile_attach_candidate_v1",
+            enabled: true,
+            priority: 100,
+            template_ref: "script_create_compile_attach.v1",
+            match_when: {
+              all_signals: [
+                "script_file_action",
+                "component_attach",
+                "target_anchor_available",
+                "thread_id_available",
+              ],
+              any_signals: ["compile_wait_intent"],
+            },
+            deny_when: {
+              any_signals: [
+                "target_anchor_missing",
+                "thread_id_missing",
+                "required_capability_missing",
+                "workflow_template_disabled",
+              ],
+            },
+            reason_code_on_hit: "workflow_candidate_script_create_compile_attach",
+            reason_code_on_deny:
+              "workflow_candidate_script_create_compile_attach_blocked",
+          },
+        ],
         workflow_templates: {},
         read_write_folding_profiles: {
           "same_anchor_numeric_delta_trial.v1": {
@@ -279,6 +370,11 @@ test("emitMcpToolsJson projects v2 global contracts from _definitions", () => {
     emitted.global_contracts.planner_orchestration_contract
       .transaction_candidate_rules[0].rule_id,
     "same_anchor_write_2_4_default"
+  );
+  assert.equal(
+    emitted.global_contracts.planner_orchestration_contract
+      .workflow_candidate_rules[0].rule_id,
+    "script_create_compile_attach_candidate_v1"
   );
   assert.equal(
     emitted.global_contracts.planner_orchestration_contract

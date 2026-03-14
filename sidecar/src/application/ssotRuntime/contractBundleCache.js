@@ -41,6 +41,8 @@ function buildContractBundleCacheKey(options = {}) {
     include_legacy: normalizeBoolean(source.includeLegacy, true),
     scenario: normalizeString(source.scenario),
     previous_tool: normalizeString(source.previousTool),
+    error_code: normalizeString(source.errorCode).toUpperCase(),
+    failed_property_path: normalizeString(source.failedPropertyPath),
   };
   return JSON.stringify(payload);
 }

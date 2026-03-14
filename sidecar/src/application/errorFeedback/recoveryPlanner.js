@@ -7,6 +7,15 @@ const DEFAULT_EXECUTION_ORDER = "sequential";
 const DEFAULT_FAILURE_HANDLING = "stop_on_first_failure";
 const DEFAULT_FALLBACK_STRATEGY = "return_manual_instructions";
 const DEFAULT_DEPENDENCY_MAX_DEPTH = 10;
+const WORKFLOW_MISROUTE_RECOVERY_FAILURE_PATH_ERROR_CODES = new Set([
+  "E_SCHEMA_INVALID",
+  "E_BLOCK_INTENT_KEY_UNSUPPORTED",
+  "E_COMPONENT_TYPE_INVALID",
+  "E_BLOCK_NOT_IMPLEMENTED",
+  "E_PLANNER_NO_TOOL_MAPPING",
+  "E_PLANNER_UNSUPPORTED_FAMILY",
+  "E_WORKFLOW_GATING_REJECTED",
+]);
 const DEFAULT_CODE_RECOVERY_BASELINE = Object.freeze({
   E_SCENE_REVISION_DRIFT: Object.freeze({
     suggested_action: "get_scene_snapshot_for_write",
@@ -212,6 +221,14 @@ function normalizeNumericStep(value, fallback) {
 function normalizePlannerErrorCode(value, fallback = "E_INTERNAL") {
   const normalized = normalizeErrorCode(value, fallback);
   return normalizeSsotErrorCodeForMcp(normalized);
+}
+
+function isWorkflowMisrouteRecoveryFailurePathErrorCode(errorCode) {
+  const normalized = normalizePlannerErrorCode(errorCode, "");
+  return (
+    !!normalized &&
+    WORKFLOW_MISROUTE_RECOVERY_FAILURE_PATH_ERROR_CODES.has(normalized)
+  );
 }
 
 function mergeFixContract(baseFix, overrideFix) {
@@ -705,6 +722,7 @@ module.exports = {
   DEFAULT_EXECUTION_ORDER,
   DEFAULT_FAILURE_HANDLING,
   DEFAULT_FALLBACK_STRATEGY,
+  isWorkflowMisrouteRecoveryFailurePathErrorCode,
   listStructuredGuidanceErrorCodes,
   planRecoveryAction,
 };

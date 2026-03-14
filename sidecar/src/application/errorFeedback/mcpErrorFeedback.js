@@ -147,6 +147,58 @@ function normalizeFixSteps(value) {
   return output;
 }
 
+function normalizeObjectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function cloneJsonRecord(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  try {
+    const cloned = JSON.parse(JSON.stringify(value));
+    return cloned && typeof cloned === "object" && !Array.isArray(cloned)
+      ? cloned
+      : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function normalizeWorkflowRecommendation(value) {
+  const source = normalizeObjectRecord(value);
+  if (!source) {
+    return null;
+  }
+  const workflowTemplateId = normalizeOptionalString(source.workflow_template_id);
+  if (!workflowTemplateId) {
+    return null;
+  }
+  const suggestedTool =
+    normalizeOptionalString(source.suggested_tool) || "planner_execute_mcp";
+  const output = {
+    workflow_template_id: workflowTemplateId,
+    suggested_tool: suggestedTool,
+  };
+  const sourceKind = normalizeOptionalString(source.source);
+  if (sourceKind) {
+    output.source = sourceKind;
+  }
+  const sourceRuleId = normalizeOptionalString(source.source_rule_id);
+  if (sourceRuleId) {
+    output.source_rule_id = sourceRuleId;
+  }
+  const reasonCode = normalizeOptionalString(source.reason_code);
+  if (reasonCode) {
+    output.reason_code = reasonCode;
+  }
+  const minimalValidTemplate = cloneJsonRecord(source.minimal_valid_template);
+  if (minimalValidTemplate) {
+    output.minimal_valid_template = minimalValidTemplate;
+  }
+  return output;
+}
+
 function buildAnchorConflictCandidates(options = {}) {
   const source = options && typeof options === "object" ? options : {};
   const candidates = [];
@@ -473,6 +525,19 @@ function withMcpErrorFeedback(body) {
   const routedSource = normalizeOptionalString(
     guidance.routed_source || source.routed_source
   );
+  const plannerEntryRepairData = normalizeObjectRecord(sourceData.planner_entry_repair);
+  const plannerEntryRepairContext = normalizeObjectRecord(
+    sourceContext.planner_entry_repair
+  );
+  const workflowRecommendation = normalizeWorkflowRecommendation(
+    guidance.workflow_recommendation ||
+      source.workflow_recommendation ||
+      sourceData.workflow_recommendation ||
+      sourceContext.workflow_recommendation ||
+      (plannerEntryRepairData && plannerEntryRepairData.workflow_recommendation) ||
+      (plannerEntryRepairContext &&
+        plannerEntryRepairContext.workflow_recommendation)
+  );
   const errorContextVersion = firstNonEmptyString(
     source.error_context_version,
     sourceData.error_context_version,
@@ -581,6 +646,9 @@ function withMcpErrorFeedback(body) {
       : {}),
     ...(plannerTransactionId ? { planner_transaction_id: plannerTransactionId } : {}),
     ...(plannerStepCount !== null ? { planner_step_count: plannerStepCount } : {}),
+    ...(workflowRecommendation
+      ? { workflow_recommendation: workflowRecommendation }
+      : {}),
     ...(retryPolicy ? { retry_policy: retryPolicy } : {}),
   };
 }

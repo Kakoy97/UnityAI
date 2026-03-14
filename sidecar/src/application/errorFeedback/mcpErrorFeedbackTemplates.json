@@ -287,6 +287,22 @@
     "recoverable": true,
     "suggestion": "Workflow task reached failed terminal status. Check get_unity_task_status terminal_error_code/terminal_error_message, fix payload, then retry planner_execute_mcp."
   },
+  "E_WORKFLOW_ENSURE_TARGET_FAILED": {
+    "recoverable": true,
+    "suggestion": "Workflow ensure_target step failed. Check ensure_target.parent_anchor/new_object_name/object_kind and retry planner_execute_mcp."
+  },
+  "E_WORKFLOW_ENSURE_TARGET_AMBIGUOUS_REUSE": {
+    "recoverable": true,
+    "suggestion": "Workflow ensure_target reuse matched multiple candidates. Refresh hierarchy and make reuse target deterministic before retry."
+  },
+  "E_WORKFLOW_RESOLVED_TARGET_CONFLICT": {
+    "recoverable": true,
+    "suggestion": "Workflow resolved_target conflicts with explicit attach target. Align to resolved_target and retry planner_execute_mcp."
+  },
+  "E_WORKFLOW_RESOLVED_TARGET_MISSING": {
+    "recoverable": true,
+    "suggestion": "Workflow attach is missing resolved_target. Ensure ensure_target returns target_object_id/target_path, then retry planner_execute_mcp."
+  },
   "E_WORKFLOW_SCRIPT_COMPILE_FAILED": {
     "recoverable": true,
     "suggestion": "Script compile failed during workflow. Inspect get_unity_task_status error details, fix script/compiler errors, then retry planner_execute_mcp."

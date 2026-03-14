@@ -487,3 +487,74 @@ test("recovery planner resolves numeric depends_on indexes to step_id", () => {
   assert.equal(plan.fix_steps.length, 2);
   assert.deepEqual(plan.fix_steps[1].depends_on, ["inspect_anchor_a"]);
 });
+
+test("misroute guidance differs for same error code when scene signal candidate is present vs absent", () => {
+  const withSceneSignal = withMcpErrorFeedback({
+    error_code: "E_SCHEMA_INVALID",
+    error_message: "input must contain exactly one of file_actions or visual_layer_actions",
+    tool_name: "planner_execute_mcp",
+    data: {
+      planner_orchestration: {
+        workflow_candidate_hit: true,
+        workflow_candidate_confidence: "high",
+        workflow_candidate_rule_id: "script_create_compile_attach_candidate_v1",
+        workflow_gating_action: "warn",
+        workflow_gating_rule_id: "workflow_gating_warn_script_candidate_v1",
+        recommended_workflow_template_id: "script_create_compile_attach.v1",
+      },
+    },
+    context: {
+      stage: "during_dispatch",
+    },
+  });
+  const withoutSceneSignal = withMcpErrorFeedback({
+    error_code: "E_SCHEMA_INVALID",
+    error_message: "input must contain exactly one of file_actions or visual_layer_actions",
+    tool_name: "planner_execute_mcp",
+    data: {
+      planner_orchestration: {
+        workflow_candidate_hit: false,
+        workflow_candidate_confidence: "none",
+        workflow_gating_action: "allow",
+      },
+    },
+    context: {
+      stage: "during_dispatch",
+    },
+  });
+
+  assert.equal(withSceneSignal.error_code, "E_SCHEMA_INVALID");
+  assert.equal(typeof withSceneSignal.workflow_recommendation, "object");
+  assert.equal(
+    withSceneSignal.workflow_recommendation.workflow_template_id,
+    "script_create_compile_attach_with_ensure_target.v1"
+  );
+  assert.equal(withoutSceneSignal.error_code, "E_SCHEMA_INVALID");
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(withoutSceneSignal, "workflow_recommendation"),
+    false
+  );
+});
+
+test("workflow resolved_target conflict returns deterministic contract-first guidance", () => {
+  const feedback = withMcpErrorFeedback({
+    error_code: "E_WORKFLOW_RESOLVED_TARGET_CONFLICT",
+    error_message:
+      "input.visual_layer_actions[0] target_path conflicts with resolved_target_path",
+    tool_name: "planner_execute_mcp",
+    context: {
+      stage: "during_dispatch",
+    },
+  });
+
+  assert.equal(feedback.error_code, "E_WORKFLOW_RESOLVED_TARGET_CONFLICT");
+  assert.equal(feedback.recoverable, true);
+  assert.equal(feedback.suggested_action, "get_write_contract_bundle");
+  assert.equal(feedback.suggested_tool, "get_write_contract_bundle");
+  assert.equal(
+    String(feedback.fix_hint || "").includes(
+      "Align attach target with workflow_orchestration.resolved_target"
+    ),
+    true
+  );
+});
