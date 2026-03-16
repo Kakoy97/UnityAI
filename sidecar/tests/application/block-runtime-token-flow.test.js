@@ -9,6 +9,7 @@ const {
   resolveEffectiveReadTokenForBlock,
   materializeBlockSpecWithEffectiveToken,
   extractReadTokenCandidateFromBlockResult,
+  advancePreviousReadTokenCandidate,
   createExecutionChannelAdapter,
 } = require("../../src/application/blockRuntime/execution");
 
@@ -224,3 +225,24 @@ test("S2A-T6 extractReadTokenCandidateFromBlockResult follows succeeded-only rul
   assert.equal(extractReadTokenCandidateFromBlockResult(null), "");
 });
 
+test("S2A-T7 token flow advances previous candidate from succeeded batch read result", () => {
+  assert.equal(typeof advancePreviousReadTokenCandidate, "function");
+  assert.equal(
+    advancePreviousReadTokenCandidate("ssot_rt_prev", {
+      status: "succeeded",
+      read_token_candidate: "ssot_rt_after_batch_read",
+    }),
+    "ssot_rt_after_batch_read"
+  );
+});
+
+test("S2A-T7 token flow keeps previous candidate when batch step does not yield a token", () => {
+  assert.equal(typeof advancePreviousReadTokenCandidate, "function");
+  assert.equal(
+    advancePreviousReadTokenCandidate("ssot_rt_prev", {
+      status: "failed",
+      read_token_candidate: "ssot_rt_failed",
+    }),
+    "ssot_rt_prev"
+  );
+});

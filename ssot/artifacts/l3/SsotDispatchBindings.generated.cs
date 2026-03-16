@@ -402,6 +402,9 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
             bindings[RunUnityTestsRequestDto.ToolName] =
                 SsotDispatchBindingFactory.CreateUnsupportedBinding(RunUnityTestsRequestDto.ToolName);
 
+            bindings[BatchExecuteRequestDto.ToolName] =
+                SsotDispatchBindingFactory.CreateUnsupportedBinding(BatchExecuteRequestDto.ToolName);
+
             bindings[PlannerExecuteMcpRequestDto.ToolName] =
                 SsotDispatchBindingFactory.CreateUnsupportedBinding(PlannerExecuteMcpRequestDto.ToolName);
 

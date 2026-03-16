@@ -9,6 +9,7 @@ const LOCAL_STATIC_TOOL_NAMES = new Set([
   "setup_cursor_mcp",
   "verify_mcp_setup",
   "run_unity_tests",
+  "batch_execute",
   "planner_execute_mcp",
 ]);
 

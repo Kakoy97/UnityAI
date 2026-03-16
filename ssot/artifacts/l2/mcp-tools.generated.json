@@ -5854,6 +5854,129 @@
     },
     {
       "kind": "read",
+      "name": "batch_execute",
+      "lifecycle": "experimental",
+      "token_family": "local_static_no_token",
+      "scene_revision_capable": false,
+      "description": "Submit an explicit multi-write batch through one facade entry. Use this when a request already contains multiple write commands and should remain in a single batch lane. The runtime may upgrade to transaction when atomicity_preference requires or when auto mode is eligible; otherwise it will execute sequential_batch. Do NOT use planner_execute_mcp or direct transaction internals when a simple batch facade is sufficient.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "commands": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "tool_name",
+                "payload"
+              ],
+              "properties": {
+                "tool_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "payload": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "atomicity_preference": {
+            "type": "string",
+            "enum": [
+              "required",
+              "auto",
+              "none"
+            ],
+            "case_insensitive": true
+          },
+          "failure_policy": {
+            "type": "string",
+            "enum": [
+              "stop_on_first_failure"
+            ],
+            "case_insensitive": true
+          }
+        },
+        "required": [
+          "commands"
+        ]
+      },
+      "examples": [
+        {
+          "request": {
+            "commands": [
+              {
+                "tool_name": "set_active",
+                "payload": {
+                  "target_object_id": "GlobalObjectId_V1-target_a",
+                  "target_path": "Scene/Canvas/A",
+                  "active": false
+                }
+              },
+              {
+                "tool_name": "add_component",
+                "payload": {
+                  "target_object_id": "GlobalObjectId_V1-target_b",
+                  "target_path": "Scene/Canvas/B",
+                  "component_type": "UnityEngine.CanvasGroup, UnityEngine.UI"
+                }
+              }
+            ],
+            "atomicity_preference": "auto",
+            "failure_policy": "stop_on_first_failure"
+          }
+        }
+      ],
+      "tool_priority": "P1",
+      "must_configure": false,
+      "priority_score": 0.082,
+      "usage_notes": "",
+      "examples_positive": [],
+      "examples_negative": [],
+      "common_error_fixes": {},
+      "related_tools": [],
+      "tool_combinations": [],
+      "property_path_rules": null,
+      "ux_contract": {
+        "domain": "batch_entry",
+        "block_type_enum": [
+          "BATCH_COMMAND"
+        ],
+        "required_business_fields": [
+          "commands",
+          "commands[].tool_name",
+          "commands[].payload"
+        ],
+        "system_fields": [
+          "thread_id"
+        ],
+        "auto_filled_fields": [],
+        "minimal_valid_template": {
+          "commands": [
+            {
+              "tool_name": "set_active",
+              "payload": {
+                "target_object_id": "GlobalObjectId_V1-target",
+                "target_path": "Scene/Canvas/Image",
+                "active": false
+              }
+            }
+          ],
+          "atomicity_preference": "auto",
+          "failure_policy": "stop_on_first_failure"
+        }
+      },
+      "high_frequency_properties": {}
+    },
+    {
+      "kind": "read",
       "name": "planner_execute_mcp",
       "lifecycle": "experimental",
       "token_family": "local_static_no_token",

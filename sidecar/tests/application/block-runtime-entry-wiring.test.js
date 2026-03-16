@@ -162,6 +162,43 @@ function buildScriptWorkflowBlockSpec(overrides = {}) {
   };
 }
 
+function buildExplicitBatchEntryBody({
+  atomicityPreference = "auto",
+  secondPayloadOverrides = {},
+} = {}) {
+  return {
+    commands: [
+      {
+        tool_name: "set_active",
+        payload: {
+          execution_mode: "execute",
+          based_on_read_token: "ssot_rt_explicit_batch",
+          write_anchor_object_id: "GlobalObjectId_V1-canvas",
+          write_anchor_path: "Scene/Canvas",
+          target_object_id: "GlobalObjectId_V1-target",
+          target_path: "Scene/Canvas/Button",
+          active: true,
+        },
+      },
+      {
+        tool_name: "set_sibling_index",
+        payload: {
+          execution_mode: "execute",
+          based_on_read_token: "ssot_rt_explicit_batch",
+          write_anchor_object_id: "GlobalObjectId_V1-canvas",
+          write_anchor_path: "Scene/Canvas",
+          target_object_id: "GlobalObjectId_V1-target_2",
+          target_path: "Scene/Canvas/Button/Label",
+          sibling_index: 2,
+          ...secondPayloadOverrides,
+        },
+      },
+    ],
+    atomicity_preference: atomicityPreference,
+    failure_policy: "stop_on_first_failure",
+  };
+}
+
 function buildWorkflowContractWithEnsureTargetStep(service, overrides = {}) {
   const baseContract = service.getPlannerOrchestrationContract();
   const customContract = JSON.parse(JSON.stringify(baseContract || {}));
@@ -3275,6 +3312,33 @@ test("PLNR-007 executePlannerEntryForMcp delegates to planner entry runtime path
   assert.equal(outcome.statusCode, 200);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].toolName, "get_scene_snapshot_for_write");
+});
+
+test("BATCH-003 executeBatchEntryForMcp normalizes explicit batch facade and exposes route decision", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+  });
+
+  assert.equal(typeof service.executeBatchEntryForMcp, "function");
+
+  const outcome = await service.executeBatchEntryForMcp(
+    buildExplicitBatchEntryBody({
+      atomicityPreference: "auto",
+    })
+  );
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(outcome.body.query_type, "batch.request");
+  assert.equal(typeof outcome.body.data, "object");
+  assert.equal(typeof outcome.body.data.batch_plan, "object");
+  assert.equal(outcome.body.data.batch_plan.step_count, 2);
+  assert.equal(typeof outcome.body.data.execution_meta, "object");
+  assert.equal(typeof outcome.body.data.execution_meta.batch_route, "object");
+  assert.equal(
+    outcome.body.data.execution_meta.batch_route.mode,
+    "transaction"
+  );
 });
 
 test("PLNR-007 no_family returns E_PLANNER_UNSUPPORTED_FAMILY in planner entry", async () => {

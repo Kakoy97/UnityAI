@@ -50,6 +50,7 @@ const {
   resolveEffectiveReadTokenForBlock,
   materializeBlockSpecWithEffectiveToken,
   extractReadTokenCandidateFromBlockResult,
+  advancePreviousReadTokenCandidate,
 } = require("./TokenFlowResolver");
 
 module.exports = {
@@ -88,4 +89,5 @@ module.exports = {
   resolveEffectiveReadTokenForBlock,
   materializeBlockSpecWithEffectiveToken,
   extractReadTokenCandidateFromBlockResult,
+  advancePreviousReadTokenCandidate,
 };

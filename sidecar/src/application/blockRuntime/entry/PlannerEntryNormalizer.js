@@ -271,6 +271,91 @@ function applyAutofillRules(payload, autofillPolicy, normalizationMeta) {
   }
 }
 
+function normalizeBatchCommandEntry(command, index) {
+  const item = isPlainObject(command) ? command : null;
+  if (!item) {
+    return {
+      ok: false,
+      error_code: "E_SCHEMA_INVALID",
+      error_message: `commands[${index}] must be a plain object for batch facade`,
+    };
+  }
+
+  const toolName = normalizeString(item.tool_name);
+  if (!toolName) {
+    return {
+      ok: false,
+      error_code: "E_SCHEMA_INVALID",
+      error_message: `commands[${index}].tool_name is required for batch facade`,
+    };
+  }
+
+  if (!isPlainObject(item.payload)) {
+    return {
+      ok: false,
+      error_code: "E_SCHEMA_INVALID",
+      error_message: `commands[${index}].payload must be a plain object for batch facade`,
+    };
+  }
+
+  return {
+    ok: true,
+    step: {
+      step_id: `batch_step_${index + 1}`,
+      tool_name: toolName,
+      payload: cloneJson(item.payload),
+    },
+  };
+}
+
+function normalizeBatchFacadePayload(payload, uxContract, normalizationMeta) {
+  const commands = Array.isArray(payload.commands) ? payload.commands : [];
+  if (commands.length <= 0) {
+    return {
+      ok: false,
+      error_code: "E_SCHEMA_INVALID",
+      error_message: "commands must be a non-empty array for batch facade",
+    };
+  }
+
+  const steps = [];
+  for (const [index, command] of commands.entries()) {
+    const commandOutcome = normalizeBatchCommandEntry(command, index);
+    if (!commandOutcome.ok) {
+      return commandOutcome;
+    }
+    steps.push(commandOutcome.step);
+  }
+
+  const atomicityPreference =
+    normalizeString(payload.atomicity_preference).toLowerCase() || "auto";
+  const failurePolicy =
+    normalizeString(payload.failure_policy).toLowerCase() ||
+    "stop_on_first_failure";
+
+  const normalizedPayload = cloneJson(payload);
+  normalizedPayload.batch_plan = {
+    entry_domain:
+      normalizeString(uxContract && uxContract.domain) || "batch_entry",
+    atomicity_preference: atomicityPreference,
+    failure_policy: failurePolicy,
+    step_count: steps.length,
+    steps,
+  };
+
+  normalizationMeta.batch_entry = {
+    command_count: steps.length,
+    atomicity_preference: atomicityPreference,
+    failure_policy: failurePolicy,
+  };
+
+  return {
+    ok: true,
+    payload: normalizedPayload,
+    normalization_meta: normalizationMeta,
+  };
+}
+
 function createPlannerEntryNormalizer(options = {}) {
   const uxContract = resolvePlannerUxContract(options);
 
@@ -289,6 +374,10 @@ function createPlannerEntryNormalizer(options = {}) {
         payload,
         normalization_meta: normalizationMeta,
       };
+    }
+
+    if (normalizeString(uxContract.domain) === "batch_entry") {
+      return normalizeBatchFacadePayload(payload, uxContract, normalizationMeta);
     }
 
     const aliasOutcome = applyAliasRules(
@@ -322,4 +411,3 @@ module.exports = {
   PLANNER_ENTRY_NORMALIZER_VERSION,
   createPlannerEntryNormalizer,
 };
-

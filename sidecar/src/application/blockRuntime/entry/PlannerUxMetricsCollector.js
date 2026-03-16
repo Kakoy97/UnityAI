@@ -57,6 +57,18 @@ function normalizeCollisionPolicyUsed(value) {
   return "";
 }
 
+function normalizeExplicitBatchMode(value) {
+  const token = normalizeString(value).toLowerCase();
+  if (
+    token === "transaction" ||
+    token === "sequential_batch" ||
+    token === "fail_fast"
+  ) {
+    return token;
+  }
+  return "";
+}
+
 function safeRatio(numerator, denominator) {
   const n = Number(numerator);
   const d = Number(denominator);
@@ -110,6 +122,10 @@ function createEmptyState() {
       script_workflow_success_total: 0,
       script_workflow_failure_total: 0,
       collision_policy_reported_total: 0,
+      explicit_batch_request_total: 0,
+      explicit_batch_fail_fast_total: 0,
+      explicit_batch_sequential_route_total: 0,
+      explicit_batch_transaction_upgrade_total: 0,
       ensure_target_invoked_total: 0,
       ensure_target_created_total: 0,
       ensure_target_reused_total: 0,
@@ -201,6 +217,9 @@ function normalizeOrchestrationMeta(rawMeta) {
     collision_policy_used: collisionPolicyUsed,
     existing_candidates_count: existingCandidatesCount,
     pre_check_existing: meta.pre_check_existing === true,
+    explicit_batch_request: meta.explicit_batch_request === true,
+    batch_mode: normalizeExplicitBatchMode(meta.batch_mode),
+    batch_applied: meta.batch_applied === true,
     ensure_target_invoked: meta.ensure_target_invoked === true,
     ensure_target_created: meta.ensure_target_created === true,
     ensure_target_reused: meta.ensure_target_reused === true,
@@ -298,6 +317,16 @@ class PlannerUxMetricsCollector {
             orchestrationMeta.collision_policy_used
           ]
         ) || 0) + 1;
+    }
+    if (orchestrationMeta.explicit_batch_request) {
+      this.state.totals.explicit_batch_request_total += 1;
+      if (orchestrationMeta.batch_mode === "fail_fast") {
+        this.state.totals.explicit_batch_fail_fast_total += 1;
+      } else if (orchestrationMeta.batch_mode === "sequential_batch") {
+        this.state.totals.explicit_batch_sequential_route_total += 1;
+      } else if (orchestrationMeta.batch_mode === "transaction") {
+        this.state.totals.explicit_batch_transaction_upgrade_total += 1;
+      }
     }
     if (orchestrationMeta.ensure_target_invoked) {
       this.state.totals.ensure_target_invoked_total += 1;
@@ -407,6 +436,18 @@ class PlannerUxMetricsCollector {
       ),
       collision_policy_reported_total: normalizeNonNegativeInteger(
         this.state.totals.collision_policy_reported_total
+      ),
+      explicit_batch_request_total: normalizeNonNegativeInteger(
+        this.state.totals.explicit_batch_request_total
+      ),
+      explicit_batch_fail_fast_total: normalizeNonNegativeInteger(
+        this.state.totals.explicit_batch_fail_fast_total
+      ),
+      explicit_batch_sequential_route_total: normalizeNonNegativeInteger(
+        this.state.totals.explicit_batch_sequential_route_total
+      ),
+      explicit_batch_transaction_upgrade_total: normalizeNonNegativeInteger(
+        this.state.totals.explicit_batch_transaction_upgrade_total
       ),
       ensure_target_invoked_total: normalizeNonNegativeInteger(
         this.state.totals.ensure_target_invoked_total
@@ -581,6 +622,26 @@ class PlannerUxMetricsCollector {
           totals.requests_total
         ),
         by_policy: collisionPolicyByPolicy,
+      },
+      explicit_batch: {
+        request_total: totals.explicit_batch_request_total,
+        fail_fast_total: totals.explicit_batch_fail_fast_total,
+        transaction_upgrade_total:
+          totals.explicit_batch_transaction_upgrade_total,
+        sequential_route_total: totals.explicit_batch_sequential_route_total,
+        single_round_completion_rate: safeRatio(
+          totals.explicit_batch_transaction_upgrade_total +
+            totals.explicit_batch_sequential_route_total,
+          totals.explicit_batch_request_total
+        ),
+        sequential_route_rate: safeRatio(
+          totals.explicit_batch_sequential_route_total,
+          totals.explicit_batch_request_total
+        ),
+        transaction_upgrade_rate: safeRatio(
+          totals.explicit_batch_transaction_upgrade_total,
+          totals.explicit_batch_request_total
+        ),
       },
       ensure_target: {
         invoked_total: totals.ensure_target_invoked_total,

@@ -3,6 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { emitMcpToolsJson } = require("../emitters/l2/emitMcpToolsJson");
+const toolsDictionary = require("../../dictionary/tools.json");
 
 test("emitMcpToolsJson maps tool IR to MCP tools payload", () => {
   const fullDescription = [
@@ -665,4 +666,34 @@ test("emitMcpToolsJson throws when _definitions ref cannot be resolved", () => {
       }),
     /transaction_step/
   );
+});
+
+test("emitMcpToolsJson projects explicit batch_execute facade contract", () => {
+  const emitted = emitMcpToolsJson(
+    JSON.parse(JSON.stringify(toolsDictionary))
+  );
+
+  const tool = Array.isArray(emitted.tools)
+    ? emitted.tools.find((item) => item && item.name === "batch_execute")
+    : null;
+
+  assert.ok(tool, "batch_execute should be emitted to MCP tool catalog");
+  assert.equal(tool.kind, "read");
+  assert.equal(tool.lifecycle, "experimental");
+  assert.equal(tool.token_family, "local_static_no_token");
+  assert.equal(tool.scene_revision_capable, false);
+  assert.equal(
+    tool.inputSchema &&
+      Array.isArray(tool.inputSchema.required) &&
+      tool.inputSchema.required.includes("commands"),
+    true
+  );
+  assert.deepEqual(
+    tool.inputSchema.properties.atomicity_preference.enum,
+    ["required", "auto", "none"]
+  );
+  assert.deepEqual(tool.inputSchema.properties.failure_policy.enum, [
+    "stop_on_first_failure",
+  ]);
+  assert.equal(tool.ux_contract.domain, "batch_entry");
 });

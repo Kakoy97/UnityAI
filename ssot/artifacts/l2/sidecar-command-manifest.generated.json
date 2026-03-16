@@ -797,6 +797,21 @@
       }
     },
     {
+      "name": "batch_execute",
+      "kind": "read",
+      "lifecycle": "experimental",
+      "dispatch_mode": "local_static",
+      "http": {
+        "method": "POST",
+        "path": "/mcp/batch_execute",
+        "source": "body"
+      },
+      "transaction": {
+        "enabled": false,
+        "undo_safe": false
+      }
+    },
+    {
       "name": "planner_execute_mcp",
       "kind": "read",
       "lifecycle": "experimental",

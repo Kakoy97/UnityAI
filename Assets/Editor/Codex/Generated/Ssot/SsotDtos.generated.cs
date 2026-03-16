@@ -937,6 +937,25 @@ namespace UnityAI.Editor.Codex.Generated.Ssot
     }
 
     [Serializable]
+    public sealed class BatchExecuteRequestDtoCommandsItemDto
+    {
+        public string tool_name;
+        public string payload;
+    }
+
+    [Serializable]
+    public sealed class BatchExecuteRequestDto
+    {
+        public const string ToolName = "batch_execute";
+        public static readonly string[] RequiredFields = new[] { "commands" };
+
+        public string thread_id;
+        public BatchExecuteRequestDtoCommandsItemDto[] commands;
+        public string atomicity_preference;
+        public string failure_policy;
+    }
+
+    [Serializable]
     public sealed class PlannerExecuteMcpRequestDto
     {
         public const string ToolName = "planner_execute_mcp";

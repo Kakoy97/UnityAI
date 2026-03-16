@@ -52,3 +52,16 @@ test("PLNR-012 planner_execute_mcp remains available when MCP_ENTRY_GOVERNANCE_E
   );
   assert.equal(plannerEntryExists, true);
 });
+
+test("BATCH-001 batch_execute command definition is materialized from SSOT manifest", () => {
+  const definitions = loadCommandDefinitionsWithEntryGovernanceEnabled(true);
+  const byName = new Map(
+    definitions.map((item) => [String(item && item.name || "").trim(), item])
+  );
+
+  const batchEntry = byName.get("batch_execute");
+  assert.ok(batchEntry, "batch_execute definition should be present");
+  assert.equal(batchEntry.dispatch_mode, "local_static");
+  assert.equal(batchEntry.turnServiceMethod, "executeBatchEntryForMcp");
+  assert.equal(batchEntry.http.path, "/mcp/batch_execute");
+});

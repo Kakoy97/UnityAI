@@ -248,3 +248,49 @@ test("PlannerUxMetricsCollector aggregates ensure_target metrics", () => {
   assert.equal(snapshot.ensure_target.failed_rate_on_invoked, 0.333333);
   assert.equal(snapshot.ensure_target.ambiguous_reuse_rate_on_failed, 1);
 });
+
+test("PlannerUxMetricsCollector aggregates explicit batch coverage metrics", () => {
+  const collector = new PlannerUxMetricsCollector({
+    nowIso: () => "2026-03-11T00:00:00.000Z",
+  });
+
+  collector.recordAttempt({
+    success: true,
+    failure_stage: "none",
+    orchestration_meta: {
+      explicit_batch_request: true,
+      batch_mode: "sequential_batch",
+    },
+  });
+  collector.recordAttempt({
+    success: false,
+    failure_stage: "before_dispatch",
+    orchestration_meta: {
+      explicit_batch_request: true,
+      batch_mode: "fail_fast",
+    },
+  });
+  collector.recordAttempt({
+    success: true,
+    failure_stage: "none",
+    orchestration_meta: {
+      explicit_batch_request: true,
+      batch_mode: "transaction",
+    },
+  });
+  collector.recordAttempt({
+    success: true,
+    failure_stage: "none",
+    orchestration_meta: {
+      explicit_batch_request: false,
+    },
+  });
+
+  const snapshot = collector.getSnapshot();
+  assert.equal(snapshot.totals.explicit_batch_request_total, 3);
+  assert.equal(snapshot.totals.explicit_batch_fail_fast_total, 1);
+  assert.equal(snapshot.explicit_batch.request_total, 3);
+  assert.equal(snapshot.explicit_batch.fail_fast_total, 1);
+  assert.equal(snapshot.explicit_batch.single_round_completion_rate, 0.666667);
+  assert.equal(snapshot.explicit_batch.sequential_route_rate, 0.333333);
+});

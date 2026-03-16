@@ -3,6 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { validateDictionaryShape } = require("../parser/validateDictionaryShape");
+const toolsDictionary = require("../../dictionary/tools.json");
 
 function buildTool(overrides = {}) {
   return {
@@ -1686,4 +1687,46 @@ test("validateDictionaryShape rejects planner ux_contract with invalid autofill 
     () => validateDictionaryShape(dictionary),
     /strategy must be one of/
   );
+});
+
+test("validateDictionaryShape accepts explicit batch_execute facade contract from dictionary", () => {
+  const dictionary = JSON.parse(JSON.stringify(toolsDictionary));
+  const batchTool = Array.isArray(dictionary.tools)
+    ? dictionary.tools.find((tool) => tool && tool.name === "batch_execute")
+    : null;
+
+  assert.ok(batchTool, "batch_execute tool should be present in dictionary");
+  assert.equal(batchTool.kind, "read");
+  assert.equal(batchTool.token_family, "local_static_no_token");
+  assert.equal(batchTool.scene_revision_capable, false);
+  assert.equal(
+    batchTool.input &&
+      Array.isArray(batchTool.input.required) &&
+      batchTool.input.required.includes("commands"),
+    true,
+    "batch_execute should require commands"
+  );
+  assert.equal(
+    batchTool.input &&
+      batchTool.input.properties &&
+      batchTool.input.properties.commands &&
+      batchTool.input.properties.commands.type,
+    "array"
+  );
+  assert.deepEqual(
+    batchTool.input &&
+      batchTool.input.properties &&
+      batchTool.input.properties.atomicity_preference &&
+      batchTool.input.properties.atomicity_preference.enum,
+    ["required", "auto", "none"]
+  );
+  assert.deepEqual(
+    batchTool.input &&
+      batchTool.input.properties &&
+      batchTool.input.properties.failure_policy &&
+      batchTool.input.properties.failure_policy.enum,
+    ["stop_on_first_failure"]
+  );
+  assert.equal(batchTool.ux_contract && batchTool.ux_contract.domain, "batch_entry");
+  assert.equal(validateDictionaryShape(dictionary), true);
 });

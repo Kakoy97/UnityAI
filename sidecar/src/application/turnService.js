@@ -81,6 +81,9 @@ const {
   createExecutionChannelAdapter,
   mapWriteBlockToTransactionStep,
 } = require("./blockRuntime/execution");
+const {
+  createSequentialBatchOrchestrator,
+} = require("./blockRuntime/batch/SequentialBatchOrchestrator");
 const { BLOCK_TYPE } = require("./blockRuntime/contracts");
 const {
   createTurnServiceRuntimePort,
@@ -129,6 +132,19 @@ const {
 } = require("../ports/contracts");
 
 const SESSION_CACHE_TTL_MS = 15 * 60 * 1000;
+const BATCH_ENTRY_TOOL_NAME = "batch_execute";
+const PLANNER_ENTRY_TOOL_NAME = "planner_execute_mcp";
+const EXPLICIT_BATCH_TRANSACTION_RESERVED_PAYLOAD_FIELDS = new Set([
+  "execution_mode",
+  "idempotency_key",
+  "based_on_read_token",
+  "write_anchor_object_id",
+  "write_anchor_path",
+]);
+
+function cloneJsonValue(value) {
+  return JSON.parse(JSON.stringify(value));
+}
 
 function mapSetupCursorMcpErrorToStatusCode(errorCode) {
   const code =
@@ -204,6 +220,26 @@ function normalizePositiveInteger(value, fallback = 0) {
     return Math.floor(Number(fallback) || 0);
   }
   return Math.floor(n);
+}
+
+function resolveToolUxContract(toolName) {
+  const normalizedToolName = normalizeString(toolName);
+  if (!normalizedToolName) {
+    return null;
+  }
+  try {
+    const catalog = getStaticToolCatalogSingleton();
+    const record =
+      catalog &&
+      catalog.byName instanceof Map &&
+      catalog.byName.get(normalizedToolName);
+    if (record && isPlainObject(record.ux_contract)) {
+      return cloneJsonValue(record.ux_contract);
+    }
+  } catch (_error) {
+    return null;
+  }
+  return null;
 }
 
 function delayMs(ms) {
@@ -1231,6 +1267,353 @@ function synthesizeTransactionDispatchBlock({ blockSpec, executionContext }) {
   };
 }
 
+function normalizeExplicitBatchAtomicityPreference(value) {
+  const normalized = normalizeString(value).toLowerCase();
+  if (normalized === "required" || normalized === "none") {
+    return normalized;
+  }
+  return "auto";
+}
+
+function collectExplicitBatchSteps(batchPlan) {
+  const source = isPlainObject(batchPlan) ? batchPlan : {};
+  return Array.isArray(source.steps)
+    ? source.steps.filter((step) => isPlainObject(step))
+    : [];
+}
+
+function resolveUniformBatchPayloadField({
+  steps,
+  fieldName,
+  missingReasonCode,
+  mismatchReasonCode,
+}) {
+  const entries = Array.isArray(steps) ? steps : [];
+  const normalizedFieldName = normalizeString(fieldName);
+  if (!normalizedFieldName) {
+    return {
+      ok: false,
+      reason_code: "explicit_batch_field_name_missing",
+      value: "",
+    };
+  }
+  let resolvedValue = "";
+  for (const step of entries) {
+    const payload = isPlainObject(step && step.payload) ? step.payload : {};
+    const candidateValue = normalizeString(payload[normalizedFieldName]);
+    if (!candidateValue) {
+      return {
+        ok: false,
+        reason_code: normalizeString(missingReasonCode) || "explicit_batch_field_missing",
+        value: "",
+      };
+    }
+    if (!resolvedValue) {
+      resolvedValue = candidateValue;
+      continue;
+    }
+    if (resolvedValue !== candidateValue) {
+      return {
+        ok: false,
+        reason_code:
+          normalizeString(mismatchReasonCode) || "explicit_batch_field_mismatch",
+        value: "",
+      };
+    }
+  }
+  return {
+    ok: true,
+    reason_code: "",
+    value: resolvedValue,
+  };
+}
+
+function evaluateExplicitBatchTransactionCapability(batchPlan) {
+  const steps = collectExplicitBatchSteps(batchPlan);
+  if (steps.length <= 0) {
+    return {
+      ok: false,
+      reason_code: "explicit_batch_steps_missing",
+      step_count: 0,
+    };
+  }
+
+  const transactionGuardOutcome = guardExecuteUnityTransactionSteps({
+    steps,
+  });
+  if (!transactionGuardOutcome || transactionGuardOutcome.ok !== true) {
+    return {
+      ok: false,
+      reason_code: "explicit_batch_transaction_guard_rejected",
+      guard_reason: normalizeString(
+        transactionGuardOutcome && transactionGuardOutcome.reason
+      ),
+      step_count: steps.length,
+    };
+  }
+
+  const executionModeOutcome = resolveUniformBatchPayloadField({
+    steps,
+    fieldName: "execution_mode",
+    missingReasonCode: "explicit_batch_execution_mode_missing",
+    mismatchReasonCode: "explicit_batch_execution_mode_mismatch",
+  });
+  if (!executionModeOutcome.ok) {
+    return {
+      ok: false,
+      reason_code: executionModeOutcome.reason_code,
+      step_count: steps.length,
+    };
+  }
+
+  const writeAnchorObjectOutcome = resolveUniformBatchPayloadField({
+    steps,
+    fieldName: "write_anchor_object_id",
+    missingReasonCode: "explicit_batch_write_anchor_object_missing",
+    mismatchReasonCode: "explicit_batch_write_anchor_object_mismatch",
+  });
+  if (!writeAnchorObjectOutcome.ok) {
+    return {
+      ok: false,
+      reason_code: writeAnchorObjectOutcome.reason_code,
+      step_count: steps.length,
+    };
+  }
+
+  const writeAnchorPathOutcome = resolveUniformBatchPayloadField({
+    steps,
+    fieldName: "write_anchor_path",
+    missingReasonCode: "explicit_batch_write_anchor_path_missing",
+    mismatchReasonCode: "explicit_batch_write_anchor_path_mismatch",
+  });
+  if (!writeAnchorPathOutcome.ok) {
+    return {
+      ok: false,
+      reason_code: writeAnchorPathOutcome.reason_code,
+      step_count: steps.length,
+    };
+  }
+
+  const readTokenOutcome = resolveUniformBatchPayloadField({
+    steps,
+    fieldName: "based_on_read_token",
+    missingReasonCode: "explicit_batch_read_token_missing",
+    mismatchReasonCode: "explicit_batch_read_token_mismatch",
+  });
+  if (!readTokenOutcome.ok) {
+    return {
+      ok: false,
+      reason_code: readTokenOutcome.reason_code,
+      step_count: steps.length,
+    };
+  }
+
+  return {
+    ok: true,
+    reason_code: "",
+    step_count: steps.length,
+    execution_mode: executionModeOutcome.value,
+    write_anchor_object_id: writeAnchorObjectOutcome.value,
+    write_anchor_path: writeAnchorPathOutcome.value,
+    based_on_read_token: readTokenOutcome.value,
+  };
+}
+
+function decideExplicitBatchMode({ batchPlan }) {
+  const normalizedBatchPlan = isPlainObject(batchPlan) ? batchPlan : {};
+  const atomicityPreference = normalizeExplicitBatchAtomicityPreference(
+    normalizedBatchPlan.atomicity_preference
+  );
+  const transactionCapability =
+    evaluateExplicitBatchTransactionCapability(normalizedBatchPlan);
+
+  if (atomicityPreference === "none") {
+    return {
+      mode: "sequential_batch",
+      reason_code: "explicit_batch_atomicity_none",
+      atomicity_preference: atomicityPreference,
+      transaction_capable: transactionCapability.ok === true,
+      transaction_blocked_reason:
+        transactionCapability.ok === true ? "" : transactionCapability.reason_code,
+    };
+  }
+
+  if (transactionCapability.ok === true) {
+    return {
+      mode: "transaction",
+      reason_code: "explicit_batch_transaction_capable",
+      atomicity_preference: atomicityPreference,
+      transaction_capable: true,
+      transaction_blocked_reason: "",
+      execution_mode: transactionCapability.execution_mode,
+      write_anchor_object_id: transactionCapability.write_anchor_object_id,
+      write_anchor_path: transactionCapability.write_anchor_path,
+      based_on_read_token: transactionCapability.based_on_read_token,
+      step_count: transactionCapability.step_count,
+    };
+  }
+
+  if (atomicityPreference === "required") {
+    return {
+      mode: "fail_fast",
+      reason_code: "explicit_batch_transaction_required",
+      atomicity_preference: atomicityPreference,
+      transaction_capable: false,
+      transaction_blocked_reason: transactionCapability.reason_code,
+      step_count: transactionCapability.step_count,
+    };
+  }
+
+  return {
+    mode: "sequential_batch",
+    reason_code: "explicit_batch_transaction_not_available",
+    atomicity_preference: atomicityPreference,
+    transaction_capable: false,
+    transaction_blocked_reason: transactionCapability.reason_code,
+    step_count: transactionCapability.step_count,
+  };
+}
+
+function buildExplicitBatchExplain(batchRoute) {
+  const route = isPlainObject(batchRoute) ? batchRoute : {};
+  const mode = normalizeString(route.mode);
+  const reasonCode = normalizeString(route.reason_code);
+  if (
+    mode === "sequential_batch" &&
+    reasonCode === "explicit_batch_atomicity_none"
+  ) {
+    return "Explicit batch request ran as sequential_batch because atomicity_preference=none.";
+  }
+  if (
+    mode === "sequential_batch" &&
+    reasonCode === "explicit_batch_transaction_not_available"
+  ) {
+    return "Explicit batch request ran as sequential_batch because transaction upgrade was not available.";
+  }
+  if (
+    mode === "fail_fast" &&
+    reasonCode === "explicit_batch_transaction_required"
+  ) {
+    return "Explicit batch request could not be applied because atomicity_preference=required but transaction upgrade was not available.";
+  }
+  if (
+    mode === "transaction" &&
+    reasonCode === "explicit_batch_transaction_capable"
+  ) {
+    return "Explicit batch request is eligible for transaction upgrade.";
+  }
+  if (mode) {
+    return `Explicit batch request resolved to ${mode}.`;
+  }
+  return "Explicit batch request routing decision is unavailable.";
+}
+
+function buildExplicitBatchFeedback({
+  batchRoute,
+  batchApplied = false,
+}) {
+  const route = isPlainObject(batchRoute) ? batchRoute : {};
+  return {
+    batch_mode: normalizeString(route.mode),
+    batch_applied: batchApplied === true,
+    batch_mode_reason: normalizeString(route.reason_code),
+    batch_explain: buildExplicitBatchExplain(route),
+  };
+}
+
+function buildExplicitBatchMetricsMeta({
+  batchRoute,
+  batchApplied = false,
+}) {
+  const route = isPlainObject(batchRoute) ? batchRoute : {};
+  return {
+    explicit_batch_request: true,
+    batch_mode: normalizeString(route.mode),
+    batch_mode_reason: normalizeString(route.reason_code),
+    batch_applied: batchApplied === true,
+  };
+}
+
+function projectExplicitBatchTransactionStepPayload(payload) {
+  const source = isPlainObject(payload) ? payload : {};
+  const output = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (EXPLICIT_BATCH_TRANSACTION_RESERVED_PAYLOAD_FIELDS.has(key)) {
+      continue;
+    }
+    output[key] = cloneJsonValue(value);
+  }
+  return output;
+}
+
+function buildExplicitBatchTransactionPayload({
+  batchPlan,
+  batchRoute,
+}) {
+  const plan = isPlainObject(batchPlan) ? batchPlan : {};
+  const route = isPlainObject(batchRoute) ? batchRoute : {};
+  const steps = collectExplicitBatchSteps(plan);
+  if (steps.length <= 0) {
+    return {
+      ok: false,
+      error_code: "E_SCHEMA_INVALID",
+      message: "explicit batch transaction upgrade requires at least one step",
+    };
+  }
+  const transactionId =
+    `explicit_batch_txn_${normalizeString(steps[0].step_id) || "step_1"}_${steps.length}`;
+  return {
+    ok: true,
+    payload: {
+      execution_mode: normalizeString(route.execution_mode) || "execute",
+      idempotency_key: `txn_auto_${transactionId}`,
+      based_on_read_token: normalizeString(route.based_on_read_token),
+      write_anchor_object_id: normalizeString(route.write_anchor_object_id),
+      write_anchor_path: normalizeString(route.write_anchor_path),
+      transaction_id: transactionId,
+      steps: steps.map((step, index) => {
+        const sourceStep = isPlainObject(step) ? step : {};
+        const nextStep = {
+          step_id:
+            normalizeString(sourceStep.step_id) || `batch_step_${index + 1}`,
+          tool_name: normalizeString(sourceStep.tool_name),
+          payload: projectExplicitBatchTransactionStepPayload(sourceStep.payload),
+        };
+        const dependsOn = normalizeStringArray(sourceStep.depends_on);
+        if (dependsOn.length > 0) {
+          nextStep.depends_on = dependsOn;
+        }
+        const saveAs = normalizeString(sourceStep.save_as);
+        if (saveAs) {
+          nextStep.save_as = saveAs;
+        }
+        return nextStep;
+      }),
+    },
+  };
+}
+
+function buildExplicitBatchResponseData({
+  batchPlan,
+  normalizationMeta,
+  batchFeedback,
+  batchRouteMeta,
+  runtimeFlags,
+  extraData = {},
+}) {
+  const data = isPlainObject(extraData) ? extraData : {};
+  return {
+    batch_plan: cloneJsonValue(batchPlan),
+    batch_entry_normalization: normalizationMeta,
+    ...batchFeedback,
+    execution_meta: {
+      batch_route: batchRouteMeta,
+    },
+    runtime_flags: runtimeFlags,
+    ...cloneJsonValue(data),
+  };
+}
+
 function mergeShapeDecisionIntoExecutionContext(executionContext, shapeDecision) {
   const context =
     executionContext &&
@@ -1876,6 +2259,8 @@ class TurnService {
     this.blockRuntimeRecoveryHook = null;
     this.plannerEntryTranslator = null;
     this.plannerEntryNormalizer = null;
+    this.batchEntryNormalizer = null;
+    this.sequentialBatchOrchestrator = null;
     this.plannerEntryErrorHintBuilder = null;
     this.workflowRoutingAdvisor =
       deps.workflowRoutingAdvisor &&
@@ -2119,6 +2504,38 @@ class TurnService {
     }
     this.plannerEntryNormalizer = createPlannerEntryNormalizer();
     return this.plannerEntryNormalizer;
+  }
+
+  getBatchEntryNormalizer() {
+    if (
+      this.batchEntryNormalizer &&
+      typeof this.batchEntryNormalizer.normalizePayload === "function"
+    ) {
+      return this.batchEntryNormalizer;
+    }
+    this.batchEntryNormalizer = createPlannerEntryNormalizer({
+      uxContract: resolveToolUxContract(BATCH_ENTRY_TOOL_NAME),
+    });
+    return this.batchEntryNormalizer;
+  }
+
+  getSequentialBatchOrchestrator() {
+    if (
+      this.sequentialBatchOrchestrator &&
+      typeof this.sequentialBatchOrchestrator.executeBatch === "function"
+    ) {
+      return this.sequentialBatchOrchestrator;
+    }
+    this.sequentialBatchOrchestrator = createSequentialBatchOrchestrator({
+      executeStep: async (step) => {
+        const normalizedStep = isPlainObject(step) ? step : {};
+        return this.dispatchSsotToolForMcp(
+          normalizeString(normalizedStep.tool_name),
+          isPlainObject(normalizedStep.payload) ? normalizedStep.payload : {}
+        );
+      },
+    });
+    return this.sequentialBatchOrchestrator;
   }
 
   getPlannerEntryErrorHintBuilder() {
@@ -3187,6 +3604,333 @@ class TurnService {
     return this.executeBlockSpecForMvp(body);
   }
 
+  async executeBatchEntryForMcp(body) {
+    const payload =
+      body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    const runtimeFlags = this.blockRuntimeFlags;
+    if (!runtimeFlags || runtimeFlags.pipeline_enabled !== true) {
+      return {
+        statusCode: 409,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: "E_BLOCK_PIPELINE_DISABLED",
+          message: "Block runtime pipeline is disabled by feature flag",
+          tool_name: BATCH_ENTRY_TOOL_NAME,
+          context: {
+            stage: "before_dispatch",
+            previous_operation: "execute_batch_entry_for_mcp",
+          },
+        }),
+      };
+    }
+
+    const batchEntryNormalizer = this.getBatchEntryNormalizer();
+    const normalizationOutcome = batchEntryNormalizer.normalizePayload(payload);
+    const normalizationMeta =
+      normalizationOutcome &&
+      isPlainObject(normalizationOutcome.normalization_meta)
+        ? normalizationOutcome.normalization_meta
+        : {
+            normalizer_version: "",
+            rules_source: "none",
+            alias_hits: [],
+            auto_filled_fields: [],
+            generated_fields: [],
+          };
+    let batchUxMetricRecorded = false;
+    const recordBatchUxMetricOnce = ({
+      success,
+      failure_stage,
+      error_code,
+      orchestration_meta,
+    }) => {
+      if (batchUxMetricRecorded) {
+        return;
+      }
+      this.recordPlannerEntryUxMetrics({
+        success: success === true,
+        failure_stage:
+          typeof failure_stage === "string" ? failure_stage : "unknown",
+        error_code: typeof error_code === "string" ? error_code : "",
+        normalization_meta: normalizationMeta,
+        orchestration_meta: isPlainObject(orchestration_meta)
+          ? orchestration_meta
+          : {
+              explicit_batch_request: true,
+            },
+      });
+      batchUxMetricRecorded = true;
+    };
+    if (!normalizationOutcome || normalizationOutcome.ok !== true) {
+      return {
+        statusCode: 400,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code:
+            normalizeString(normalizationOutcome && normalizationOutcome.error_code) ||
+            "E_SCHEMA_INVALID",
+          message:
+            normalizeString(normalizationOutcome && normalizationOutcome.error_message) ||
+            "batch entry payload normalization failed",
+          tool_name: BATCH_ENTRY_TOOL_NAME,
+          data: {
+            batch_entry_normalization: normalizationMeta,
+          },
+          context: {
+            stage: "before_dispatch",
+            previous_operation: "normalize_batch_entry_payload",
+          },
+        }),
+      };
+    }
+
+    const normalizedPayload = isPlainObject(normalizationOutcome.payload)
+      ? normalizationOutcome.payload
+      : payload;
+    const batchPlan = isPlainObject(normalizedPayload.batch_plan)
+      ? normalizedPayload.batch_plan
+      : null;
+    if (!batchPlan) {
+      return {
+        statusCode: 400,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: "E_SCHEMA_INVALID",
+          message: "batch_plan must be present after batch facade normalization",
+          tool_name: BATCH_ENTRY_TOOL_NAME,
+          data: {
+            batch_entry_normalization: normalizationMeta,
+          },
+          context: {
+            stage: "before_dispatch",
+            previous_operation: "build_internal_batch_plan",
+          },
+        }),
+      };
+    }
+
+    const batchRoute = decideExplicitBatchMode({
+      batchPlan,
+    });
+    const batchRouteMeta = {
+      ...batchRoute,
+    };
+    if (batchRoute.mode === "fail_fast") {
+      const batchFeedback = buildExplicitBatchFeedback({
+        batchRoute,
+        batchApplied: false,
+      });
+      const batchMetricsMeta = buildExplicitBatchMetricsMeta({
+        batchRoute,
+        batchApplied: false,
+      });
+      recordBatchUxMetricOnce({
+        success: false,
+        failure_stage: "before_dispatch",
+        error_code: "E_BATCH_ATOMICITY_NOT_SUPPORTED",
+        orchestration_meta: batchMetricsMeta,
+      });
+      return {
+        statusCode: 409,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code: "E_BATCH_ATOMICITY_NOT_SUPPORTED",
+          message:
+            "Explicit batch requires transaction semantics, but this batch cannot be upgraded safely.",
+          tool_name: BATCH_ENTRY_TOOL_NAME,
+          data: buildExplicitBatchResponseData({
+            batchPlan,
+            normalizationMeta,
+            batchFeedback,
+            batchRouteMeta,
+            runtimeFlags,
+          }),
+          context: {
+            stage: "before_dispatch",
+            previous_operation: "decide_explicit_batch_mode",
+          },
+        }),
+      };
+    }
+
+    if (batchRoute.mode === "sequential_batch") {
+      const batchFeedback = buildExplicitBatchFeedback({
+        batchRoute,
+        batchApplied: true,
+      });
+      const batchMetricsMeta = buildExplicitBatchMetricsMeta({
+        batchRoute,
+        batchApplied: true,
+      });
+      const orchestrator = this.getSequentialBatchOrchestrator();
+      const sequentialOutcome = await orchestrator.executeBatch({
+        batch_plan: batchPlan,
+      });
+      const sequentialData = buildExplicitBatchResponseData({
+        batchPlan,
+        normalizationMeta,
+        batchFeedback,
+        batchRouteMeta,
+        runtimeFlags,
+        extraData: {
+        step_results: cloneJsonValue(sequentialOutcome.step_results || []),
+        successful_step_ids: cloneJsonValue(
+          sequentialOutcome.successful_step_ids || []
+        ),
+        first_failed_step_id:
+          normalizeString(sequentialOutcome.first_failed_step_id),
+        rollback_applied: sequentialOutcome.rollback_applied === true,
+        },
+      });
+      if (normalizeString(sequentialOutcome.failure_policy)) {
+        sequentialData.failure_policy = normalizeString(
+          sequentialOutcome.failure_policy
+        );
+      }
+
+      if (sequentialOutcome.status === "failed") {
+        recordBatchUxMetricOnce({
+          success: false,
+          failure_stage: "during_dispatch",
+          error_code: "E_BATCH_STEP_FAILED",
+          orchestration_meta: batchMetricsMeta,
+        });
+        return {
+          statusCode: 409,
+          body: {
+            ...withMcpErrorFeedback({
+              status: "failed",
+              error_code: "E_BATCH_STEP_FAILED",
+              message:
+                "Sequential batch stopped after the first failed step.",
+              tool_name: BATCH_ENTRY_TOOL_NAME,
+              data: sequentialData,
+              context: {
+                stage: "during_dispatch",
+                previous_operation: "execute_sequential_batch",
+              },
+            }),
+            query_type: "batch.request",
+          },
+        };
+      }
+
+      recordBatchUxMetricOnce({
+        success: true,
+        failure_stage: "none",
+        error_code: "",
+        orchestration_meta: batchMetricsMeta,
+      });
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          query_type: "batch.request",
+          data: sequentialData,
+        },
+      };
+    }
+
+    const transactionPendingMetricsMeta = buildExplicitBatchMetricsMeta({
+      batchRoute,
+      batchApplied: true,
+    });
+    const transactionPayloadOutcome = buildExplicitBatchTransactionPayload({
+      batchPlan,
+      batchRoute,
+    });
+    if (!transactionPayloadOutcome.ok) {
+      recordBatchUxMetricOnce({
+        success: false,
+        failure_stage: "before_dispatch",
+        error_code:
+          normalizeString(transactionPayloadOutcome.error_code) || "E_SCHEMA_INVALID",
+        orchestration_meta: transactionPendingMetricsMeta,
+      });
+      return {
+        statusCode: 409,
+        body: withMcpErrorFeedback({
+          status: "failed",
+          error_code:
+            normalizeString(transactionPayloadOutcome.error_code) || "E_SCHEMA_INVALID",
+          message:
+            normalizeString(transactionPayloadOutcome.message) ||
+            "Explicit batch transaction payload synthesis failed.",
+          tool_name: BATCH_ENTRY_TOOL_NAME,
+          data: buildExplicitBatchResponseData({
+            batchPlan,
+            normalizationMeta,
+            batchFeedback: buildExplicitBatchFeedback({
+              batchRoute,
+              batchApplied: false,
+            }),
+            batchRouteMeta,
+            runtimeFlags,
+          }),
+          context: {
+            stage: "before_dispatch",
+            previous_operation: "build_explicit_batch_transaction_payload",
+          },
+        }),
+      };
+    }
+
+    const transactionOutcome = await this.dispatchSsotToolForMcp(
+      "execute_unity_transaction",
+      transactionPayloadOutcome.payload
+    );
+    const transactionBody =
+      transactionOutcome &&
+      isPlainObject(transactionOutcome.body)
+        ? transactionOutcome.body
+        : {};
+    const transactionSucceeded =
+      Number(transactionOutcome && transactionOutcome.statusCode) < 400 &&
+      transactionBody.ok === true;
+    const transactionBatchFeedback = buildExplicitBatchFeedback({
+      batchRoute,
+      batchApplied: transactionSucceeded,
+    });
+    const transactionBatchMetricsMeta = buildExplicitBatchMetricsMeta({
+      batchRoute,
+      batchApplied: transactionSucceeded,
+    });
+    recordBatchUxMetricOnce({
+      success: transactionSucceeded,
+      failure_stage: transactionSucceeded ? "none" : "during_dispatch",
+      error_code: transactionSucceeded
+        ? ""
+        : normalizeString(transactionBody.error_code) ||
+          "E_BATCH_TRANSACTION_UPGRADE_FAILED",
+      orchestration_meta: transactionBatchMetricsMeta,
+    });
+    return {
+      statusCode:
+        Number.isFinite(Number(transactionOutcome && transactionOutcome.statusCode))
+          ? Number(transactionOutcome.statusCode)
+          : transactionSucceeded
+            ? 200
+            : 409,
+      body: {
+        ...transactionBody,
+        ok: transactionSucceeded,
+        status:
+          normalizeString(transactionBody.status) ||
+          (transactionSucceeded ? "succeeded" : "failed"),
+        query_type: "batch.request",
+        data: buildExplicitBatchResponseData({
+          batchPlan,
+          normalizationMeta,
+          batchFeedback: transactionBatchFeedback,
+          batchRouteMeta,
+          runtimeFlags,
+          extraData: isPlainObject(transactionBody.data) ? transactionBody.data : {},
+        }),
+      },
+    };
+  }
+
   getHealthPayload() {
     if (this.turnStore && typeof this.turnStore.sweep === "function") {
       this.turnStore.sweep();
@@ -4075,5 +4819,6 @@ class TurnService {
 }
 
 module.exports = {
+  decideExplicitBatchMode,
   TurnService,
 };

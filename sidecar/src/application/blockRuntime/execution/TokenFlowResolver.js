@@ -121,7 +121,20 @@ function extractReadTokenCandidateFromBlockResult(blockResult) {
   if (status !== "succeeded") {
     return "";
   }
-  return normalizeString(result.read_token_candidate);
+  const directCandidate = normalizeString(result.read_token_candidate);
+  if (directCandidate) {
+    return directCandidate;
+  }
+  const data = isPlainObject(result.data) ? result.data : {};
+  return normalizeString(data.read_token_candidate);
+}
+
+function advancePreviousReadTokenCandidate(previousReadTokenCandidate, blockResult) {
+  const nextCandidate = extractReadTokenCandidateFromBlockResult(blockResult);
+  if (nextCandidate) {
+    return nextCandidate;
+  }
+  return normalizeString(previousReadTokenCandidate);
 }
 
 module.exports = {
@@ -130,5 +143,5 @@ module.exports = {
   resolveEffectiveReadTokenForBlock,
   materializeBlockSpecWithEffectiveToken,
   extractReadTokenCandidateFromBlockResult,
+  advancePreviousReadTokenCandidate,
 };
-

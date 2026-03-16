@@ -12,6 +12,9 @@
 - `generate-g1-baseline-report.js`
 - `generate-g1-tool-priority-freeze.js`
 - `generate-v1-polish-primitive-report.js`
+- `generate-planner-stepcd-gate-report.js`
+- `generate-planner-alias-retirement-gate-report.js`
+- `generate-planner-cutover-gate-report.js`
 - `replay-failed-report.js`
 - `setup-cursor-mcp.js`
 - `verify-mcp-setup.js`
@@ -43,6 +46,37 @@
 - Apply freeze into dictionary: `npm run metrics:g1:priority -- --baseline ./.state/g1-baseline-report.json --write-dictionary`
 - Output default: `sidecar/.state/g1-tool-priority-freeze.json`
 - Coverage-corrected freeze writeback: `npm run metrics:g1:priority -- --baseline ./.state/g1-baseline-report.corrected.json --output ./.state/g1-tool-priority-freeze.corrected.json --write-dictionary`
+
+## Planner Step C / Step D Gate Report
+- Generate report: `npm run metrics:planner:stepcd:gate -- --input ./scripts/planner-stepcd-gate-samples.json`
+- CI gate mode: `npm run metrics:planner:stepcd:gate:ci`
+- Output default: `sidecar/.state/planner-stepcd-gate-report.json`
+- Snapshot input source:
+  - `mcp_runtime.planner_visibility_profile`
+  - `mcp_runtime.planner_direct_compatibility`
+
+## Planner Alias Retirement Gate Report (PLNR-009)
+- Generate report: `npm run metrics:planner:alias-retire:gate -- --input ./scripts/planner-alias-retirement-gate-samples.json`
+- CI gate mode: `npm run metrics:planner:alias-retire:gate:ci`
+- Output default: `sidecar/.state/planner-alias-retirement-gate-report.json`
+- Retirement thresholds:
+  - `alias share < 1%` over `14` consecutive days
+  - `P1+ incidents = 0` in the same window
+  - `release windows >= 2` after deprecation announcement
+
+## Planner Step6 Cutover Gate Report (PLNR-STEP6)
+- Generate report: `npm run metrics:planner:cutover:gate -- --input ./scripts/planner-cutover-gate-samples.json`
+- CI gate mode: `npm run metrics:planner:cutover:gate:ci`
+- Output default: `sidecar/.state/planner-cutover-gate-report.json`
+- Composite checks:
+  - Step C/D gate report `all_passed=true`
+  - alias retirement gate report `all_passed=true`
+  - entry governance `enabled=true` and `active_mode=reject`
+  - planner visibility `active_profile=planner_first`
+  - direct compatibility `active_mode=deny`
+  - runtime first-hop planner share `=100%`
+  - `external_direct_runtime_call_total=0`
+  - `planner_entry_alias_call_total=0`
 
 ## Rule
 - Do not add compatibility fallback scripts for removed legacy contracts.

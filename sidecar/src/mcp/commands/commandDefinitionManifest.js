@@ -27,6 +27,7 @@ const LOCAL_STATIC_TOOL_METHODS = Object.freeze({
   setup_cursor_mcp: "setupCursorMcpForMcp",
   verify_mcp_setup: "verifyMcpSetupForMcp",
   run_unity_tests: "runUnityTestsForMcp",
+  batch_execute: "executeBatchEntryForMcp",
   planner_execute_mcp: "executePlannerEntryForMcp",
 });
 

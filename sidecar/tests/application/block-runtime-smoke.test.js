@@ -92,6 +92,39 @@ function buildMutateBlockSpec() {
   };
 }
 
+function buildExplicitSequentialBatchBody() {
+  return {
+    commands: [
+      {
+        tool_name: "set_active",
+        payload: {
+          execution_mode: "execute",
+          based_on_read_token: "ssot_rt_smoke_batch",
+          write_anchor_object_id: "GlobalObjectId_V1-canvas",
+          write_anchor_path: "Scene/Canvas",
+          target_object_id: "GlobalObjectId_V1-target_1",
+          target_path: "Scene/Canvas/SmokeContainer",
+          active: true,
+        },
+      },
+      {
+        tool_name: "set_sibling_index",
+        payload: {
+          execution_mode: "execute",
+          based_on_read_token: "ssot_rt_smoke_batch",
+          write_anchor_object_id: "GlobalObjectId_V1-canvas",
+          write_anchor_path: "Scene/Canvas",
+          target_object_id: "GlobalObjectId_V1-target_2",
+          target_path: "Scene/Canvas/SmokeContainer/Label",
+          sibling_index: 1,
+        },
+      },
+    ],
+    atomicity_preference: "none",
+    failure_policy: "stop_on_first_failure",
+  };
+}
+
 test("S2B-T4 smoke READ_STATE executes through block runtime and returns scene revision", async () => {
   const service = createService({
     blockPipelineEnabled: true,
@@ -358,4 +391,45 @@ test("S4-T5 smoke router mode keeps single_step when cross-anchor plan is blocke
   assert.equal(calls.length, 1);
   assert.equal(calls[0].toolName, "set_active");
   assert.equal(calls[0].payload.active, false);
+});
+
+test("BATCH-004 smoke explicit batch executes sequential path and returns aggregated step results", async () => {
+  const service = createService({
+    blockPipelineEnabled: true,
+  });
+  const calls = [];
+  service.dispatchSsotToolForMcp = async (toolName, payload) => {
+    calls.push({ toolName, payload });
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        status: "succeeded",
+        tool_name: toolName,
+        data: {
+          target_object_id: payload.target_object_id,
+        },
+      },
+    };
+  };
+
+  const outcome = await service.executeBatchEntryForMcp(
+    buildExplicitSequentialBatchBody()
+  );
+
+  assert.equal(outcome.statusCode, 200);
+  assert.equal(outcome.body.ok, true);
+  assert.equal(outcome.body.query_type, "batch.request");
+  assert.equal(Array.isArray(outcome.body.data.step_results), true);
+  assert.equal(outcome.body.data.step_results.length, 2);
+  assert.deepEqual(
+    outcome.body.data.successful_step_ids,
+    ["batch_step_1", "batch_step_2"]
+  );
+  assert.equal(outcome.body.data.first_failed_step_id, "");
+  assert.equal(outcome.body.data.rollback_applied, false);
+  assert.deepEqual(
+    calls.map((entry) => entry.toolName),
+    ["set_active", "set_sibling_index"]
+  );
 });

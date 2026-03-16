@@ -14,6 +14,7 @@ function createTurnServiceHarness() {
   const service = new TurnService({
     turnStore,
     nowIso: () => "2026-03-07T12:00:00.000Z",
+    blockPipelineEnabled: true,
     fileActionExecutor: {
       execute(actions) {
         return {
@@ -39,6 +40,38 @@ function buildWritePayload(tokenValue) {
     anchored_y: 20,
     width: 200,
     height: 100,
+  };
+}
+
+function buildExplicitReadThenWriteBatchBody() {
+  return {
+    commands: [
+      {
+        tool_name: "get_scene_snapshot_for_write",
+        payload: {
+          scope_kind: "scene",
+          object_id: "go_canvas",
+          path: "Scene/Canvas",
+        },
+      },
+      {
+        tool_name: "modify_ui_layout",
+        payload: {
+          execution_mode: "execute",
+          idempotency_key: "idem_pr8_batch_token_carry",
+          write_anchor_object_id: "go_canvas",
+          write_anchor_path: "Scene/Canvas",
+          target_object_id: "go_target",
+          target_path: "Scene/Canvas/Target",
+          anchored_x: 12,
+          anchored_y: 24,
+          width: 220,
+          height: 120,
+        },
+      },
+    ],
+    atomicity_preference: "none",
+    failure_policy: "stop_on_first_failure",
   };
 }
 
@@ -139,6 +172,62 @@ test("dispatchSsotToolForMcp write success without scene revision keeps response
       outcome.body.data.token_automation.auto_refreshed,
       false
     );
+  } finally {
+    turnStore.stopMaintenance();
+  }
+});
+
+test("explicit sequential batch reuses latest read token candidate for later write steps", async () => {
+  const { service, turnStore } = createTurnServiceHarness();
+  try {
+    const calls = [];
+    service.dispatchSsotToolForMcp = async (toolName, payload) => {
+      calls.push({ toolName, payload });
+      if (toolName === "get_scene_snapshot_for_write") {
+        return {
+          statusCode: 200,
+          body: {
+            ok: true,
+            status: "succeeded",
+            tool_name: toolName,
+            data: {
+              scene_revision: "9201",
+              read_token_candidate: "ssot_rt_batch_read_out",
+            },
+          },
+        };
+      }
+      return {
+        statusCode: 200,
+        body: {
+          ok: true,
+          status: "succeeded",
+          tool_name: toolName,
+          data: {
+            scene_revision: "9202",
+            target_object_id: payload.target_object_id,
+          },
+        },
+      };
+    };
+
+    const outcome = await service.executeBatchEntryForMcp(
+      buildExplicitReadThenWriteBatchBody()
+    );
+
+    assert.equal(outcome.statusCode, 200);
+    assert.deepEqual(
+      calls.map((entry) => entry.toolName),
+      ["get_scene_snapshot_for_write", "modify_ui_layout"]
+    );
+    assert.equal(
+      calls[1].payload.based_on_read_token,
+      "ssot_rt_batch_read_out"
+    );
+    assert.deepEqual(outcome.body.data.successful_step_ids, [
+      "batch_step_1",
+      "batch_step_2",
+    ]);
   } finally {
     turnStore.stopMaintenance();
   }
